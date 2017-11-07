@@ -29,7 +29,7 @@ type
     idsfile*: string
     tig_to_size*: OrderedTable[string, int]
     contacts*: Table[(string, string), int]
-    active: HashSet[string]
+    active: OrderedSet[string]
 
 
 proc initCLMFile*(name: string, clmfile: string): CLMFile =
@@ -39,7 +39,7 @@ proc initCLMFile*(name: string, clmfile: string): CLMFile =
   result.idsfile = clmfile.rsplit('.', maxsplit=1)[0] & ".ids"
   result.tig_to_size = initOrderedTable[string, int]()
   result.contacts = initTable[(string, string), int]()
-  result.active = initSet[string]()
+  result.active = initOrderedSet[string]()
 
 
 ##
@@ -91,6 +91,14 @@ proc N*(this: CLMFile): int =
   len(this.active)
 
 
+proc tig_to_idx*(this: CLMFile): Table[string, int] =
+  var i = 0
+  for key in this.active:
+    result[key] = i
+    inc i
+
+
+#proc M*(this: CLMFile)
 proc active_sizes*(this: CLMFile): seq[int] =
   lc[this.tig_to_size[x] | (x <- this.active), int]
 
@@ -118,3 +126,8 @@ proc activate*(this: CLMFile, tourfile = "", minsize = 10000) =
 
   if true:
     this.report_active()
+
+  debug("Remove contigs with size < $#".format(minsize))
+  this.active = lc[x | (x <- this.active, this.tig_to_size[x] >= minsize),
+                string].toOrderedSet()
+  this.report_active()
