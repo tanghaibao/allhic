@@ -1,5 +1,6 @@
-from parseutils import parseInt
-from strutils import rsplit, split
+import parseutils
+import strutils
+import tables
 
 
 #[
@@ -19,14 +20,15 @@ type
     name*: string
     clmfile*: string
     idsfile*: string
-  Tig* = tuple[tig: string, size: int]
+    tig_to_size*: OrderedTable[string, int]
 
 
-proc newCLMFile*(name: string, clmfile: string): CLMFile =
+proc initCLMFile*(name: string, clmfile: string): CLMFile =
   new result
   result.name = name
   result.clmfile = clmfile
   result.idsfile = clmfile.rsplit('.', maxsplit=1)[0] & ".ids"
+  result.tig_to_size = initOrderedTable[string, int]()
 
 
 #[
@@ -36,15 +38,17 @@ keyword, if available in the third column, is less confident.
         tig00035238     46779   recover
         tig00030900     119291
 #]#
-proc parse_ids*(this: CLMFile, skiprecover: bool): seq[Tig] =
-  result = @[]
+proc parse_ids*(this: CLMFile, skiprecover: bool) =
+  var
+    tig: string
+    size: int
+
   for line in lines this.idsfile:
     let atoms = line.split()
-    let tig = atoms[0]
-    var size = 0
+    tig = atoms[0]
+    size = 0
     discard parseInt(atoms[1], size)
-    result.add((tig: tig, size: size))
-  return result
+    this.tig_to_size[tig] = size
 
 
 proc parse*(this: CLMFile) =

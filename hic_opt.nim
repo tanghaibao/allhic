@@ -1,5 +1,14 @@
-from hic/clm import newCLMFile, parse, parse_ids
+import hic/clm
+import strutils
+import tables
 
-var c = newCLMFile("test", "tests/test.clm")
-echo c.parse_ids(true)
-#c.parse()
+proc main() {.discardable.} =
+  var c = initCLMFile("test", "tests/test.clm")
+  c.parse_ids(true)
+  for key, val in c.tig_to_size.pairs():
+    echo("$# $#".format(key, val))
+  #c.parse()
+
+
+when isMainModule:
+  main()
