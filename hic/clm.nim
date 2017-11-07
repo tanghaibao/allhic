@@ -1,7 +1,14 @@
 import future
+import math
+import os
 import parseutils
+import sets
 import strutils
 import tables
+import logging
+
+var logger = newConsoleLogger()
+logger.addHandler()
 
 
 ##
@@ -15,7 +22,6 @@ import tables
 ##    tig00030676- tig00077819+       7       118651 91877 91877 209149 125906 146462 146462
 ##    tig00030676- tig00077819-       7       108422 157204 157204 137924 142611 75169 75169
 ##
-
 type
   CLMFile* = ref object
     name*: string
@@ -23,6 +29,7 @@ type
     idsfile*: string
     tig_to_size*: OrderedTable[string, int]
     contacts*: Table[(string, string), int]
+    active: HashSet[string]
 
 
 proc initCLMFile*(name: string, clmfile: string): CLMFile =
@@ -32,6 +39,7 @@ proc initCLMFile*(name: string, clmfile: string): CLMFile =
   result.idsfile = clmfile.rsplit('.', maxsplit=1)[0] & ".ids"
   result.tig_to_size = initOrderedTable[string, int]()
   result.contacts = initTable[(string, string), int]()
+  result.active = initSet[string]()
 
 
 ##
@@ -41,7 +49,6 @@ proc initCLMFile*(name: string, clmfile: string): CLMFile =
 ##        tig00035238     46779   recover
 ##        tig00030900     119291
 ##
-
 proc parse_ids*(this: CLMFile, skiprecover: bool) =
   for line in lines this.idsfile:
     let
@@ -49,6 +56,7 @@ proc parse_ids*(this: CLMFile, skiprecover: bool) =
       tig = atoms[0]
       size = parseInt(atoms[1])
     this.tig_to_size[tig] = size
+    this.active.incl(tig)
 
 
 proc parse_clm*(this: CLMFile) =
@@ -72,3 +80,41 @@ proc parse_clm*(this: CLMFile) =
       continue
 
     this.contacts[(at, bt)] = links
+
+
+proc parse*(this: CLMFile) =
+  this.parse_ids(true)
+  this.parse_clm()
+
+
+proc N*(this: CLMFile): int =
+  len(this.active)
+
+
+proc active_sizes*(this: CLMFile): seq[int] =
+  lc[this.tig_to_size[x] | (x <- this.active), int]
+
+
+proc report_active*(this: CLMFile) =
+  debug("Active contigs: $# (length=$#)".format(this.N, this.active_sizes.sum()))
+
+##
+## Select contigs in the current partition. This is the setup phase of the
+## algorithm, and supports two modes:
+##  - "de novo": This is useful at the start of a new run where no tours are
+##  available. We select the strong contigs that have significant number
+##  of links to other contigs in the partition. We build a histogram of
+##  link density (# links per bp) and remove the contigs that appear to be
+##  outliers. The orientations are derived from the matrix decomposition
+##  of the pairwise strandedness matrix O.
+##  - "hotstart": This is useful when there was a past run, with a given
+##  tourfile. In this case, the active contig list and orientations are
+##  derived from the last tour in the file.
+##
+proc activate*(this: CLMFile, tourfile = "", minsize = 10000) =
+  var tf = tourfile
+  if existsFile(tourfile):
+    tf = ""
+
+  if true:
+    this.report_active()
