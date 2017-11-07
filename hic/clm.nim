@@ -6,6 +6,7 @@ import sets
 import strutils
 import tables
 import logging
+import "matrix"
 
 var logger = newConsoleLogger()
 logger.addHandler()
@@ -29,7 +30,7 @@ type
     idsfile*: string
     tig_to_size*: OrderedTable[string, int]
     contacts*: Table[(string, string), int]
-    active: OrderedSet[string]
+    active*: OrderedSet[string]
 
 
 proc initCLMFile*(name: string, clmfile: string): CLMFile =
@@ -82,23 +83,39 @@ proc parse_clm*(this: CLMFile) =
     this.contacts[(at, bt)] = links
 
 
-proc parse*(this: CLMFile) =
-  this.parse_ids(true)
-  this.parse_clm()
-
-
 proc N*(this: CLMFile): int =
   len(this.active)
 
 
 proc tig_to_idx*(this: CLMFile): Table[string, int] =
+  result = initTable[string, int]()
   var i = 0
   for key in this.active:
     result[key] = i
     inc i
 
 
-#proc M*(this: CLMFile)
+## Contact frequency matrix. Each cell contains how many inter-contig links
+## between i-th and j-th contigs.
+proc M*(this: CLMFile): Matrix[int] =
+  let
+    N = this.N
+    tig_to_idx = this.tig_to_idx
+
+  result = newMatrix[int](N, N)
+  for abt, links in this.contacts.pairs():
+    let (at, bt) = abt
+    if at notin tig_to_idx:
+      continue
+    if bt notin tig_to_idx:
+      continue
+    let
+      ai = tig_to_idx[at]
+      bi = tig_to_idx[bt]
+    result[ai, bi] = links
+    result[bi, ai] = links
+
+
 proc active_sizes*(this: CLMFile): seq[int] =
   lc[this.tig_to_size[x] | (x <- this.active), int]
 
@@ -131,3 +148,10 @@ proc activate*(this: CLMFile, tourfile = "", minsize = 10000) =
   this.active = lc[x | (x <- this.active, this.tig_to_size[x] >= minsize),
                 string].toOrderedSet()
   this.report_active()
+
+
+proc parse*(this: CLMFile) =
+  this.parse_ids(true)
+  this.parse_clm()
+  let M = this.M
+  echo M
