@@ -135,7 +135,34 @@ proc score_evaluate*(tour: seq[int], tour_sizes: seq[int], tour_M: Matrix[int]):
   const
     LIMIT = 10_000_000
 
-  let sizes_oo = tour_sizes.cumSum()
+  var sizes_cum = newSeq[int](tour.len)
+  var cp = 0
+  var mid = 0
+  for i, t in tour.pairs():
+    sizes_cum[i] = cp + tour_sizes[t] div 2
+    cp = cp + tour_sizes[t]
+
+  var
+    s = 0.0
+    a, b, ia, ib, dist, links: int
+
+  let size = tour.len
+  for ia in 0..<size:
+    a = tour[ia]
+    for ib in (ia + 1)..<size:
+      b = tour[ib]
+      links = tour_M[a, b]
+      if links == 0:
+        continue
+      dist = sizes_cum[ib] - sizes_cum[ia]
+      if dist > LIMIT:
+        break
+      s += links / dist
+
+  echo s
+  echo tour
+  echo tour_sizes
+  echo sizes_cum
 
 
 proc active_sizes*(this: CLMFile): seq[int] =
