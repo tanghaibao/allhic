@@ -95,8 +95,10 @@ proc tig_to_idx*(this: CLMFile): Table[string, int] =
     inc i
 
 
+##
 ## Contact frequency matrix. Each cell contains how many inter-contig links
 ## between i-th and j-th contigs.
+##
 proc M*(this: CLMFile): Matrix[int] =
   let
     N = this.N
@@ -116,12 +118,33 @@ proc M*(this: CLMFile): Matrix[int] =
     result[bi, ai] = links
 
 
+proc cumSum*[T](x: openArray[T]): seq[T] =
+  ##
+  ## Cumulative sum for each element of ``x``
+  ##
+  ## ``cumSum(@[1,2,3,4])`` produces ``@[1,3,6,10]``
+  ##
+  result = newSeq[T](x.len)
+  var cp = T(0)
+  for i in 0..<x.len:
+    cp = cp + x[i]
+    result[i] = cp
+
+
+proc score_evaluate*(tour: seq[int], tour_sizes: seq[int], tour_M: Matrix[int]): int =
+  const
+    LIMIT = 10_000_000
+
+  let sizes_oo = tour_sizes.cumSum()
+
+
 proc active_sizes*(this: CLMFile): seq[int] =
   lc[this.tig_to_size[x] | (x <- this.active), int]
 
 
 proc report_active*(this: CLMFile) =
   debug("Active contigs: $# (length=$#)".format(this.N, this.active_sizes.sum()))
+
 
 ##
 ## Select contigs in the current partition. This is the setup phase of the
@@ -153,5 +176,10 @@ proc activate*(this: CLMFile, tourfile = "", minsize = 10000) =
 proc parse*(this: CLMFile) =
   this.parse_ids(true)
   this.parse_clm()
+  this.activate()
+
   let M = this.M
-  echo M
+  let N = this.N
+  let tour = lc[x | (x <- 0..N - 1), int]
+  let tour_sizes = this.active_sizes()
+  discard score_evaluate(tour, tour_sizes, M)
