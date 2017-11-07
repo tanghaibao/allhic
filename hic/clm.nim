@@ -22,6 +22,7 @@ type
     clmfile*: string
     idsfile*: string
     tig_to_size*: OrderedTable[string, int]
+    contacts*: Table[(string, string), int]
 
 
 proc initCLMFile*(name: string, clmfile: string): CLMFile =
@@ -30,6 +31,7 @@ proc initCLMFile*(name: string, clmfile: string): CLMFile =
   result.clmfile = clmfile
   result.idsfile = clmfile.rsplit('.', maxsplit=1)[0] & ".ids"
   result.tig_to_size = initOrderedTable[string, int]()
+  result.contacts = initTable[(string, string), int]()
 
 
 ##
@@ -39,18 +41,34 @@ proc initCLMFile*(name: string, clmfile: string): CLMFile =
 ##        tig00035238     46779   recover
 ##        tig00030900     119291
 ##
+
 proc parse_ids*(this: CLMFile, skiprecover: bool) =
   for line in lines this.idsfile:
-    let atoms = line.split()
-    let tig = atoms[0]
-    let size = parseInt(atoms[1])
+    let
+      atoms = line.split()
+      tig = atoms[0]
+      size = parseInt(atoms[1])
     this.tig_to_size[tig] = size
 
 
 proc parse_clm*(this: CLMFile) =
   for line in lines this.clmfile:
     let atoms = line.strip().split('\t')
-    let abtig = atoms[0]
-    let links = parseInt(atoms[1])
-    let dists = lc[parseInt(x) | (x <- atoms[2].split()), int]
-    echo dists
+    doAssert len(atoms) == 3, "Malformed line `$#`".format(atoms)
+    let
+      abtig = atoms[0].split()
+      links = parseInt(atoms[1])
+      dists = lc[parseInt(x) | (x <- atoms[2].split()), int]
+      atig = abtig[0]
+      btig = abtig[1]
+      at = atig[0..^2]
+      ao = atig[^1]
+      bt = btig[0..^2]
+      bo = btig[^1]
+
+    if at notin this.tig_to_size:
+      continue
+    if bt notin this.tig_to_size:
+      continue
+
+    this.contacts[(at, bt)] = links
