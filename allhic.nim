@@ -5,6 +5,7 @@
 
 import docopt
 import hic/clm
+import hic/partition
 import strutils
 import tables
 
@@ -25,11 +26,16 @@ proc optimize_main() =
   c.parse()
 
 
+proc partition_main() =
+  var c = initPartitioner("tests/prunning.sub.bam")
+  echo c.bamfile
+
+
 proc main() =
   let args = docopt(doc, version="ALLHIC 0.7.11")
 
   if args["partition"]:
-    echo "Hello world"
+    partition_main()
 
   if args["optimize"]:
     optimize_main()
