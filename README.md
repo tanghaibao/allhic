@@ -1,2 +1,2 @@
-# hic-opt
+# ALLHIC
 Genome scaffolding based on HiC data

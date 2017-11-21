@@ -10,4 +10,4 @@ license       = "BSD"
 requires "nim >= 0.17.2"
 
 task run, "build":
-    exec "nim c -d:release -r hic_opt.nim"
+    exec "nim c -d:release -r allhic.nim"
