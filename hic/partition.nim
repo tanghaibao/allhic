@@ -9,6 +9,7 @@
 #
 
 
+import hts
 import logging
 
 var logger = newConsoleLogger()
@@ -22,3 +23,12 @@ type
 proc initPartitioner*(bamfile: string): Partitioner =
   new result
   result.bamfile = bamfile
+
+
+proc count_links*(this: Partitioner) =
+  var b: Bam
+  open(b, this.bamfile, index=false)
+
+  for record in b:
+    echo record
+    break
