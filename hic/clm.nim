@@ -1,15 +1,10 @@
-import future
 import math
 import os
 import parseutils
 import sets
 import strutils
 import tables
-import logging
-import "matrix"
-
-var logger = newConsoleLogger()
-logger.addHandler()
+include "base"
 
 
 ##
@@ -104,7 +99,7 @@ proc M*(this: CLMFile): Matrix[int] =
     N = this.N
     tig_to_idx = this.tig_to_idx
 
-  result = newMatrix[int](N, N)
+  result = zeros[int](N, N)
   for abt, links in this.contacts.pairs():
     let (at, bt) = abt
     if at notin tig_to_idx:

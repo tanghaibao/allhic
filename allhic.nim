@@ -28,7 +28,6 @@ proc optimize_main() =
 
 proc partition_main() =
   var c = initPartitioner("tests/prunning.sub.bam")
-  echo c.bamfile
   c.count_links()
 
 

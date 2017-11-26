@@ -11,14 +11,9 @@
 
 import algorithm
 import hts
-import logging
-import strutils
 import tables
-import "matrix"
+include "base"
 
-
-var logger = newConsoleLogger()
-logger.addHandler()
 
 type
   Partitioner* = ref object
@@ -41,12 +36,19 @@ proc count_links*(this: Partitioner) =
   for t in b.hdr.targets:
     targets[t.name] = t
 
-  let N = targets.len
-  var M = newMatrix[int](N, N)
+  let N = max(lc[ x.tid | (x <- b.hdr.targets), int]) + 1
+  var M = zeros[int](N, N)
+  debug("Initiating matrix of size $# x $#".format(N, N))
+
   for record in b:
-    let qi = targets[record.chrom].tid
-    let mi = targets[record.mate_chrom].tid
-    echo qi, " & ", mi
+    var
+       qi = targets[record.chrom].tid
+       mi = targets[record.mate_chrom].tid
+
+    if qi > mi:
+      swap(qi, mi)
+
+    M[qi, mi] = M[qi, mi] + 1
     mappings.add((record.qname, record.chrom))
 
   mappings.sort do (x, y: ReadMapping) -> int:
