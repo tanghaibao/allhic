@@ -25,6 +25,20 @@ proc initPartitioner*(bamfile: string): Partitioner =
   result.bamfile = bamfile
 
 
+proc print*[T](x: Matrix[T], filename: string) =
+  ## "Pretty prints" the matrix.  All elements of the matrix are
+  ## included so large matrices will result in large strings.
+  var fw = open(filename, fmWrite)
+  debug("Write matrix to `$#`".format(filename))
+  for r in countup(0,x.rows()-1):
+    for c in countup(0,x.cols()-1):
+      fw.write $x[r,c]
+      if c != (x.cols()-1):
+         fw.write ","
+    fw.write "\n"
+  fw.close()
+
+
 proc count_links*(this: Partitioner): Matrix[int] =
   var b: Bam
   open(b, this.bamfile, index=false)
@@ -49,12 +63,7 @@ proc count_links*(this: Partitioner): Matrix[int] =
     result[qi, mi] = result[qi, mi] + 1
     result[mi, qi] = result[mi, qi] + 1
 
-  for i in 0..<N:
-    var itig = id_to_tig[i]
-    for j in i..<N:
-      var jtig = id_to_tig[j]
-      if result[i, j] > 1:
-        echo format("M[$#, $#] = $#", itig, jtig, result[i, j])
+  result.print("matrix.txt")
 
 
 proc normalize*(m: Matrix[int]): Matrix[float] =
