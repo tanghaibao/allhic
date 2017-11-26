@@ -18,7 +18,6 @@ include "base"
 type
   Partitioner* = ref object
     bamfile*: string
-  ReadMapping* = tuple[name: string, contig: string]
 
 
 proc initPartitioner*(bamfile: string): Partitioner =
@@ -30,11 +29,13 @@ proc count_links*(this: Partitioner) =
   var b: Bam
   open(b, this.bamfile, index=false)
 
-  var mappings: seq[ReadMapping] = @[]
-  var targets = initTable[string, Target]()
+  var targets = b.hdr.targets
+  var tig_to_id = initTable[string, int]()
+  var id_to_tig = initTable[int, string]()
 
-  for t in b.hdr.targets:
-    targets[t.name] = t
+  for t in targets:
+    tig_to_id[t.name] = t.tid
+    id_to_tig[t.tid]  = t.name
 
   let N = max(lc[ x.tid | (x <- b.hdr.targets), int]) + 1
   var M = zeros[int](N, N)
@@ -42,17 +43,15 @@ proc count_links*(this: Partitioner) =
 
   for record in b:
     var
-       qi = targets[record.chrom].tid
-       mi = targets[record.mate_chrom].tid
-
-    if qi > mi:
-      swap(qi, mi)
+       qi = tig_to_id[record.chrom]
+       mi = tig_to_id[record.mate_chrom]
 
     M[qi, mi] = M[qi, mi] + 1
-    mappings.add((record.qname, record.chrom))
+    M[mi, qi] = M[mi, qi] + 1
 
-  mappings.sort do (x, y: ReadMapping) -> int:
-    result = cmp(x.name, y.name)
-
-  for mapping in mappings[0..<100]:
-    echo mapping
+  for i in 0..<N:
+    var itig = id_to_tig[i]
+    for j in i..<N:
+      var jtig = id_to_tig[j]
+      if M[i, j] > 1:
+        echo format("M[$#, $#] = $#", itig, jtig, M[i, j])
