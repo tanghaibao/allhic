@@ -28,7 +28,8 @@ proc optimize_main() =
 
 proc partition_main() =
   var c = initPartitioner("tests/prunning.sub.bam")
-  c.count_links()
+  var M = c.count_links()
+  discard M.normalize()
 
 
 proc main() =

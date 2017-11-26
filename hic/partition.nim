@@ -25,7 +25,7 @@ proc initPartitioner*(bamfile: string): Partitioner =
   result.bamfile = bamfile
 
 
-proc count_links*(this: Partitioner) =
+proc count_links*(this: Partitioner): Matrix[int] =
   var b: Bam
   open(b, this.bamfile, index=false)
 
@@ -38,7 +38,7 @@ proc count_links*(this: Partitioner) =
     id_to_tig[t.tid]  = t.name
 
   let N = max(lc[ x.tid | (x <- b.hdr.targets), int]) + 1
-  var M = zeros[int](N, N)
+  result = zeros[int](N, N)
   debug("Initiating matrix of size $# x $#".format(N, N))
 
   for record in b:
@@ -46,12 +46,16 @@ proc count_links*(this: Partitioner) =
        qi = tig_to_id[record.chrom]
        mi = tig_to_id[record.mate_chrom]
 
-    M[qi, mi] = M[qi, mi] + 1
-    M[mi, qi] = M[mi, qi] + 1
+    result[qi, mi] = result[qi, mi] + 1
+    result[mi, qi] = result[mi, qi] + 1
 
   for i in 0..<N:
     var itig = id_to_tig[i]
     for j in i..<N:
       var jtig = id_to_tig[j]
-      if M[i, j] > 1:
-        echo format("M[$#, $#] = $#", itig, jtig, M[i, j])
+      if result[i, j] > 1:
+        echo format("M[$#, $#] = $#", itig, jtig, result[i, j])
+
+
+proc normalize*(m: Matrix[int]): Matrix[float] =
+  discard
