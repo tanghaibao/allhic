@@ -12,6 +12,10 @@
 import algorithm
 import hts
 import logging
+import strutils
+import tables
+import "matrix"
+
 
 var logger = newConsoleLogger()
 logger.addHandler()
@@ -32,8 +36,17 @@ proc count_links*(this: Partitioner) =
   open(b, this.bamfile, index=false)
 
   var mappings: seq[ReadMapping] = @[]
+  var targets = initTable[string, Target]()
 
+  for t in b.hdr.targets:
+    targets[t.name] = t
+
+  let N = targets.len
+  var M = newMatrix[int](N, N)
   for record in b:
+    let qi = targets[record.chrom].tid
+    let mi = targets[record.mate_chrom].tid
+    echo qi, " & ", mi
     mappings.add((record.qname, record.chrom))
 
   mappings.sort do (x, y: ReadMapping) -> int:
