@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+
+	"./allhic"
+
 	"github.com/docopt/docopt-go"
 )
 
@@ -18,4 +21,8 @@ Options:
 
 	arguments, _ := docopt.Parse(usage, nil, true, "ALLHIC 0.7.11", false)
 	fmt.Println(arguments)
+
+	p := allhic.Partitioner{"tests/prunning.sub.bam"}
+	fmt.Println(p.Bamfile)
+	p.CountLinks()
 }
