@@ -27,8 +27,8 @@ Options:
 		fmt.Println(p.Bamfile)
 		p.CountLinks()
 	} else if arguments["optimize"].(bool) {
-		p := allhic.CLMFile{"test", "tests/test.clm", "tests/test.ids"}
+		p := allhic.InitCLMFile("tests/test.clm")
 		p.ParseIds()
+		p.ParseClm()
 	}
-
 }

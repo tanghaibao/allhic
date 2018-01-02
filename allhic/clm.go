@@ -13,6 +13,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path"
+	"strconv"
+	"strings"
 
 	"github.com/op/go-logging"
 )
@@ -23,6 +26,11 @@ var format = logging.MustStringFormatter(
 )
 var backend = logging.NewLogBackend(os.Stderr, "", 0)
 var backendFormatter = logging.NewBackendFormatter(backend, format)
+
+// RemoveExt returns the substring minus the extension
+func RemoveExt(filename string) string {
+	return strings.TrimSuffix(filename, path.Ext(filename))
+}
 
 // CLMFile has the following format:
 //
@@ -35,9 +43,20 @@ var backendFormatter = logging.NewBackendFormatter(backend, format)
 // tig00030676- tig00077819+       7       118651 91877 91877 209149 125906 146462 146462
 // tig00030676- tig00077819-       7       108422 157204 157204 137924 142611 75169 75169
 type CLMFile struct {
-	Name    string
-	Clmfile string
-	Idsfile string
+	Name      string
+	Clmfile   string
+	Idsfile   string
+	tigToSize map[string]int
+}
+
+// InitCLMFile is the constructor for CLMFile
+func InitCLMFile(Clmfile string) *CLMFile {
+	p := new(CLMFile)
+	p.Name = RemoveExt(path.Base(Clmfile))
+	p.Clmfile = Clmfile
+	p.Idsfile = RemoveExt(Clmfile) + ".ids"
+	p.tigToSize = make(map[string]int)
+	return p
 }
 
 // ParseIds parses the idsfile into data stored in CLMFile.
@@ -49,14 +68,39 @@ type CLMFile struct {
 func (r *CLMFile) ParseIds() {
 	logging.SetBackend(backend, backendFormatter)
 
-	file, err := os.Open(r.Idsfile)
-	if err != nil {
-		log.Fatalf("Cannot open file `%s`", r.Idsfile)
-	}
-
+	file, _ := os.Open(r.Idsfile)
 	log.Infof("Parse idsfile `%s`", r.Idsfile)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		fmt.Println(scanner.Text())
+		words := strings.Fields(scanner.Text())
+		tig := words[0]
+		size, _ := strconv.Atoi(words[1])
+		r.tigToSize[tig] = size
+	}
+
+	fmt.Println(r.tigToSize)
+}
+
+// ParseClm parses the clmfile into data stored in CLMFile.
+func (r *CLMFile) ParseClm() {
+	// var contacts map[(string, string)]int
+
+	file, _ := os.Open(r.Clmfile)
+	log.Infof("Parse clmfile `%s`", r.Clmfile)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		row := strings.TrimSpace(scanner.Text())
+		words := strings.Split(row, "\t")
+		abtig := strings.Split(words[0], " ")
+		// atig, btig := abtig[0], abtig[1]
+		// at, ao := atig[:len(atig)-1], atig[len(atig)-1]
+		// bt, bo := btig[:len(btig)-1], btig[len(btig)-1]
+
+		var dists []int
+		for _, dist := range strings.Split(words[2], " ") {
+			d, _ := strconv.Atoi(dist)
+			dists = append(dists, d)
+		}
+		fmt.Println(abtig, dists)
 	}
 }
