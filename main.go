@@ -22,7 +22,13 @@ Options:
 	arguments, _ := docopt.Parse(usage, nil, true, "ALLHIC 0.7.11", false)
 	fmt.Println(arguments)
 
-	p := allhic.Partitioner{"tests/prunning.sub.bam"}
-	fmt.Println(p.Bamfile)
-	p.CountLinks()
+	if arguments["partition"].(bool) {
+		p := allhic.Partitioner{"tests/prunning.sub.bam"}
+		fmt.Println(p.Bamfile)
+		p.CountLinks()
+	} else if arguments["optimize"].(bool) {
+		p := allhic.CLMFile{"test", "tests/test.clm", "tests/test.ids"}
+		p.ParseIds()
+	}
+
 }
