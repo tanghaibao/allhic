@@ -16,21 +16,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
-
-	"github.com/op/go-logging"
 )
-
-var log = logging.MustGetLogger("example")
-var format = logging.MustStringFormatter(
-	`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{color:reset} %{message}`,
-)
-var backend = logging.NewLogBackend(os.Stderr, "", 0)
-var backendFormatter = logging.NewBackendFormatter(backend, format)
-
-// RemoveExt returns the substring minus the extension
-func RemoveExt(filename string) string {
-	return strings.TrimSuffix(filename, path.Ext(filename))
-}
 
 // CLMFile has the following format:
 //
@@ -66,10 +52,8 @@ func InitCLMFile(Clmfile string) *CLMFile {
 // tig00035238     46779   recover
 // tig00030900     119291
 func (r *CLMFile) ParseIds() {
-	logging.SetBackend(backend, backendFormatter)
-
 	file, _ := os.Open(r.Idsfile)
-	log.Infof("Parse idsfile `%s`", r.Idsfile)
+	log.Noticef("Parse idsfile `%s`", r.Idsfile)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		words := strings.Fields(scanner.Text())
@@ -86,12 +70,12 @@ func (r *CLMFile) ParseClm() {
 	// var contacts map[(string, string)]int
 
 	file, _ := os.Open(r.Clmfile)
-	log.Infof("Parse clmfile `%s`", r.Clmfile)
+	log.Noticef("Parse clmfile `%s`", r.Clmfile)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		row := strings.TrimSpace(scanner.Text())
 		words := strings.Split(row, "\t")
-		abtig := strings.Split(words[0], " ")
+		//abtig := strings.Split(words[0], " ")
 		// atig, btig := abtig[0], abtig[1]
 		// at, ao := atig[:len(atig)-1], atig[len(atig)-1]
 		// bt, bo := btig[:len(btig)-1], btig[len(btig)-1]
@@ -101,6 +85,6 @@ func (r *CLMFile) ParseClm() {
 			d, _ := strconv.Atoi(dist)
 			dists = append(dists, d)
 		}
-		fmt.Println(abtig, dists)
+		//fmt.Println(abtig, dists)
 	}
 }

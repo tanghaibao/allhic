@@ -6,6 +6,7 @@ import (
 	"./allhic"
 
 	"github.com/docopt/docopt-go"
+	logging "github.com/op/go-logging"
 )
 
 func main() {
@@ -19,8 +20,10 @@ Options:
   -h --help       Show this screen.
   --version       Show version.`
 
-	arguments, _ := docopt.Parse(usage, nil, true, "ALLHIC 0.7.11", false)
+	arguments, _ := docopt.Parse(usage, nil, true, "ALLHIC 0.8.1", false)
 	fmt.Println(arguments)
+
+	logging.SetBackend(allhic.BackendFormatter)
 
 	if arguments["partition"].(bool) {
 		p := allhic.Partitioner{"tests/prunning.sub.bam"}
