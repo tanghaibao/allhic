@@ -14,9 +14,9 @@ type Partitioner struct {
 }
 
 // CountLinks provides the method to count the links
-func (p Partitioner) CountLinks() {
-	fmt.Println("In CountLinks()")
-	fh, err := os.Open(p.Bamfile)
+func (r Partitioner) CountLinks() {
+	fh, err := os.Open(r.Bamfile)
+	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	if err != nil {
 		panic(err)
 	}

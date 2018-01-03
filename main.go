@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"./allhic"
 
 	"github.com/docopt/docopt-go"
@@ -27,7 +25,6 @@ Options:
 
 	if arguments["partition"].(bool) {
 		p := allhic.Partitioner{"tests/prunning.sub.bam"}
-		fmt.Println(p.Bamfile)
 		p.CountLinks()
 	} else if arguments["optimize"].(bool) {
 		p := allhic.Optimizer{"tests/test.clm"}

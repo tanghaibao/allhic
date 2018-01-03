@@ -130,3 +130,16 @@ func (r *CLMFile) ParseClm() {
 		// fmt.Println(contact.a, contact.b, contact.nlinks, strandedness)
 	}
 }
+
+// tigToIdx maps tigs to indices in the current active tigs
+func (r *CLMFile) tigToIdx() map[string]int {
+	m := make(map[string]int)
+
+	return m
+}
+
+// M yields a contact frequency matrix, where each cell contains how many
+// links between i-th and j-th contig
+func (r *CLMFile) M() {
+
+}
