@@ -33,6 +33,17 @@ type CLMFile struct {
 	Clmfile   string
 	Idsfile   string
 	tigToSize map[string]int
+	contacts  []Contact
+}
+
+// Contact stores how many links between two contigs
+type Contact struct {
+	a      string
+	b      string
+	ao     int8
+	bo     int8
+	nlinks int
+	dists  []int
 }
 
 // InitCLMFile is the constructor for CLMFile
@@ -42,6 +53,10 @@ func InitCLMFile(Clmfile string) *CLMFile {
 	p.Clmfile = Clmfile
 	p.Idsfile = RemoveExt(Clmfile) + ".ids"
 	p.tigToSize = make(map[string]int)
+
+	p.ParseIds()
+	p.ParseClm()
+
 	return p
 }
 
@@ -65,26 +80,53 @@ func (r *CLMFile) ParseIds() {
 	fmt.Println(r.tigToSize)
 }
 
+// Map orientations to ints
+func ff(c byte) int8 {
+	if c == '-' {
+		return -1
+	}
+	return 1
+}
+func rr(c byte) int8 {
+	if c == '-' {
+		return 1
+	}
+	return -1
+}
+
 // ParseClm parses the clmfile into data stored in CLMFile.
 func (r *CLMFile) ParseClm() {
-	// var contacts map[(string, string)]int
-
 	file, _ := os.Open(r.Clmfile)
 	log.Noticef("Parse clmfile `%s`", r.Clmfile)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		row := strings.TrimSpace(scanner.Text())
 		words := strings.Split(row, "\t")
-		//abtig := strings.Split(words[0], " ")
-		// atig, btig := abtig[0], abtig[1]
-		// at, ao := atig[:len(atig)-1], atig[len(atig)-1]
-		// bt, bo := btig[:len(btig)-1], btig[len(btig)-1]
+		abtig := strings.Split(words[0], " ")
+		atig, btig := abtig[0], abtig[1]
+		at, ao := atig[:len(atig)-1], atig[len(atig)-1]
+		bt, bo := btig[:len(btig)-1], btig[len(btig)-1]
 
+		// Make sure both contigs are in the ids file
+		if _, ok := r.tigToSize[at]; !ok {
+			continue
+		}
+		if _, ok := r.tigToSize[bt]; !ok {
+			continue
+		}
+
+		nlinks, _ := strconv.Atoi(words[1])
+		// Convert all distances to int
 		var dists []int
 		for _, dist := range strings.Split(words[2], " ") {
 			d, _ := strconv.Atoi(dist)
 			dists = append(dists, d)
 		}
-		//fmt.Println(abtig, dists)
+
+		// Store all these info in contacts
+		var contact = Contact{at, bt, ff(ao), ff(bo), nlinks, dists}
+		r.contacts = append(r.contacts, contact)
+		// strandedness := ao == bo
+		// fmt.Println(contact.a, contact.b, contact.nlinks, strandedness)
 	}
 }

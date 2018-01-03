@@ -21,7 +21,7 @@ Options:
   --version       Show version.`
 
 	arguments, _ := docopt.Parse(usage, nil, true, "ALLHIC 0.8.1", false)
-	fmt.Println(arguments)
+	//fmt.Println(arguments)
 
 	logging.SetBackend(allhic.BackendFormatter)
 
@@ -30,8 +30,7 @@ Options:
 		fmt.Println(p.Bamfile)
 		p.CountLinks()
 	} else if arguments["optimize"].(bool) {
-		p := allhic.InitCLMFile("tests/test.clm")
-		p.ParseIds()
-		p.ParseClm()
+		p := allhic.Optimizer{"tests/test.clm"}
+		p.Run()
 	}
 }

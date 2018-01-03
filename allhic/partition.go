@@ -8,7 +8,7 @@ import (
 	"github.com/biogo/hts/sam"
 )
 
-// Partitioner is the bamfile into a matrix of link counts
+// Partitioner converts the bamfile into a matrix of link counts
 type Partitioner struct {
 	Bamfile string
 }
