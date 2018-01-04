@@ -33,6 +33,8 @@ type CLMFile struct {
 	Clmfile   string
 	Idsfile   string
 	tigToSize map[string]int
+	tigActive map[string]bool
+	tigToIdx  map[string]int
 	contacts  []Contact
 }
 
@@ -53,6 +55,8 @@ func InitCLMFile(Clmfile string) *CLMFile {
 	p.Clmfile = Clmfile
 	p.Idsfile = RemoveExt(Clmfile) + ".ids"
 	p.tigToSize = make(map[string]int)
+	p.tigActive = make(map[string]bool)
+	p.tigToIdx = make(map[string]int)
 
 	p.ParseIds()
 	p.ParseClm()
@@ -75,6 +79,7 @@ func (r *CLMFile) ParseIds() {
 		tig := words[0]
 		size, _ := strconv.Atoi(words[1])
 		r.tigToSize[tig] = size
+		r.tigActive[tig] = true
 	}
 
 	fmt.Println(r.tigToSize)
@@ -131,15 +136,40 @@ func (r *CLMFile) ParseClm() {
 	}
 }
 
-// tigToIdx maps tigs to indices in the current active tigs
-func (r *CLMFile) tigToIdx() map[string]int {
-	m := make(map[string]int)
-
-	return m
+// UpdateTigToIdx maps tigs to indices in the current active tigs
+func (r *CLMFile) UpdateTigToIdx() {
+	idx := 0
+	for k, v := range r.tigActive {
+		if v {
+			r.tigToIdx[k] = idx
+			idx++
+		}
+	}
 }
 
 // M yields a contact frequency matrix, where each cell contains how many
 // links between i-th and j-th contig
-func (r *CLMFile) M() {
+func (r *CLMFile) M() [][]int {
+	N := len(r.tigActive)
+	r.UpdateTigToIdx()
 
+	P := make([][]int, N)
+	for i := 0; i < N; i++ {
+		P[i] = make([]int, N)
+	}
+
+	for _, contact := range r.contacts {
+		ai, aok := r.tigToIdx[contact.a]
+		if !aok {
+			continue
+		}
+		bi, bok := r.tigToIdx[contact.b]
+		if !bok {
+			continue
+		}
+		P[ai][bi] = contact.nlinks
+		P[bi][ai] = contact.nlinks
+	}
+
+	return P
 }

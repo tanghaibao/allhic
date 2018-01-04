@@ -9,6 +9,8 @@
 
 package allhic
 
+import "fmt"
+
 // Optimizer runs the order-and-orientation procedure, given a clmfile
 type Optimizer struct {
 	Clmfile string
@@ -16,5 +18,8 @@ type Optimizer struct {
 
 // Run kicks off the Optimizer
 func (r *Optimizer) Run() {
-	InitCLMFile(r.Clmfile)
+	Clm := InitCLMFile(r.Clmfile)
+
+	M := Clm.M()
+	fmt.Println(M)
 }
