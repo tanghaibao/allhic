@@ -29,13 +29,14 @@ import (
 // tig00030676- tig00077819+       7       118651 91877 91877 209149 125906 146462 146462
 // tig00030676- tig00077819-       7       108422 157204 157204 137924 142611 75169 75169
 type CLMFile struct {
-	Name      string
-	Clmfile   string
-	Idsfile   string
-	tigToSize map[string]int
-	tigActive map[string]bool
-	tigToIdx  map[string]int
-	contacts  []Contact
+	Name        string
+	Clmfile     string
+	Idsfile     string
+	tigToSize   map[string]int
+	tigActive   map[string]bool
+	tigToIdx    map[string]int
+	activeSizes []int
+	contacts    []Contact
 }
 
 // Contact stores how many links between two contigs
@@ -139,20 +140,50 @@ func (r *CLMFile) ParseClm() {
 // UpdateTigToIdx maps tigs to indices in the current active tigs
 func (r *CLMFile) UpdateTigToIdx() {
 	idx := 0
-	for k, v := range r.tigActive {
-		if v {
-			r.tigToIdx[k] = idx
-			idx++
-		}
+	r.activeSizes = make([]int, len(r.tigActive))
+	for k := range r.tigActive {
+		r.tigToIdx[k] = idx
+		r.activeSizes[idx] = r.tigToSize[k]
+		idx++
 	}
+}
+
+// Activate selects contigs in the current partition. This is the setup phase of the
+// algorithm, and supports two modes:
+// - "de novo": This is useful at the start of a new run where no tours are
+//    available. We select the strong contigs that have significant number
+//    of links to other contigs in the partition. We build a histogram of
+//    link density (# links per bp) and remove the contigs that appear to be
+//    outliers. The orientations are derived from the matrix decomposition
+//    of the pairwise strandedness matrix O.
+// - "hotstart": This is useful when there was a past run, with a given
+//    tourfile. In this case, the active contig list and orientations are
+//    derived from the last tour in the file.
+func (r *CLMFile) Activate() []int {
+	tour := make([]int, len(r.tigActive))
+	r.UpdateTigToIdx()
+	r.reportActive()
+	for i := 0; i < len(r.tigActive); i++ {
+		tour[i] = i
+	}
+
+	return tour
+}
+
+// reportActive prints out a quick message on number of active tigs
+func (r *CLMFile) reportActive() {
+	sumLength := 0
+	for _, v := range r.activeSizes {
+		sumLength += v
+	}
+	log.Noticef("Active contigs: %d (length=%d)",
+		len(r.activeSizes), sumLength)
 }
 
 // M yields a contact frequency matrix, where each cell contains how many
 // links between i-th and j-th contig
 func (r *CLMFile) M() [][]int {
 	N := len(r.tigActive)
-	r.UpdateTigToIdx()
-
 	P := make([][]int, N)
 	for i := 0; i < N; i++ {
 		P[i] = make([]int, N)

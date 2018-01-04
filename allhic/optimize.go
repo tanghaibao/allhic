@@ -18,8 +18,10 @@ type Optimizer struct {
 
 // Run kicks off the Optimizer
 func (r *Optimizer) Run() {
-	Clm := InitCLMFile(r.Clmfile)
+	clm := InitCLMFile(r.Clmfile)
+	tour := clm.Activate()
+	fmt.Println(tour)
 
-	M := Clm.M()
-	fmt.Println(M)
+	//M := clm.M()
+	//fmt.Println(M)
 }
