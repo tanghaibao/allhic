@@ -35,7 +35,7 @@ func (r *Optimizer) Run() {
 	tour := clm.Activate()
 
 	// fmt.Println(tour)
-	tourScore := EvaluateM(tour)
+	tourScore := tour.Evaluate()
 	fmt.Println(tourScore)
 
 	// var test []string
@@ -46,6 +46,6 @@ func (r *Optimizer) Run() {
 
 	Shuffle(tour)
 	// fmt.Println(tour)
-	tourScore = EvaluateM(tour)
+	tourScore = tour.Evaluate()
 	fmt.Println(tourScore)
 }
