@@ -20,12 +20,12 @@ type Optimizer struct {
 }
 
 // Shuffle randomly shuffles an integer array using Knuth or Fisher-Yates
-func Shuffle(slc []int) {
-	N := len(slc)
+func Shuffle(tour Tour) {
+	N := len(tour.Tigs)
 	for i := 0; i < N; i++ {
 		// choose index uniformly in [i, N-1]
 		r := i + rand.Intn(N-i)
-		slc[r], slc[i] = slc[i], slc[r]
+		tour.Tigs[r], tour.Tigs[i] = tour.Tigs[i], tour.Tigs[r]
 	}
 }
 
@@ -34,10 +34,8 @@ func (r *Optimizer) Run() {
 	clm := InitCLMFile(r.Clmfile)
 	tour := clm.Activate()
 
-	M := clm.M()
-
-	fmt.Println(tour)
-	tourScore := EvaluateM(tour, clm.activeSizes, M)
+	// fmt.Println(tour)
+	tourScore := EvaluateM(tour)
 	fmt.Println(tourScore)
 
 	// var test []string
@@ -47,7 +45,7 @@ func (r *Optimizer) Run() {
 	// fmt.Println(test)
 
 	Shuffle(tour)
-	fmt.Println(tour)
-	tourScore = EvaluateM(tour, clm.activeSizes, M)
+	// fmt.Println(tour)
+	tourScore = EvaluateM(tour)
 	fmt.Println(tourScore)
 }

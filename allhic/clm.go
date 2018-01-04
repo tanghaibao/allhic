@@ -49,6 +49,18 @@ type Contact struct {
 	dists  []int
 }
 
+// Tig stores the index to activeTigs and size of the tig
+type Tig struct {
+	Idx  int
+	Size int
+}
+
+// Tour stores a number of tigs along with 2D matrices for evaluation
+type Tour struct {
+	Tigs []Tig
+	M    [][]int
+}
+
 // InitCLMFile is the constructor for CLMFile
 func InitCLMFile(Clmfile string) *CLMFile {
 	p := new(CLMFile)
@@ -156,15 +168,16 @@ func (r *CLMFile) UpdateTigToIdx() {
 // - "hotstart": This is useful when there was a past run, with a given
 //    tourfile. In this case, the active contig list and orientations are
 //    derived from the last tour in the file.
-func (r *CLMFile) Activate() []int {
-	tour := make([]int, len(r.activeTigs))
+func (r *CLMFile) Activate() (tour Tour) {
+	tour.Tigs = make([]Tig, len(r.activeTigs))
 	r.UpdateTigToIdx()
 	r.reportActive()
 	for i := 0; i < len(r.activeTigs); i++ {
-		tour[i] = i
+		tour.Tigs[i] = Tig{i, r.activeSizes[i]}
 	}
+	tour.M = r.M()
 
-	return tour
+	return
 }
 
 // reportActive prints out a quick message on number of active tigs
