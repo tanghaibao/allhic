@@ -12,6 +12,7 @@ package allhic
 import (
 	"fmt"
 	"math/rand"
+	"sort"
 
 	"github.com/MaxHalford/gago"
 )
@@ -100,14 +101,76 @@ func (r Tour) Evaluate() (score float64) {
 	return
 }
 
-// Mutate a Tour by applying by permutation mutation and/or splice mutation
-// TODO: CHANGE TO GENOME_MUTATION (INVERSION + TRANSPOSITION)
-func (r Tour) Mutate(rng *rand.Rand) {
-	if rng.Float64() < 0.35 {
-		gago.MutPermute(r, 3, rng)
+// Sample k unique integers in range [min, max) using reservoir sampling,
+// specifically Vitter's Algorithm R. From gago.
+func randomInts(k, min, max int, rng *rand.Rand) (ints []int) {
+	ints = make([]int, k)
+	for i := 0; i < k; i++ {
+		ints[i] = i + min
 	}
-	if rng.Float64() < 0.45 {
-		gago.MutSplice(r, rng)
+	for i := k; i < max-min; i++ {
+		var j = rng.Intn(i + 1)
+		if j < k {
+			ints[j] = i + min
+		}
+	}
+	return
+}
+
+// MutInversion applies inversion operation on the genome
+func MutInversion(genome gago.Slice, n int, rng *rand.Rand) {
+	// log.Debugf("Before MutInversion: %v", genome)
+	for k := 0; k < n; k++ {
+		// Choose two points on the genome
+		var points = randomInts(2, 0, genome.Len(), rng)
+		sort.Ints(points)
+		p := points[0]
+		q := points[1]
+		if p == q {
+			return
+		}
+		// Swap within range
+		for i, j := p, q; i < j; i, j = i+1, j-1 {
+			genome.Swap(i, j)
+		}
+	}
+	// log.Debugf("After MutInversion: %v", genome)
+}
+
+// MutInsertion applies insertion operation on the genome
+func MutInsertion(genome gago.Slice, n int, rng *rand.Rand) {
+	// log.Debugf("Before MutInsertion: %v", genome)
+	for k := 0; k < n; k++ {
+		// Choose two points on the genome
+		var points = randomInts(2, 0, genome.Len(), rng)
+		p := points[0]
+		q := points[1]
+		if p == q {
+			return
+		}
+		cq := genome.At(q) // Pop q and insert to p position
+		if p < q {
+			// Move cq to the front and push everyone right
+			for i := q; i < p; i-- {
+				genome.Set(i, genome.At(i-1))
+			}
+		} else { // q < p
+			// Move cq to the back and push everyone left
+			for i := q; i < p; i++ {
+				genome.Set(i, genome.At(i+1))
+			}
+		}
+		genome.Set(p, cq)
+	}
+	// log.Debugf("After MutInsertion: %v", genome)
+}
+
+// Mutate a Tour by applying by inversion or insertion
+func (r Tour) Mutate(rng *rand.Rand) {
+	if rng.Float64() < 0.5 {
+		MutInversion(r, 1, rng)
+	} else {
+		MutInsertion(r, 1, rng)
 	}
 }
 
