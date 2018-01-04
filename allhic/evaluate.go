@@ -65,7 +65,9 @@ func (r Tour) Replace(q gago.Slice) {
 // Copy method from Slice
 func (r Tour) Copy() gago.Slice {
 	var clone Tour
+	clone.Tigs = make([]Tig, r.Len())
 	copy(clone.Tigs, r.Tigs)
+	clone.M = r.M
 	return clone
 }
 
@@ -79,7 +81,7 @@ func (r Tour) Evaluate() (score float64) {
 		mid[i] = cumSum + tsize/2
 		cumSum += tsize
 	}
-	fmt.Println(mid)
+	// fmt.Println(r.Tigs, mid)
 
 	// Now add up all the pairwise scores
 	for i := 0; i < size; i++ {
@@ -91,7 +93,8 @@ func (r Tour) Evaluate() (score float64) {
 			if dist > LIMIT {
 				break
 			}
-			score += float64(nlinks) / dist
+			// We are looking for maximum
+			score -= float64(nlinks) / dist
 		}
 	}
 	return
@@ -113,10 +116,12 @@ func (r Tour) Crossover(q gago.Genome, rng *rand.Rand) {
 	gago.CrossPMX(r, q.(Tour), rng)
 }
 
-// Clone a Tour.
+// Clone a Tour
 func (r Tour) Clone() gago.Genome {
 	var clone Tour
+	clone.Tigs = make([]Tig, r.Len())
 	copy(clone.Tigs, r.Tigs)
+	clone.M = r.M
 	return clone
 }
 
@@ -130,17 +135,24 @@ func (r Tour) Shuffle() {
 	}
 }
 
-// MakeTour creates a slice of tigs and shuffles them
-// func MakeTour(rng *rand.Rand) gago.Genome {
-// 	var tour Tour
-// }
-// MakeVector returns a random vector by generating 5 values uniformally
-// distributed between -10 and 10.
-// func MakeVector(rng *rand.Rand) gago.Genome {
-// 	return Vector(gago.InitUnifFloat64(2, -20, 20, rng))
-// }
-// GASetup set up the Genetic algorithm
-// func GASetup() {
-// 	var ga = gago.Generational(MakeVector)
-// 	ga.Initialize()
-// }
+// GARun set up the Genetic Algorithm and run it
+func GARun(tour Tour) {
+	MakeTour := func(rng *rand.Rand) gago.Genome {
+		tour.Shuffle()
+		c := tour.Clone()
+		return c
+	}
+
+	ga := gago.Generational(MakeTour)
+	ga.Initialize()
+	// fmt.Println(ga.Populations)
+
+	log.Notice("GA initialized")
+
+	for i := 0; i < 5000; i++ {
+		ga.Evolve()
+		fmt.Printf("*** Generation %d ***\n", i)
+		fmt.Println(ga.HallOfFame[0].Genome.(Tour).Tigs)
+		fmt.Println(ga.HallOfFame[0].Fitness)
+	}
+}

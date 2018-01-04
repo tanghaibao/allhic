@@ -9,10 +9,6 @@
 
 package allhic
 
-import (
-	"fmt"
-)
-
 // Optimizer runs the order-and-orientation procedure, given a clmfile
 type Optimizer struct {
 	Clmfile string
@@ -23,18 +19,13 @@ func (r *Optimizer) Run() {
 	clm := InitCLMFile(r.Clmfile)
 	tour := clm.Activate()
 
-	// fmt.Println(tour)
-	tourScore := tour.Evaluate()
-	fmt.Println(tourScore)
+	GARun(tour)
 
-	// var test []string
-	// for i := range tour {
-	// 	test = append(test, clm.activeTigs[i])
-	// }
-	// fmt.Println(test)
-
-	tour.Shuffle()
 	// fmt.Println(tour)
-	tourScore = tour.Evaluate()
-	fmt.Println(tourScore)
+	// tourScore := tour.Evaluate()
+	// fmt.Println(tourScore)
+	// tour.Shuffle()
+	// // fmt.Println(tour)
+	// tourScore = tour.Evaluate()
+	// fmt.Println(tourScore)
 }
