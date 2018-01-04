@@ -33,8 +33,8 @@ type CLMFile struct {
 	Clmfile     string
 	Idsfile     string
 	tigToSize   map[string]int
-	tigActive   map[string]bool
 	tigToIdx    map[string]int
+	activeTigs  []string
 	activeSizes []int
 	contacts    []Contact
 }
@@ -56,7 +56,6 @@ func InitCLMFile(Clmfile string) *CLMFile {
 	p.Clmfile = Clmfile
 	p.Idsfile = RemoveExt(Clmfile) + ".ids"
 	p.tigToSize = make(map[string]int)
-	p.tigActive = make(map[string]bool)
 	p.tigToIdx = make(map[string]int)
 
 	p.ParseIds()
@@ -80,7 +79,7 @@ func (r *CLMFile) ParseIds() {
 		tig := words[0]
 		size, _ := strconv.Atoi(words[1])
 		r.tigToSize[tig] = size
-		r.tigActive[tig] = true
+		r.activeTigs = append(r.activeTigs, tig)
 	}
 
 	fmt.Println(r.tigToSize)
@@ -139,12 +138,10 @@ func (r *CLMFile) ParseClm() {
 
 // UpdateTigToIdx maps tigs to indices in the current active tigs
 func (r *CLMFile) UpdateTigToIdx() {
-	idx := 0
-	r.activeSizes = make([]int, len(r.tigActive))
-	for k := range r.tigActive {
-		r.tigToIdx[k] = idx
-		r.activeSizes[idx] = r.tigToSize[k]
-		idx++
+	r.activeSizes = make([]int, len(r.activeTigs))
+	for i, k := range r.activeTigs {
+		r.tigToIdx[k] = i
+		r.activeSizes[i] = r.tigToSize[k]
 	}
 }
 
@@ -160,10 +157,10 @@ func (r *CLMFile) UpdateTigToIdx() {
 //    tourfile. In this case, the active contig list and orientations are
 //    derived from the last tour in the file.
 func (r *CLMFile) Activate() []int {
-	tour := make([]int, len(r.tigActive))
+	tour := make([]int, len(r.activeTigs))
 	r.UpdateTigToIdx()
 	r.reportActive()
-	for i := 0; i < len(r.tigActive); i++ {
+	for i := 0; i < len(r.activeTigs); i++ {
 		tour[i] = i
 	}
 
@@ -183,7 +180,7 @@ func (r *CLMFile) reportActive() {
 // M yields a contact frequency matrix, where each cell contains how many
 // links between i-th and j-th contig
 func (r *CLMFile) M() [][]int {
-	N := len(r.tigActive)
+	N := len(r.activeTigs)
 	P := make([][]int, N)
 	for i := 0; i < N; i++ {
 		P[i] = make([]int, N)
