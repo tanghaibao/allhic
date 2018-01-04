@@ -11,22 +11,11 @@ package allhic
 
 import (
 	"fmt"
-	"math/rand"
 )
 
 // Optimizer runs the order-and-orientation procedure, given a clmfile
 type Optimizer struct {
 	Clmfile string
-}
-
-// Shuffle randomly shuffles an integer array using Knuth or Fisher-Yates
-func Shuffle(tour Tour) {
-	N := len(tour.Tigs)
-	for i := 0; i < N; i++ {
-		// choose index uniformly in [i, N-1]
-		r := i + rand.Intn(N-i)
-		tour.Tigs[r], tour.Tigs[i] = tour.Tigs[i], tour.Tigs[r]
-	}
 }
 
 // Run kicks off the Optimizer
@@ -44,7 +33,7 @@ func (r *Optimizer) Run() {
 	// }
 	// fmt.Println(test)
 
-	Shuffle(tour)
+	tour.Shuffle()
 	// fmt.Println(tour)
 	tourScore = tour.Evaluate()
 	fmt.Println(tourScore)

@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/MaxHalford/gago"
 )
@@ -96,12 +97,48 @@ func (r Tour) Evaluate() (score float64) {
 	return
 }
 
+// Mutate a Tour by applying by permutation mutation and/or splice mutation
+// TODO: CHANGE TO GENOME_MUTATION (INVERSION + TRANSPOSITION)
+func (r Tour) Mutate(rng *rand.Rand) {
+	if rng.Float64() < 0.35 {
+		gago.MutPermute(r, 3, rng)
+	}
+	if rng.Float64() < 0.45 {
+		gago.MutSplice(r, rng)
+	}
+}
+
+// Crossover a Tour with another Tour by using Partially Mixed Crossover (PMX).
+func (r Tour) Crossover(q gago.Genome, rng *rand.Rand) {
+	gago.CrossPMX(r, q.(Tour), rng)
+}
+
+// Clone a Tour.
+func (r Tour) Clone() gago.Genome {
+	var clone Tour
+	copy(clone.Tigs, r.Tigs)
+	return clone
+}
+
+// Shuffle randomly shuffles an integer array using Knuth or Fisher-Yates
+func (r Tour) Shuffle() {
+	N := r.Len()
+	for i := 0; i < N; i++ {
+		// choose index uniformly in [i, N-1]
+		j := i + rand.Intn(N-i)
+		r.Tigs[j], r.Tigs[i] = r.Tigs[i], r.Tigs[j]
+	}
+}
+
+// MakeTour creates a slice of tigs and shuffles them
+// func MakeTour(rng *rand.Rand) gago.Genome {
+// 	var tour Tour
+// }
 // MakeVector returns a random vector by generating 5 values uniformally
 // distributed between -10 and 10.
 // func MakeVector(rng *rand.Rand) gago.Genome {
 // 	return Vector(gago.InitUnifFloat64(2, -20, 20, rng))
 // }
-
 // GASetup set up the Genetic algorithm
 // func GASetup() {
 // 	var ga = gago.Generational(MakeVector)
