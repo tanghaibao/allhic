@@ -29,33 +29,37 @@ import (
 // tig00030676- tig00077819+       7       118651 91877 91877 209149 125906 146462 146462
 // tig00030676- tig00077819-       7       108422 157204 157204 137924 142611 75169 75169
 type CLMFile struct {
-	Name        string
-	Clmfile     string
-	Idsfile     string
-	tigToSize   map[string]int
-	tigToIdx    map[string]int
-	activeTigs  []string
-	activeSizes []int
-	contacts    []Contact
+	Name                 string
+	Clmfile              string
+	Idsfile              string
+	tigToSize            map[string]int
+	tigToIdx             map[string]int
+	activeTigs           []string
+	activeSizes          []int
+	contacts             []Contact                // Array of contacts
+	orientations         map[Pair]OrientedContact // (tigA, tigB) => strandedness x nlinks
+	contactsOrientations map[Pair][4]GArray       // (tigA, tigB) => [0..3]gdists, 0..3 are orientations
+}
+
+// Pair contains two contigs in contact
+type Pair struct {
+	a string
+	b string
 }
 
 // Contact stores how many links between two contigs
 type Contact struct {
 	a      string
 	b      string
-	ao     int8
-	bo     int8
 	nlinks int
 	dists  []int
 }
 
 // OrientedContact stores only one configuration per pair of tigs
 type OrientedContact struct {
-	a            string
-	b            string
-	strandedness int8
+	strandedness int
 	nlinks       int
-	meanDist     float64
+	meanDist     int
 }
 
 // Tig stores the index to activeTigs and size of the tig
@@ -78,6 +82,8 @@ func InitCLMFile(Clmfile string) *CLMFile {
 	p.Idsfile = RemoveExt(Clmfile) + ".ids"
 	p.tigToSize = make(map[string]int)
 	p.tigToIdx = make(map[string]int)
+	p.orientations = make(map[Pair]OrientedContact)
+	p.contactsOrientations = make(map[Pair][4]GArray)
 
 	p.ParseIds()
 	p.ParseClm()
@@ -106,18 +112,17 @@ func (r *CLMFile) ParseIds() {
 	fmt.Println(r.tigToSize)
 }
 
-// Map orientations to ints
-func ff(c byte) int8 {
-	if c == '-' {
-		return -1
+// ff map orientations to bit ('+' => 0, '-' => 1)
+func ff(c byte) (bit byte) {
+	if c != '-' {
+		bit = 1
 	}
-	return 1
+	return
 }
-func rr(c byte) int8 {
-	if c == '-' {
-		return 1
-	}
-	return -1
+
+// bb map two orientations to a number 0..3
+func bb(a, b byte) byte {
+	return a<<1 + b
 }
 
 // ParseClm parses the clmfile into data stored in CLMFile.
@@ -150,10 +155,19 @@ func (r *CLMFile) ParseClm() {
 		}
 
 		// Store all these info in contacts
-		contact := Contact{at, bt, ff(ao), ff(bo), nlinks, dists}
-		gdists := GoldenArray(dists)
+		contact := Contact{at, bt, nlinks, dists}
+		// gdists := GoldenArray(dists)
+		meanDist := HmeanInt(dists, GRLB, GRUB)
 		// fmt.Println(at, bt, dists, gdists)
+		strandedness := 1
+		if ao != bo {
+			strandedness = -1
+		}
 		r.contacts = append(r.contacts, contact)
+		pair := Pair{at, bt}
+		r.orientations[pair] = OrientedContact{strandedness, nlinks, meanDist}
+		// r.contactsOrientations[pair][bb(ff(ao), ff(bo))] = gdists
+		// r.contactsOrientations[pair][bb()]
 		// strandedness := ao == bo
 	}
 }

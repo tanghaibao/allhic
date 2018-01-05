@@ -27,7 +27,14 @@ const (
 	BB = UB - LB + 1
 	// PHI is natural log of golden ratio
 	PHI = 0.4812118250596684 // math.Log(1.61803398875)
+	// GRLB is the min item in GR
+	GRLB = 5778
+	// GRUB is the max item in GR
+	GRUB = 1149851
 )
+
+// GArray contains golden array of size BB
+type GArray [BB]int
 
 // GR is a precomputed list of exponents of golden ratio phi
 var GR = [...]int{5778, 9349, 15127, 24476,
@@ -85,7 +92,7 @@ func HmeanInt(a []int, amin, amax int) int {
 // exponents of phi gets closer to integers as N grows. See interesting
 // discussion here:
 // <https://www.johndcook.com/blog/2017/03/22/golden-powers-are-nearly-integers/>
-func GoldenArray(a []int) (counts [BB]int) {
+func GoldenArray(a []int) (counts GArray) {
 	for _, x := range a {
 		c := int(Round(math.Log(float64(x)) / PHI))
 		if c < LB {
