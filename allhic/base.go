@@ -10,12 +10,29 @@
 package allhic
 
 import (
+	"math"
 	"os"
 	"path"
 	"strings"
 
 	logging "github.com/op/go-logging"
 )
+
+const (
+	// LB is lower bound for GoldenArray
+	LB = 18
+	// UB is upper bound for GoldenArray
+	UB = 29
+	// BB is span for GoldenArray
+	BB = UB - LB + 1
+	// PHI is natural log of golden ratio
+	PHI = 0.4812118250596684 // math.Log(1.61803398875)
+)
+
+// GR is a precomputed list of exponents of golden ratio phi
+var GR = [...]int{5778, 9349, 15127, 24476,
+	39603, 64079, 103682, 167761,
+	271443, 439204, 710647, 1149851}
 
 var log = logging.MustGetLogger("allhic")
 var format = logging.MustStringFormatter(
@@ -31,4 +48,52 @@ var BackendFormatter = logging.NewBackendFormatter(Backend, format)
 // RemoveExt returns the substring minus the extension
 func RemoveExt(filename string) string {
 	return strings.TrimSuffix(filename, path.Ext(filename))
+}
+
+// Round makes a round number
+func Round(input float64) float64 {
+	if input < 0 {
+		return math.Ceil(input - 0.5)
+	}
+	return math.Floor(input + 0.5)
+}
+
+// HmeanInt returns the harmonic mean
+// That is:  n / (1/x1 + 1/x2 + ... + 1/xn)
+func HmeanInt(a []int, amin, amax int) int {
+	size := len(a)
+	sum := 0.0
+	for i := 0; i < size; i++ {
+		val := a[i]
+		if val > amax {
+			val = amax
+		} else if val < amin {
+			val = amin
+		}
+		sum += 1.0 / float64(val)
+	}
+	return int(Round(float64(size) / sum))
+}
+
+// GoldenArray is given list of ints, we aggregate similar values so that it becomes an
+// array of multiples of phi, where phi is the golden ratio.
+//
+// phi ^ 18 = 5778
+// phi ^ 29 = 1149851
+//
+// So the array of counts go between 843 to 788196. One triva is that the
+// exponents of phi gets closer to integers as N grows. See interesting
+// discussion here:
+// <https://www.johndcook.com/blog/2017/03/22/golden-powers-are-nearly-integers/>
+func GoldenArray(a []int) (counts [BB]int) {
+	for _, x := range a {
+		c := int(Round(math.Log(float64(x)) / PHI))
+		if c < LB {
+			c = LB
+		} else if c > UB {
+			c = UB
+		}
+		counts[c-LB]++
+	}
+	return
 }

@@ -49,6 +49,15 @@ type Contact struct {
 	dists  []int
 }
 
+// OrientedContact stores only one configuration per pair of tigs
+type OrientedContact struct {
+	a            string
+	b            string
+	strandedness int8
+	nlinks       int
+	meanDist     float64
+}
+
 // Tig stores the index to activeTigs and size of the tig
 type Tig struct {
 	Idx  int
@@ -141,10 +150,11 @@ func (r *CLMFile) ParseClm() {
 		}
 
 		// Store all these info in contacts
-		var contact = Contact{at, bt, ff(ao), ff(bo), nlinks, dists}
+		contact := Contact{at, bt, ff(ao), ff(bo), nlinks, dists}
+		gdists := GoldenArray(dists)
+		// fmt.Println(at, bt, dists, gdists)
 		r.contacts = append(r.contacts, contact)
 		// strandedness := ao == bo
-		// fmt.Println(contact.a, contact.b, contact.nlinks, strandedness)
 	}
 }
 

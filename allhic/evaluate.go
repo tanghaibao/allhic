@@ -228,7 +228,7 @@ func GARun(tour Tour, npop, ngen int, mutrate float64) {
 	for ; ; gen++ {
 		ga.Evolve()
 		currentBest := -ga.HallOfFame[0].Fitness
-		if gen%50 == 0 {
+		if gen%npop == 0 {
 			//fmt.Println(ga.HallOfFame[0].Genome.(Tour).Tigs)
 			fmt.Printf("Current iteration %v: max_score=%.5f\n", gen, currentBest)
 		}
