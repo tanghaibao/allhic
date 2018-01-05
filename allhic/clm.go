@@ -32,7 +32,7 @@ type CLMFile struct {
 	Name             string
 	Clmfile          string
 	Idsfile          string
-	Tigs             []Tig
+	Tigs             []TigF
 	tigToIdx         map[string]int          // From name of the tig to the idx of the Tigs array
 	contacts         map[Pair]Contact        // (tigA, tigB) => {strandedness, nlinks, meanDist}
 	orientedContacts map[OrientedPair]GArray // (tigA, tigB, oriA, oriB) => golden array i.e. exponential histogram
@@ -59,12 +59,18 @@ type Contact struct {
 	meanDist     int
 }
 
-// Tig stores the index to activeTigs and size of the tig
-type Tig struct {
+// TigF stores the index to activeTigs and size of the tig
+type TigF struct {
 	Idx      int
 	Name     string
 	Size     int
 	IsActive bool
+}
+
+// Tig removes some unnessary entries in the TigF
+type Tig struct {
+	Idx  int
+	Size int
 }
 
 // Tour stores a number of tigs along with 2D matrices for evaluation
@@ -104,7 +110,7 @@ func (r *CLMFile) ParseIds() {
 		words := strings.Fields(scanner.Text())
 		tig := words[0]
 		size, _ := strconv.Atoi(words[1])
-		r.Tigs = append(r.Tigs, Tig{idx, tig, size, true})
+		r.Tigs = append(r.Tigs, TigF{idx, tig, size, true})
 		r.tigToIdx[tig] = idx
 		idx++
 	}
@@ -194,7 +200,7 @@ func (r *CLMFile) Activate() (tour Tour) {
 		if tig.IsActive {
 			activeCounts++
 			sumLength += tig.Size
-			tour.Tigs = append(tour.Tigs, tig)
+			tour.Tigs = append(tour.Tigs, Tig{tig.Idx, tig.Size})
 		}
 	}
 	tour.M = r.M()

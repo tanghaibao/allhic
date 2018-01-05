@@ -17,7 +17,7 @@ type Optimizer struct {
 // Run kicks off the Optimizer
 func (r *Optimizer) Run() {
 	clm := InitCLMFile(r.Clmfile)
-	// clm.Activate()
-	tour := clm.Activate()
-	GARun(tour, 100, 2000, .2)
+	clm.Activate()
+	// tour := clm.Activate()
+	// GARun(tour, 100, 2000, .2)
 }
