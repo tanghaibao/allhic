@@ -34,7 +34,7 @@ const (
 	// OUTLIERTHRESHOLD is how many deviation from MAD
 	OUTLIERTHRESHOLD = 3.5
 	// MINSIZE is the minimum size cutoff for tig to be considered
-	MINSIZE = 50000
+	MINSIZE = 10000
 )
 
 // GArray contains golden array of size BB

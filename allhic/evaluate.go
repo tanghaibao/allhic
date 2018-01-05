@@ -199,7 +199,7 @@ func (r Tour) Shuffle() {
 }
 
 // GARun set up the Genetic Algorithm and run it
-func GARun(tour Tour, npop, ngen int, mutrate float64) {
+func GARun(tour Tour, npop, ngen int, mutrate float64) Tour {
 	MakeTour := func(rng *rand.Rand) gago.Genome {
 		tour.Shuffle()
 		c := tour.Clone()
@@ -229,7 +229,6 @@ func GARun(tour Tour, npop, ngen int, mutrate float64) {
 		ga.Evolve()
 		currentBest := -ga.HallOfFame[0].Fitness
 		if gen%npop == 0 {
-			//fmt.Println(ga.HallOfFame[0].Genome.(Tour).Tigs)
 			fmt.Printf("Current iteration %v: max_score=%.5f\n", gen, currentBest)
 		}
 
@@ -242,4 +241,5 @@ func GARun(tour Tour, npop, ngen int, mutrate float64) {
 			break
 		}
 	}
+	return ga.HallOfFame[0].Genome.(Tour)
 }
