@@ -12,6 +12,7 @@ package allhic
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"strconv"
@@ -54,6 +55,8 @@ type OrientedPair struct {
 
 // Contact stores how many links between two contigs
 type Contact struct {
+	ai           int
+	bi           int
 	strandedness int
 	nlinks       int
 	meanDist     int
@@ -139,10 +142,12 @@ func (r *CLMFile) ParseClm() {
 		bt, bo := btig[:len(btig)-1], btig[len(btig)-1]
 
 		// Make sure both contigs are in the ids file
-		if _, ok := r.tigToIdx[at]; !ok {
+		ai, aok := r.tigToIdx[at]
+		if !aok {
 			continue
 		}
-		if _, ok := r.tigToIdx[bt]; !ok {
+		bi, bok := r.tigToIdx[bt]
+		if !bok {
 			continue
 		}
 
@@ -162,7 +167,7 @@ func (r *CLMFile) ParseClm() {
 			strandedness = -1
 		}
 		pair := Pair{at, bt}
-		c := Contact{strandedness, nlinks, meanDist}
+		c := Contact{ai, bi, strandedness, nlinks, meanDist}
 		if p, ok := r.contacts[pair]; ok {
 			if p.meanDist > meanDist {
 				r.contacts[pair] = c
@@ -176,10 +181,35 @@ func (r *CLMFile) ParseClm() {
 	// fmt.Println(r.orientedContacts)
 }
 
-// CalculateDensities calculated the density of inter-contig links per base.
+// calculateDensities calculated the density of inter-contig links per base.
 // Strong contigs are considered to have high level of inter-contig links in the current
 // partition.
-func (r *CLMFile) CalculateDensities() {
+func (r *CLMFile) calculateDensities() []float64 {
+	N := len(r.Tigs)
+	densities := make([]int, N)
+	for _, contact := range r.contacts {
+		ai := contact.ai
+		bi := contact.bi
+		densities[ai] += contact.nlinks
+		densities[bi] += contact.nlinks
+	}
+
+	logdensities := make([]float64, N)
+	for i, tig := range r.Tigs {
+		d := float64(densities[i])
+		s := float64(min(tig.Size, 500000))
+		logdensities[i] = math.Log10(d / s)
+	}
+	return logdensities
+}
+
+// pruneByDensities selects active contigs based on logdensities
+func (r *CLMFile) pruneByDensities() {
+	logdensities := r.calculateDensities()
+	lb, ub := OutlierCutoff(logdensities)
+	fmt.Println(logdensities)
+
+	log.Noticef("Log10(link_densities) ~ [%.5f, %.5f]", lb, ub)
 }
 
 // Activate selects active contigs in the current partition. This is the setup phase of the
@@ -194,19 +224,29 @@ func (r *CLMFile) CalculateDensities() {
 //    tourfile. In this case, the active contig list and orientations are
 //    derived from the last tour in the file.
 func (r *CLMFile) Activate() (tour Tour) {
+	r.reportActive()
+	r.pruneByDensities()
+
+	for _, tig := range r.Tigs {
+		if tig.IsActive {
+			tour.Tigs = append(tour.Tigs, Tig{tig.Idx, tig.Size})
+		}
+	}
+	tour.M = r.M()
+	return
+}
+
+// reportActive prints number and total length of active contigs
+func (r *CLMFile) reportActive() {
 	activeCounts := 0
 	sumLength := 0
 	for _, tig := range r.Tigs {
 		if tig.IsActive {
 			activeCounts++
 			sumLength += tig.Size
-			tour.Tigs = append(tour.Tigs, Tig{tig.Idx, tig.Size})
 		}
 	}
-	tour.M = r.M()
 	log.Noticef("Active contigs: %d (length=%d)", activeCounts, sumLength)
-
-	return
 }
 
 // M yields a contact frequency matrix, where each cell contains how many
@@ -218,15 +258,9 @@ func (r *CLMFile) M() [][]int {
 		P[i] = make([]int, N)
 	}
 
-	for pair, contact := range r.contacts {
-		ai, aok := r.tigToIdx[pair.a]
-		if !aok {
-			continue
-		}
-		bi, bok := r.tigToIdx[pair.b]
-		if !bok {
-			continue
-		}
+	for _, contact := range r.contacts {
+		ai := contact.ai
+		bi := contact.bi
 		P[ai][bi] = contact.nlinks
 		P[bi][ai] = contact.nlinks
 	}

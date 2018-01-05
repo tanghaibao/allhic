@@ -31,6 +31,8 @@ const (
 	GRLB = 5778
 	// GRUB is the max item in GR
 	GRUB = 1149851
+	// OUTLIERTHRESHOLD is how many deviation from MAD
+	OUTLIERTHRESHOLD = 3.5
 )
 
 // GArray contains golden array of size BB
@@ -103,4 +105,35 @@ func GoldenArray(a []int) (counts GArray) {
 		counts[c-LB]++
 	}
 	return
+}
+
+// min gets the minimum for two ints
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// median gets the median value of an array
+func median(numbers []float64) float64 {
+	middle := len(numbers) / 2
+	result := numbers[middle]
+	if len(numbers)%2 == 0 {
+		result = (result + numbers[middle-1]) / 2
+	}
+	return result
+}
+
+// OutlierCutoff implements Iglewicz and Hoaglin's robust, returns the cutoff values -
+// lower bound and upper bound.
+func OutlierCutoff(a []float64) (float64, float64) {
+	M := median(a)
+	D := make([]float64, len(a))
+	for i := 0; i < len(a); i++ {
+		D[i] = math.Abs(a[i] - M)
+	}
+	MAD := median(D)
+	C := OUTLIERTHRESHOLD / .67449 * MAD
+	return M - C, M + C
 }
