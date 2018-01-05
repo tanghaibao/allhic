@@ -19,13 +19,5 @@ func (r *Optimizer) Run() {
 	clm := InitCLMFile(r.Clmfile)
 	tour := clm.Activate()
 
-	GARun(tour)
-
-	// fmt.Println(tour)
-	// tourScore := tour.Evaluate()
-	// fmt.Println(tourScore)
-	// tour.Shuffle()
-	// // fmt.Println(tour)
-	// tourScore = tour.Evaluate()
-	// fmt.Println(tourScore)
+	GARun(tour, 100, 2000, .2)
 }
