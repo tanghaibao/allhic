@@ -203,13 +203,27 @@ func (r *CLMFile) calculateDensities() []float64 {
 	return logdensities
 }
 
-// pruneByDensities selects active contigs based on logdensities
-func (r *CLMFile) pruneByDensities() {
+// pruneByDensity selects active contigs based on logdensities
+func (r *CLMFile) pruneByDensity() {
 	logdensities := r.calculateDensities()
 	lb, ub := OutlierCutoff(logdensities)
 	fmt.Println(logdensities)
 
 	log.Noticef("Log10(link_densities) ~ [%.5f, %.5f]", lb, ub)
+	for i, tig := range r.Tigs {
+		if logdensities[i] < lb {
+			tig.IsActive = false
+		}
+	}
+}
+
+// pruneBySize selects active contigs based on size
+func (r *CLMFile) pruneBySize() {
+	for _, tig := range r.Tigs {
+		if tig.Size < MINSIZE {
+			tig.IsActive = false
+		}
+	}
 }
 
 // Activate selects active contigs in the current partition. This is the setup phase of the
@@ -225,7 +239,9 @@ func (r *CLMFile) pruneByDensities() {
 //    derived from the last tour in the file.
 func (r *CLMFile) Activate() (tour Tour) {
 	r.reportActive()
-	r.pruneByDensities()
+	r.pruneByDensity()
+	r.pruneBySize()
+	r.reportActive()
 
 	for _, tig := range r.Tigs {
 		if tig.IsActive {
