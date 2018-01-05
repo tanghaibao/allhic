@@ -151,7 +151,7 @@ func MutInsertion(genome gago.Slice, n int, rng *rand.Rand) {
 		cq := genome.At(q) // Pop q and insert to p position
 		if p < q {
 			// Move cq to the front and push everyone right
-			for i := q; i < p; i-- {
+			for i := q; i > p; i-- {
 				genome.Set(i, genome.At(i-1))
 			}
 		} else { // q < p
@@ -206,15 +206,27 @@ func GARun(tour Tour) {
 		return c
 	}
 
-	ga := gago.Generational(MakeTour)
+	ga := gago.GA{
+		NewGenome: MakeTour,
+		NPops:     1,
+		PopSize:   100,
+		Model: gago.ModGenerational{
+			Selector: gago.SelTournament{
+				NContestants: 3,
+			},
+			MutRate: 0.2,
+		},
+		ParallelEval: true,
+	}
+	// ga := gago.Generational(MakeTour)
 	ga.Initialize()
-	// fmt.Println(ga.Populations)
 
 	log.Notice("GA initialized")
 
 	for i := 0; i < 5000; i++ {
-		ga.Evolve()
 		fmt.Printf("*** Generation %d ***\n", i)
+		ga.Evolve()
+		// fmt.Println(ga.Populations)
 		fmt.Println(ga.HallOfFame[0].Genome.(Tour).Tigs)
 		fmt.Println(ga.HallOfFame[0].Fitness)
 	}
