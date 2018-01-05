@@ -32,10 +32,8 @@ type CLMFile struct {
 	Name             string
 	Clmfile          string
 	Idsfile          string
-	tigToSize        map[string]int
-	tigToIdx         map[string]int
-	activeTigs       []string
-	activeSizes      []int
+	Tigs             []Tig
+	tigToIdx         map[string]int           // From name of the tig to the idx of the Tigs array
 	contacts         []Contact                // Array of contacts
 	orientations     map[Pair]OrientedContact // (tigA, tigB) => strandedness x nlinks
 	orientedContacts map[OrientedPair]GArray  // (tigA, tigB) => golden array i.e. exponential histogram
@@ -72,8 +70,10 @@ type OrientedContact struct {
 
 // Tig stores the index to activeTigs and size of the tig
 type Tig struct {
-	Idx  int
-	Size int
+	Idx      int
+	Name     string
+	Size     int
+	IsActive bool
 }
 
 // Tour stores a number of tigs along with 2D matrices for evaluation
@@ -88,7 +88,6 @@ func InitCLMFile(Clmfile string) *CLMFile {
 	p.Name = RemoveExt(path.Base(Clmfile))
 	p.Clmfile = Clmfile
 	p.Idsfile = RemoveExt(Clmfile) + ".ids"
-	p.tigToSize = make(map[string]int)
 	p.tigToIdx = make(map[string]int)
 	p.orientations = make(map[Pair]OrientedContact)
 	p.orientedContacts = make(map[OrientedPair]GArray)
@@ -109,15 +108,16 @@ func (r *CLMFile) ParseIds() {
 	file, _ := os.Open(r.Idsfile)
 	log.Noticef("Parse idsfile `%s`", r.Idsfile)
 	scanner := bufio.NewScanner(file)
+	idx := 0
 	for scanner.Scan() {
 		words := strings.Fields(scanner.Text())
 		tig := words[0]
 		size, _ := strconv.Atoi(words[1])
-		r.tigToSize[tig] = size
-		r.activeTigs = append(r.activeTigs, tig)
+		r.Tigs = append(r.Tigs, Tig{idx, tig, size, true})
+		r.tigToIdx[tig] = idx
+		idx++
 	}
-
-	fmt.Println(r.tigToSize)
+	fmt.Println(r.Tigs)
 }
 
 // rr map orientations to bit ('+' => '-', '-' => '+')
@@ -142,10 +142,10 @@ func (r *CLMFile) ParseClm() {
 		bt, bo := btig[:len(btig)-1], btig[len(btig)-1]
 
 		// Make sure both contigs are in the ids file
-		if _, ok := r.tigToSize[at]; !ok {
+		if _, ok := r.tigToIdx[at]; !ok {
 			continue
 		}
-		if _, ok := r.tigToSize[bt]; !ok {
+		if _, ok := r.tigToIdx[bt]; !ok {
 			continue
 		}
 
@@ -181,16 +181,13 @@ func (r *CLMFile) ParseClm() {
 	// fmt.Println(r.orientedContacts)
 }
 
-// UpdateTigToIdx maps tigs to indices in the current active tigs
-func (r *CLMFile) UpdateTigToIdx() {
-	r.activeSizes = make([]int, len(r.activeTigs))
-	for i, k := range r.activeTigs {
-		r.tigToIdx[k] = i
-		r.activeSizes[i] = r.tigToSize[k]
-	}
+// CalculateDensities calculated the density of inter-contig links per base.
+// Strong contigs are considered to have high level of inter-contig links in the current
+// partition.
+func (r *CLMFile) CalculateDensities() {
 }
 
-// Activate selects contigs in the current partition. This is the setup phase of the
+// Activate selects active contigs in the current partition. This is the setup phase of the
 // algorithm, and supports two modes:
 // - "de novo": This is useful at the start of a new run where no tours are
 //    available. We select the strong contigs that have significant number
@@ -202,31 +199,25 @@ func (r *CLMFile) UpdateTigToIdx() {
 //    tourfile. In this case, the active contig list and orientations are
 //    derived from the last tour in the file.
 func (r *CLMFile) Activate() (tour Tour) {
-	tour.Tigs = make([]Tig, len(r.activeTigs))
-	r.UpdateTigToIdx()
-	r.reportActive()
-	for i := 0; i < len(r.activeTigs); i++ {
-		tour.Tigs[i] = Tig{i, r.activeSizes[i]}
+	activeCounts := 0
+	sumLength := 0
+	for _, tig := range r.Tigs {
+		if tig.IsActive {
+			activeCounts++
+			sumLength += tig.Size
+			tour.Tigs = append(tour.Tigs, tig)
+		}
 	}
 	tour.M = r.M()
+	log.Noticef("Active contigs: %d (length=%d)", activeCounts, sumLength)
 
 	return
-}
-
-// reportActive prints out a quick message on number of active tigs
-func (r *CLMFile) reportActive() {
-	sumLength := 0
-	for _, v := range r.activeSizes {
-		sumLength += v
-	}
-	log.Noticef("Active contigs: %d (length=%d)",
-		len(r.activeSizes), sumLength)
 }
 
 // M yields a contact frequency matrix, where each cell contains how many
 // links between i-th and j-th contig
 func (r *CLMFile) M() [][]int {
-	N := len(r.activeTigs)
+	N := len(r.Tigs)
 	P := make([][]int, N)
 	for i := 0; i < N; i++ {
 		P[i] = make([]int, N)
