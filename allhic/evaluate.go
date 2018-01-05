@@ -176,7 +176,7 @@ func (r Tour) Mutate(rng *rand.Rand) {
 
 // Crossover a Tour with another Tour by using Partially Mixed Crossover (PMX).
 func (r Tour) Crossover(q gago.Genome, rng *rand.Rand) {
-	gago.CrossPMX(r, q.(Tour), rng)
+	//gago.CrossPMX(r, q.(Tour), rng)
 }
 
 // Clone a Tour
@@ -223,11 +223,24 @@ func GARun(tour Tour) {
 
 	log.Notice("GA initialized")
 
-	for i := 0; i < 5000; i++ {
-		fmt.Printf("*** Generation %d ***\n", i)
+	gen := 1
+	best := 0.0
+	updated := 0
+	for ; ; gen++ {
 		ga.Evolve()
-		// fmt.Println(ga.Populations)
-		fmt.Println(ga.HallOfFame[0].Genome.(Tour).Tigs)
-		fmt.Println(ga.HallOfFame[0].Fitness)
+		currentBest := -ga.HallOfFame[0].Fitness
+		if gen%20 == 0 {
+			//fmt.Println(ga.HallOfFame[0].Genome.(Tour).Tigs)
+			fmt.Printf("Current iteration %v: max_score=%.5f\n", gen, currentBest)
+		}
+
+		if currentBest > best {
+			best = currentBest
+			updated = gen
+		}
+
+		if gen-updated > 1000 { // Converged
+			break
+		}
 	}
 }
