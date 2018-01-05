@@ -33,10 +33,9 @@ type CLMFile struct {
 	Clmfile          string
 	Idsfile          string
 	Tigs             []Tig
-	tigToIdx         map[string]int           // From name of the tig to the idx of the Tigs array
-	contacts         []Contact                // Array of contacts
-	orientations     map[Pair]OrientedContact // (tigA, tigB) => strandedness x nlinks
-	orientedContacts map[OrientedPair]GArray  // (tigA, tigB) => golden array i.e. exponential histogram
+	tigToIdx         map[string]int          // From name of the tig to the idx of the Tigs array
+	contacts         map[Pair]Contact        // (tigA, tigB) => {strandedness, nlinks, meanDist}
+	orientedContacts map[OrientedPair]GArray // (tigA, tigB, oriA, oriB) => golden array i.e. exponential histogram
 }
 
 // Pair contains two contigs in contact
@@ -55,14 +54,6 @@ type OrientedPair struct {
 
 // Contact stores how many links between two contigs
 type Contact struct {
-	a      string
-	b      string
-	nlinks int
-	dists  []int
-}
-
-// OrientedContact stores only one configuration per pair of tigs
-type OrientedContact struct {
 	strandedness int
 	nlinks       int
 	meanDist     int
@@ -89,7 +80,7 @@ func InitCLMFile(Clmfile string) *CLMFile {
 	p.Clmfile = Clmfile
 	p.Idsfile = RemoveExt(Clmfile) + ".ids"
 	p.tigToIdx = make(map[string]int)
-	p.orientations = make(map[Pair]OrientedContact)
+	p.contacts = make(map[Pair]Contact)
 	p.orientedContacts = make(map[OrientedPair]GArray)
 
 	p.ParseIds()
@@ -158,22 +149,20 @@ func (r *CLMFile) ParseClm() {
 		}
 
 		// Store all these info in contacts
-		contact := Contact{at, bt, nlinks, dists}
 		gdists := GoldenArray(dists)
 		meanDist := HmeanInt(dists, GRLB, GRUB)
 		strandedness := 1
 		if ao != bo {
 			strandedness = -1
 		}
-		r.contacts = append(r.contacts, contact)
 		pair := Pair{at, bt}
-		oc := OrientedContact{strandedness, nlinks, meanDist}
-		if p, ok := r.orientations[pair]; ok {
+		c := Contact{strandedness, nlinks, meanDist}
+		if p, ok := r.contacts[pair]; ok {
 			if p.meanDist > meanDist {
-				r.orientations[pair] = oc
+				r.contacts[pair] = c
 			}
 		} else {
-			r.orientations[pair] = oc
+			r.contacts[pair] = c
 		}
 		r.orientedContacts[OrientedPair{at, bt, ao, bo}] = gdists
 		r.orientedContacts[OrientedPair{bt, at, rr(bo), rr(ao)}] = gdists
@@ -223,12 +212,12 @@ func (r *CLMFile) M() [][]int {
 		P[i] = make([]int, N)
 	}
 
-	for _, contact := range r.contacts {
-		ai, aok := r.tigToIdx[contact.a]
+	for pair, contact := range r.contacts {
+		ai, aok := r.tigToIdx[pair.a]
 		if !aok {
 			continue
 		}
-		bi, bok := r.tigToIdx[contact.b]
+		bi, bok := r.tigToIdx[pair.b]
 		if !bok {
 			continue
 		}
