@@ -331,18 +331,3 @@ func (r *CLMFile) M() [][]int {
 	}
 	return P
 }
-
-// O yields a pairwise orientation matrix, where each cell contains the strandedness
-// times the number of links between i-th and j-th contig
-func (r *CLMFile) O() [][]int {
-	N := len(r.Tigs)
-	P := Make2DSlice(N, N)
-	for _, contact := range r.contacts {
-		ai := contact.ai
-		bi := contact.bi
-		score := contact.strandedness * contact.nlinks
-		P[ai][bi] = score
-		P[bi][ai] = score
-	}
-	return P
-}
