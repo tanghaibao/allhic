@@ -1,3 +1,12 @@
+/**
+ * Filename: /Users/htang/code/allhic/main.go
+ * Path: /Users/htang/code/allhic
+ * Created Date: Wednesday, January 3rd 2018, 11:21:45 am
+ * Author: htang
+ *
+ * Copyright (c) 2018 Haibao Tang
+ */
+
 package main
 
 import (

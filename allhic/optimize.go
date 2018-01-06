@@ -51,5 +51,5 @@ func (r *CLMFile) PrintTour(fwtour *os.File, tour Tour, label string) {
 	for i := 0; i < tour.Len(); i++ {
 		atoms[i] = r.Tigs[tour.Tigs[i].Idx].Name
 	}
-	fwtour.WriteString(strings.Join(atoms, " "))
+	fwtour.WriteString(strings.Join(atoms, " ") + "\n")
 }
