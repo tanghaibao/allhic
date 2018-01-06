@@ -149,6 +149,15 @@ func Make2DSlice(m, n int) [][]int {
 	return P
 }
 
+// Make2DGArraySlice allocates a 2D matrix with shape (m, n)
+func Make2DGArraySlice(m, n int) [][]GArray {
+	P := make([][]GArray, m)
+	for i := 0; i < m; i++ {
+		P[i] = make([]GArray, n)
+	}
+	return P
+}
+
 // Make3DSlice allocates a 3D matrix with shape (m, n, o)
 func Make3DSlice(m, n, o int) [][][]int {
 	P := make([][][]int, m)

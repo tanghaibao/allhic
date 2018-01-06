@@ -10,6 +10,7 @@
 package allhic
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -50,11 +51,12 @@ func (r *CLMFile) OptimizeOrdering(fwtour *os.File, phase int) {
 	gaTour := GARun(r.Tour, 100, 2000, .2)
 	r.Tour = gaTour
 	r.pruneTour()
-	r.PrintTour(fwtour, r.Tour, "GA"+string(phase))
+	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("GA%d", phase))
 }
 
 // OptimizeOrientations changes the orientations of contigs by using heuristic flipping algorithms.
 func (r *CLMFile) OptimizeOrientations(fwtour *os.File, phase int) {
+	r.flipWhole()
 }
 
 // PrintTour logs the current tour to file

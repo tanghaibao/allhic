@@ -11,7 +11,6 @@ package allhic
 
 import (
 	"bufio"
-	"fmt"
 	"math"
 	"os"
 	"path"
@@ -118,7 +117,7 @@ func (r *CLMFile) ParseIds() {
 		r.tigToIdx[tig] = idx
 		idx++
 	}
-	fmt.Println(r.Tigs)
+	// fmt.Println(r.Tigs)
 }
 
 // rr map orientations to bit ('+' => '-', '-' => '+')
@@ -225,15 +224,19 @@ func (r *CLMFile) pruneBySize() {
 
 // pruneTour test deleting each contig and check the delta_score
 func (r *CLMFile) pruneTour() {
-	var wg sync.WaitGroup
-	tour := r.Tour
+	var (
+		wg            sync.WaitGroup
+		tour, newTour Tour
+	)
+
+	tour = r.Tour
 	for {
 		tourScore := -tour.Evaluate()
 		log.Noticef("Starting score: %.5f", tourScore)
 		log10ds := make([]float64, tour.Len()) // Each entry is the log10 of diff
 
 		for i := 0; i < tour.Len(); i++ {
-			newTour := tour.Clone().(Tour)
+			newTour = tour.Clone().(Tour)
 			copy(newTour.Tigs[i:], newTour.Tigs[i+1:]) // Delete element at i
 			newTour.Tigs = newTour.Tigs[:newTour.Len()-1]
 
@@ -270,6 +273,13 @@ func (r *CLMFile) pruneTour() {
 			break
 		}
 
+		newTour.Tigs = newTour.Tigs[:0]
+		for _, tig := range tour.Tigs {
+			if r.Tigs[tig.Idx].IsActive {
+				newTour.Tigs = append(newTour.Tigs, tig)
+			}
+		}
+		r.Tour = newTour
 		r.reportActive()
 	}
 }

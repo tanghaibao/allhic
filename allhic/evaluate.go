@@ -86,8 +86,8 @@ func (r Tour) Evaluate() (score float64) {
 
 	// Now add up all the pairwise scores
 	for i := 0; i < size; i++ {
+		a := r.Tigs[i].Idx
 		for j := i + 1; j < size; j++ {
-			a := r.Tigs[i].Idx
 			b := r.Tigs[j].Idx
 			nlinks := r.M[a][b]
 			dist := mid[j] - mid[i]
