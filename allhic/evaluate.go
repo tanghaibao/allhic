@@ -201,7 +201,6 @@ func (r Tour) Shuffle() {
 // GARun set up the Genetic Algorithm and run it
 func GARun(tour Tour, npop, ngen int, mutrate float64) Tour {
 	MakeTour := func(rng *rand.Rand) gago.Genome {
-		tour.Shuffle()
 		c := tour.Clone()
 		return c
 	}

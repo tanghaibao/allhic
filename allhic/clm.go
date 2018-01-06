@@ -285,7 +285,7 @@ func (r *CLMFile) pruneTour() {
 // - "hotstart": This is useful when there was a past run, with a given
 //    tourfile. In this case, the active contig list and orientations are
 //    derived from the last tour in the file.
-func (r *CLMFile) Activate() {
+func (r *CLMFile) Activate(shuffle bool) {
 	r.reportActive()
 	r.pruneByDensity()
 	r.pruneBySize()
@@ -296,8 +296,11 @@ func (r *CLMFile) Activate() {
 			r.Tour.Tigs = append(r.Tour.Tigs, Tig{tig.Idx, tig.Size})
 		}
 	}
+
 	r.Tour.M = r.M()
-	return
+	if shuffle {
+		r.Tour.Shuffle()
+	}
 }
 
 // reportActive prints number and total length of active contigs

@@ -26,15 +26,16 @@ func (r *Optimizer) Run() {
 	fwtour, _ := os.Create(tourfile)
 	defer fwtour.Close()
 
-	clm.Activate()
+	shuffle := true
+	clm.Activate(shuffle)
 	clm.OptimizeOrdering(fwtour)
 	clm.OptimizeOrientations(fwtour)
 }
 
 // OptimizeOrdering changes the ordering of contigs by Genetic Algorithm
 func (r *CLMFile) OptimizeOrdering(fwtour *os.File) {
-	// gaTour := GARun(r.Tour, 100, 2000, .2)
-	// r.Tour = gaTour
+	gaTour := GARun(r.Tour, 100, 2000, .2)
+	r.Tour = gaTour
 	r.pruneTour()
 	r.PrintTour(fwtour, r.Tour, "test")
 }
