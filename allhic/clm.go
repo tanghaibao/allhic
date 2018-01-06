@@ -230,34 +230,51 @@ func (r *CLMFile) pruneBySize() {
 // pruneTour test deleting each contig and check the delta_score
 func (r *CLMFile) pruneTour(tour Tour) {
 	var wg sync.WaitGroup
-	// for {
-	tourScore := -tour.Evaluate()
-	log.Noticef("Starting score: %.5f", tourScore)
-	log10ds := make([]float64, tour.Len()) // Each entry is the log10 of diff
+	for {
+		tourScore := -tour.Evaluate()
+		log.Noticef("Starting score: %.5f", tourScore)
+		log10ds := make([]float64, tour.Len()) // Each entry is the log10 of diff
 
-	for i := 0; i < tour.Len(); i++ {
-		newTour := tour.Clone().(Tour)
-		copy(newTour.Tigs[i:], newTour.Tigs[i+1:]) // Delete element at i
-		newTour.Tigs = newTour.Tigs[:newTour.Len()-1]
+		for i := 0; i < tour.Len(); i++ {
+			newTour := tour.Clone().(Tour)
+			copy(newTour.Tigs[i:], newTour.Tigs[i+1:]) // Delete element at i
+			newTour.Tigs = newTour.Tigs[:newTour.Len()-1]
 
-		wg.Add(1)
-		go func(idx int, newTour Tour) {
-			defer wg.Done()
-			newTourScore := -newTour.Evaluate()
-			deltaScore := tourScore - newTourScore
-			// log.Noticef("In goroutine %v, newTour = %v, newTourScore = %v, deltaScore = %v",
-			// 	idx, newTour.Tigs, newTourScore, deltaScore)
-			if deltaScore > 1e-9 {
-				log10ds[idx] = math.Log10(deltaScore)
-			} else {
-				log10ds[idx] = -9.0
+			wg.Add(1)
+			go func(idx int, newTour Tour) {
+				defer wg.Done()
+				newTourScore := -newTour.Evaluate()
+				deltaScore := tourScore - newTourScore
+				// log.Noticef("In goroutine %v, newTour = %v, newTourScore = %v, deltaScore = %v",
+				// 	idx, newTour.Tigs, newTourScore, deltaScore)
+				if deltaScore > 1e-9 {
+					log10ds[idx] = math.Log10(deltaScore)
+				} else {
+					log10ds[idx] = -9.0
+				}
+			}(i, newTour)
+		}
+		// Wait for all workers to finish
+		wg.Wait()
+		fmt.Println(log10ds)
+
+		// Identify outliers
+		lb, ub := OutlierCutoff(log10ds)
+		log.Noticef("Log10(delta_score) ~ [%.5f, %.5f]", lb, ub)
+
+		remove := false
+		for i := 0; i < len(r.Tigs); i++ {
+			if log10ds[i] < lb {
+				r.Tigs[i].IsActive = false
+				remove = true
 			}
-		}(i, newTour)
+		}
+		if !remove {
+			break
+		}
+
+		r.reportActive()
 	}
-	// Wait for all workers to finish
-	wg.Wait()
-	fmt.Println(log10ds)
-	// }
 }
 
 // Activate selects active contigs in the current partition. This is the setup phase of the
