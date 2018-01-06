@@ -10,8 +10,6 @@
 package allhic
 
 import (
-	"fmt"
-
 	"github.com/gonum/matrix/mat64"
 )
 
@@ -31,8 +29,7 @@ func (r *CLMFile) flipAll() []byte {
 	e.Factorize(r.O(), true)
 	M.EigenvectorsSym(&e)
 	v := M.ColView(N - 1) // v is the eigenvec corresponding to the largest eigenval
-	fmt.Printf("%0.4v\n\n", e.Values(nil))
-	fmt.Printf("%0.2v\n\n", mat64.Formatted(v))
+	// fmt.Printf("%0.2v\n\n", mat64.Formatted(v))
 
 	signs := make([]byte, N)
 	for i := 0; i < N; i++ {
@@ -42,7 +39,9 @@ func (r *CLMFile) flipAll() []byte {
 			signs[i] = '+'
 		}
 	}
-	fmt.Println(signs)
+	r.Signs = signs
+	log.Notice("Eigenvector calculated on pairwise orientation matrix")
+
 	return signs
 }
 
@@ -67,7 +66,7 @@ func (r *CLMFile) Q() [][][]int {
 	for pair, gdists := range r.orientedContacts {
 		ai := pair.ai
 		bi := pair.bi
-		if r.signs[ai] == pair.ao && r.signs[bi] == pair.bo {
+		if r.Signs[ai] == pair.ao && r.Signs[bi] == pair.bo {
 			P[ai][bi] = gdists[:]
 		}
 	}

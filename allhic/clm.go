@@ -36,7 +36,7 @@ type CLMFile struct {
 	Idsfile          string
 	Tigs             []TigF
 	Tour             Tour
-	signs            []byte
+	Signs            []byte
 	tigToIdx         map[string]int          // From name of the tig to the idx of the Tigs array
 	contacts         map[Pair]Contact        // (tigA, tigB) => {strandedness, nlinks, meanDist}
 	orientedContacts map[OrientedPair]GArray // (tigA, tigB, oriA, oriB) => golden array i.e. exponential histogram
@@ -253,7 +253,7 @@ func (r *CLMFile) pruneTour() {
 		}
 		// Wait for all workers to finish
 		wg.Wait()
-		fmt.Println(log10ds)
+		// fmt.Println(log10ds)
 
 		// Identify outliers
 		lb, ub := OutlierCutoff(log10ds)
@@ -301,6 +301,7 @@ func (r *CLMFile) Activate(shuffle bool) {
 	if shuffle {
 		r.Tour.Shuffle()
 	}
+	r.flipAll() // Initialize with the signs of the tigs
 }
 
 // reportActive prints number and total length of active contigs

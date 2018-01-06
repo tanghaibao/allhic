@@ -19,6 +19,9 @@ import (
 	logging "github.com/op/go-logging"
 )
 
+// version is the current version tag of ALLHIC
+const version = "ALLHIC 0.8.1"
+
 // main is the entrypoint for the entire program, routes to commands
 func main() {
 	usage := `ALLHIC: genome scaffolding based on Hi-C data
@@ -55,13 +58,13 @@ algorithm, there is an optimization goal here. The LACHESIS algorithm is
 a hierarchical clustering algorithm using average links.
 
 Usage:
-    allhic partition <bamfile>
+    allhic partition <bamfile> [options]
 
 Options:
     --help       Show this screen.
     --version    Show version.`
 
-	args, _ := docopt.Parse(usage, nil, true, "ALLHIC 0.8.1", false)
+	args, _ := docopt.Parse(usage, nil, true, version, false)
 	fmt.Println(args)
 	p := allhic.Partitioner{"tests/prunning.sub.bam"}
 	p.CountLinks()
@@ -77,14 +80,16 @@ clmfile, reconstruct the highest scoring ordering and orientations
 for these contigs.
 
 Usage:
-    allhic optimize <clmfile>
+    allhic optimize <clmfile> [options]
 
 Options:
-    --help       Show this screen.
-    --version    Show version.`
+	--help       Show this screen
+	--version    Show version
+	--skipGA     Skip GA step`
 
-	args, _ := docopt.Parse(usage, nil, true, "ALLHIC 0.8.1", false)
+	args, _ := docopt.Parse(usage, nil, true, version, false)
 	fmt.Println(args)
-	p := allhic.Optimizer{args["<clmfile>"].(string)}
+	runGA := !(args["--skipGA"].(bool))
+	p := allhic.Optimizer{args["<clmfile>"].(string), runGA}
 	p.Run()
 }
