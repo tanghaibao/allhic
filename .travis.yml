@@ -1,0 +1,10 @@
+language: go
+
+os:
+    - linux
+
+go:
+    - 1.9
+
+script:
+    bash functional-tests.sh
