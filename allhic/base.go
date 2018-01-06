@@ -148,3 +148,15 @@ func Make2DSlice(m, n int) [][]int {
 	}
 	return P
 }
+
+// Make3DSlice allocates a 3D matrix with shape (m, n, o)
+func Make3DSlice(m, n, o int) [][][]int {
+	P := make([][][]int, m)
+	for i := 0; i < m; i++ {
+		P[i] = make([][]int, n)
+		for j := 0; j < n; j++ {
+			P[i][j] = make([]int, o)
+		}
+	}
+	return P
+}

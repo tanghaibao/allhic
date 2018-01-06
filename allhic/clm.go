@@ -36,6 +36,7 @@ type CLMFile struct {
 	Idsfile          string
 	Tigs             []TigF
 	Tour             Tour
+	signs            []byte
 	tigToIdx         map[string]int          // From name of the tig to the idx of the Tigs array
 	contacts         map[Pair]Contact        // (tigA, tigB) => {strandedness, nlinks, meanDist}
 	orientedContacts map[OrientedPair]GArray // (tigA, tigB, oriA, oriB) => golden array i.e. exponential histogram
@@ -43,22 +44,20 @@ type CLMFile struct {
 
 // Pair contains two contigs in contact
 type Pair struct {
-	a string
-	b string
+	ai int
+	bi int
 }
 
 // OrientedPair contains two contigs and their orientations
 type OrientedPair struct {
-	a  string
-	b  string
+	ai int
+	bi int
 	ao byte
 	bo byte
 }
 
 // Contact stores how many links between two contigs
 type Contact struct {
-	ai           int
-	bi           int
 	strandedness int
 	nlinks       int
 	meanDist     int
@@ -168,8 +167,8 @@ func (r *CLMFile) ParseClm() {
 		if ao != bo {
 			strandedness = -1
 		}
-		pair := Pair{at, bt}
-		c := Contact{ai, bi, strandedness, nlinks, meanDist}
+		pair := Pair{ai, bi}
+		c := Contact{strandedness, nlinks, meanDist}
 		if p, ok := r.contacts[pair]; ok {
 			if p.meanDist > meanDist {
 				r.contacts[pair] = c
@@ -177,8 +176,8 @@ func (r *CLMFile) ParseClm() {
 		} else {
 			r.contacts[pair] = c
 		}
-		r.orientedContacts[OrientedPair{at, bt, ao, bo}] = gdists
-		r.orientedContacts[OrientedPair{bt, at, rr(bo), rr(ao)}] = gdists
+		r.orientedContacts[OrientedPair{ai, bi, ao, bo}] = gdists
+		r.orientedContacts[OrientedPair{bi, ai, rr(bo), rr(ao)}] = gdists
 	}
 	// fmt.Println(r.orientedContacts)
 }
@@ -189,11 +188,9 @@ func (r *CLMFile) ParseClm() {
 func (r *CLMFile) calculateDensities() []float64 {
 	N := len(r.Tigs)
 	densities := make([]int, N)
-	for _, contact := range r.contacts {
-		ai := contact.ai
-		bi := contact.bi
-		densities[ai] += contact.nlinks
-		densities[bi] += contact.nlinks
+	for pair, contact := range r.contacts {
+		densities[pair.ai] += contact.nlinks
+		densities[pair.bi] += contact.nlinks
 	}
 
 	logdensities := make([]float64, N)
@@ -209,8 +206,6 @@ func (r *CLMFile) calculateDensities() []float64 {
 func (r *CLMFile) pruneByDensity() {
 	logdensities := r.calculateDensities()
 	lb, ub := OutlierCutoff(logdensities)
-	// fmt.Println(logdensities)
-
 	log.Noticef("Log10(link_densities) ~ [%.5f, %.5f]", lb, ub)
 	for i, tig := range r.Tigs {
 		if logdensities[i] < lb && tig.Size < MINSIZE*10 {
@@ -323,9 +318,9 @@ func (r *CLMFile) reportActive() {
 func (r *CLMFile) M() [][]int {
 	N := len(r.Tigs)
 	P := Make2DSlice(N, N)
-	for _, contact := range r.contacts {
-		ai := contact.ai
-		bi := contact.bi
+	for pair, contact := range r.contacts {
+		ai := pair.ai
+		bi := pair.bi
 		P[ai][bi] = contact.nlinks
 		P[bi][ai] = contact.nlinks
 	}
