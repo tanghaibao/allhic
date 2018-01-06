@@ -35,6 +35,7 @@ type CLMFile struct {
 	Clmfile          string
 	Idsfile          string
 	Tigs             []TigF
+	Tour             Tour
 	tigToIdx         map[string]int          // From name of the tig to the idx of the Tigs array
 	contacts         map[Pair]Contact        // (tigA, tigB) => {strandedness, nlinks, meanDist}
 	orientedContacts map[OrientedPair]GArray // (tigA, tigB, oriA, oriB) => golden array i.e. exponential histogram
@@ -228,8 +229,9 @@ func (r *CLMFile) pruneBySize() {
 }
 
 // pruneTour test deleting each contig and check the delta_score
-func (r *CLMFile) pruneTour(tour Tour) {
+func (r *CLMFile) pruneTour() {
 	var wg sync.WaitGroup
+	tour := r.Tour
 	for {
 		tourScore := -tour.Evaluate()
 		log.Noticef("Starting score: %.5f", tourScore)
@@ -288,7 +290,7 @@ func (r *CLMFile) pruneTour(tour Tour) {
 // - "hotstart": This is useful when there was a past run, with a given
 //    tourfile. In this case, the active contig list and orientations are
 //    derived from the last tour in the file.
-func (r *CLMFile) Activate() (tour Tour) {
+func (r *CLMFile) Activate() {
 	r.reportActive()
 	r.pruneByDensity()
 	r.pruneBySize()
@@ -296,10 +298,10 @@ func (r *CLMFile) Activate() (tour Tour) {
 
 	for _, tig := range r.Tigs {
 		if tig.IsActive {
-			tour.Tigs = append(tour.Tigs, Tig{tig.Idx, tig.Size})
+			r.Tour.Tigs = append(r.Tour.Tigs, Tig{tig.Idx, tig.Size})
 		}
 	}
-	tour.M = r.M()
+	r.Tour.M = r.M()
 	return
 }
 
@@ -320,17 +322,27 @@ func (r *CLMFile) reportActive() {
 // links between i-th and j-th contig
 func (r *CLMFile) M() [][]int {
 	N := len(r.Tigs)
-	P := make([][]int, N)
-	for i := 0; i < N; i++ {
-		P[i] = make([]int, N)
-	}
-
+	P := Make2DSlice(N, N)
 	for _, contact := range r.contacts {
 		ai := contact.ai
 		bi := contact.bi
 		P[ai][bi] = contact.nlinks
 		P[bi][ai] = contact.nlinks
 	}
+	return P
+}
 
+// O yields a pairwise orientation matrix, where each cell contains the strandedness
+// times the number of links between i-th and j-th contig
+func (r *CLMFile) O() [][]int {
+	N := len(r.Tigs)
+	P := Make2DSlice(N, N)
+	for _, contact := range r.contacts {
+		ai := contact.ai
+		bi := contact.bi
+		score := contact.strandedness * contact.nlinks
+		P[ai][bi] = score
+		P[bi][ai] = score
+	}
 	return P
 }

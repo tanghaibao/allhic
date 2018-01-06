@@ -139,3 +139,12 @@ func OutlierCutoff(a []float64) (float64, float64) {
 	C := OUTLIERTHRESHOLD / .67449 * MAD
 	return M - C, M + C
 }
+
+// Make2DSlice allocates a 2D matrix with shape (m, n)
+func Make2DSlice(m, n int) [][]int {
+	P := make([][]int, m)
+	for i := 0; i < m; i++ {
+		P[i] = make([]int, n)
+	}
+	return P
+}
