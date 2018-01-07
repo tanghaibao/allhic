@@ -15,6 +15,12 @@ import (
 	"github.com/gonum/matrix/mat64"
 )
 
+// ACCEPT tag show to accept orientation flip
+const ACCEPT = "ACCEPT"
+
+// REJECT tag show to reject orientation flip
+const REJECT = "REJECT"
+
 // flipLog briefly logs if the orientation flip is informative
 func flipLog(method string, score, scoreFlipped float64, tag string) {
 	log.Noticef("%v: %.5f => %.5f %v", method, score, scoreFlipped, tag)
@@ -46,10 +52,60 @@ func (r *CLMFile) flipAll() {
 }
 
 // flipWhole test flipping all contigs at the same time to see if score improves
-func (r *CLMFile) flipWhole() {
-	Q := r.Q()
-	score := r.EvaluateQ(r.Tour, Q)
-	fmt.Println(score)
+func (r *CLMFile) flipWhole() (tag string) {
+	var oldSigns []byte
+	copy(oldSigns, r.Signs)
+	score := r.EvaluateQ()
+
+	// Flip all the tigs
+	for i, s := range r.Signs {
+		r.Signs[i] = rr(s)
+	}
+	newScore := r.EvaluateQ()
+	tag = ACCEPT
+	if newScore < score {
+		copy(r.Signs, oldSigns) // Recover
+		tag = REJECT
+	}
+	flipLog("FLIPWHOLE", score, newScore, tag)
+	return
+}
+
+// flipOne test flipping every single contig sequentially to see if score improves
+func (r *CLMFile) flipOne() (tag string) {
+	nAccepts := 0
+	nRejects := 0
+	anyTagACCEPT := false
+	score := r.EvaluateQ()
+	for i, t := range r.Tour.Tigs {
+		if i == 0 {
+			continue
+		}
+		idx := t.Idx
+		r.Signs[idx] = rr(r.Signs[idx])
+		newScore := r.EvaluateQ()
+		if newScore > score {
+			nAccepts++
+			tag = ACCEPT
+		} else {
+			r.Signs[idx] = rr(r.Signs[idx]) // Recover
+			nRejects++
+			tag = REJECT
+		}
+		flipLog(fmt.Sprintf("FLIPONE (%d/%d)", i+1, r.Tour.Len()),
+			score, newScore, tag)
+		if tag == ACCEPT {
+			anyTagACCEPT = true
+			score = newScore
+		}
+	}
+	log.Noticef("FLIPONE: N_accepts=%d N_rejects=%d", nAccepts, nRejects)
+	if anyTagACCEPT {
+		tag = ACCEPT
+	} else {
+		tag = REJECT
+	}
+	return
 }
 
 // O yields a pairwise orientation matrix, where each cell contains the strandedness
@@ -70,6 +126,11 @@ func (r *CLMFile) O() *mat64.SymDense {
 func (r *CLMFile) Q() [][]GArray {
 	N := len(r.Tigs)
 	P := Make2DGArraySlice(N, N)
+	for i := 0; i < N; i++ {
+		for j := 0; j < N; j++ {
+			P[i][j][0] = -1 // Sentinel to signal that there is no entry
+		}
+	}
 	for pair, gdists := range r.orientedContacts {
 		ai := pair.ai
 		bi := pair.bi
@@ -84,11 +145,14 @@ func (r *CLMFile) Q() [][]GArray {
 // plus the actual link distances. Maximize Sum(1 / distance) for all links.
 // For performance consideration, we actually use a histogram to approximate
 // all link distances. See goldenArray() for details.
-func (r *CLMFile) EvaluateQ(tour Tour, Q [][]GArray) (score float64) {
+func (r *CLMFile) EvaluateQ() (score float64) {
+	tour := r.Tour
+	Q := r.Q()
+
 	size := tour.Len()
 	cumsize := make([]int, size)
 	cumSum := 0
-	for i, t := range r.Tour.Tigs {
+	for i, t := range tour.Tigs {
 		cumsize[i] = cumSum
 		cumSum += t.Size
 	}
@@ -99,6 +163,9 @@ func (r *CLMFile) EvaluateQ(tour Tour, Q [][]GArray) (score float64) {
 		a := tour.Tigs[i].Idx
 		for j := i + 1; j < size; j++ {
 			b := tour.Tigs[j].Idx
+			if Q[a][b][0] == -1 {
+				continue // Entire GArray is empty
+			}
 			dist := cumsize[j-1] - cumsize[i]
 			if dist > LIMIT {
 				break

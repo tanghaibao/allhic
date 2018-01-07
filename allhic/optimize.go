@@ -56,7 +56,11 @@ func (r *CLMFile) OptimizeOrdering(fwtour *os.File, phase int) {
 
 // OptimizeOrientations changes the orientations of contigs by using heuristic flipping algorithms.
 func (r *CLMFile) OptimizeOrientations(fwtour *os.File, phase int) {
-	r.flipWhole()
+	tag1 := r.flipWhole()
+	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("FLIPWHOLE%d", phase))
+	tag2 := r.flipOne()
+	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("FLIPONE%d", phase))
+	fmt.Println(tag1, tag2)
 }
 
 // PrintTour logs the current tour to file
