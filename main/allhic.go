@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tanghaibao/allhic"
+	".."
 	"github.com/docopt/docopt-go"
 	logging "github.com/op/go-logging"
 )

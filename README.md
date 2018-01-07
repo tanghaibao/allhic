@@ -1,4 +1,4 @@
-# ALLHIC Genome scaffolding based on HiC data
+# ALLHIC: Genome scaffolding based on HiC data
 
 [![Travis-CI](https://travis-ci.org/tanghaibao/allhic.svg?branch=master)](https://travis-ci.org/tanghaibao/allhic)
 
@@ -27,7 +27,7 @@ LACHESIS algorithm is a hierarchical clustering algorithm using
 average links.
 
 ```bash
-allhic partition tests/prunning.sub.bam
+allhic partition tests/test.bam
 ```
 
 ### Optimize
