@@ -53,7 +53,7 @@ func (r *CLMFile) flipAll() {
 
 // flipWhole test flipping all contigs at the same time to see if score improves
 func (r *CLMFile) flipWhole() (tag string) {
-	var oldSigns []byte
+	oldSigns := make([]byte, len(r.Signs))
 	copy(oldSigns, r.Signs)
 	score := r.EvaluateQ()
 
@@ -78,9 +78,6 @@ func (r *CLMFile) flipOne() (tag string) {
 	anyTagACCEPT := false
 	score := r.EvaluateQ()
 	for i, t := range r.Tour.Tigs {
-		if i == 0 {
-			continue
-		}
 		idx := t.Idx
 		r.Signs[idx] = rr(r.Signs[idx])
 		newScore := r.EvaluateQ()

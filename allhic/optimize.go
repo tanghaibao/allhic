@@ -41,8 +41,11 @@ func (r *Optimizer) Run() {
 	}
 
 	for phase := 1; ; phase++ {
-		clm.OptimizeOrientations(fwtour, phase)
-		break
+		tag1, tag2 := clm.OptimizeOrientations(fwtour, phase)
+		if tag1 == REJECT && tag2 == REJECT {
+			log.Noticef("Terminating ... no more %v", ACCEPT)
+			break
+		}
 	}
 }
 
@@ -55,12 +58,12 @@ func (r *CLMFile) OptimizeOrdering(fwtour *os.File, phase int) {
 }
 
 // OptimizeOrientations changes the orientations of contigs by using heuristic flipping algorithms.
-func (r *CLMFile) OptimizeOrientations(fwtour *os.File, phase int) {
+func (r *CLMFile) OptimizeOrientations(fwtour *os.File, phase int) (string, string) {
 	tag1 := r.flipWhole()
 	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("FLIPWHOLE%d", phase))
 	tag2 := r.flipOne()
 	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("FLIPONE%d", phase))
-	fmt.Println(tag1, tag2)
+	return tag1, tag2
 }
 
 // PrintTour logs the current tour to file
