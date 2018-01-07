@@ -17,8 +17,10 @@ import (
 
 // Optimizer runs the order-and-orientation procedure, given a clmfile
 type Optimizer struct {
-	Clmfile string
-	RunGA   bool
+	Clmfile   string
+	RunGA     bool
+	MutProb   float64
+	CrossProb float64
 }
 
 // Run kicks off the Optimizer
@@ -36,7 +38,7 @@ func (r *Optimizer) Run() {
 
 	if r.RunGA {
 		for phase := 1; phase < 3; phase++ {
-			clm.OptimizeOrdering(fwtour, phase)
+			clm.OptimizeOrdering(fwtour, phase, r.MutProb, r.CrossProb)
 		}
 	}
 
@@ -51,8 +53,8 @@ func (r *Optimizer) Run() {
 }
 
 // OptimizeOrdering changes the ordering of contigs by Genetic Algorithm
-func (r *CLMFile) OptimizeOrdering(fwtour *os.File, phase int) {
-	r.GARun(fwtour, 100, 5000, .2, .7, phase)
+func (r *CLMFile) OptimizeOrdering(fwtour *os.File, phase int, mutpb, cxpb float64) {
+	r.GARun(fwtour, 100, 5000, mutpb, cxpb, phase)
 	r.pruneTour()
 }
 

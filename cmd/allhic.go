@@ -12,6 +12,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	".."
 	"github.com/docopt/docopt-go"
@@ -80,10 +81,14 @@ Usage:
 Options:
 	--help       Show this screen
 	--version    Show version
-	--skipGA     Skip GA step`
+	--skipGA     Skip GA step
+	--mutpb=p    Mutation prob in GA [default: 0.2]
+	--cxpb=p     Crossover prob in GA [default: 0.7]`
 
 	args, _ := docopt.Parse(usage, nil, true, allhic.Version, false)
 	runGA := !(args["--skipGA"].(bool))
-	p := allhic.Optimizer{args["<clmfile>"].(string), runGA}
+	mutpb, _ := strconv.ParseFloat(args["--mutpb"].(string), 64)
+	cxpb, _ := strconv.ParseFloat(args["--cxpb"].(string), 64)
+	p := allhic.Optimizer{args["<clmfile>"].(string), runGA, mutpb, cxpb}
 	p.Run()
 }

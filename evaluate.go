@@ -15,7 +15,7 @@ import (
 	"os"
 	"sort"
 
-	"../gago"
+	"github.com/tanghaibao/gago"
 )
 
 // LIMIT determines the largest distance for two tigs to add to total score
