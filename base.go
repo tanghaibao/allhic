@@ -13,14 +13,15 @@ import (
 	"math"
 	"os"
 	"path"
+	"sort"
 	"strings"
 
 	logging "github.com/op/go-logging"
 )
 
 const (
-    // Version is the current version of ALLHIC
-    Version = "0.8.1"
+	// Version is the current version of ALLHIC
+	Version = "0.8.1"
 	// LB is lower bound for GoldenArray
 	LB = 18
 	// UB is upper bound for GoldenArray
@@ -49,7 +50,7 @@ var GR = [...]int{5778, 9349, 15127, 24476,
 
 var log = logging.MustGetLogger("allhic")
 var format = logging.MustStringFormatter(
-	`%{color}%{time:15:04:05} %{shortfunc} ▶ %{level:.4s} %{color:reset} %{message}`,
+	`%{color}%{time:15:04:05} %{shortfunc} | %{level:.6s} %{color:reset} %{message}`,
 )
 
 // Backend is the default stderr output
@@ -121,6 +122,7 @@ func min(a, b int) int {
 
 // median gets the median value of an array
 func median(numbers []float64) float64 {
+	sort.Float64s(numbers)
 	middle := len(numbers) / 2
 	result := numbers[middle]
 	if len(numbers)%2 == 0 {

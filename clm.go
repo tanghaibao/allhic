@@ -238,8 +238,8 @@ func (r *CLMFile) pruneTour() {
 		tour, newTour Tour
 	)
 
-	tour = r.Tour
-	for {
+	for phase := 1; phase < 3; phase++ {
+		tour = r.Tour
 		tourScore := -tour.Evaluate()
 		log.Noticef("Starting score: %.5f", tourScore)
 		log10ds := make([]float64, tour.Len()) // Each entry is the log10 of diff
@@ -278,11 +278,12 @@ func (r *CLMFile) pruneTour() {
 				invalid++
 			}
 		}
-		log.Noticef("Inactivated %d tigs with log10ds < %.5f",
-			invalid, lb)
 
 		if invalid == 0 {
 			break
+		} else {
+			log.Noticef("Inactivated %d tigs with log10ds < %.5f",
+				invalid, lb)
 		}
 
 		newTour.Tigs = newTour.Tigs[:0]
