@@ -11,7 +11,6 @@ package allhic
 
 import (
 	"bufio"
-	"fmt"
 	"math"
 	"os"
 	"path"
@@ -214,8 +213,10 @@ func (r *CLMFile) pruneByDensity() {
 			invalid++
 		}
 	}
-	log.Noticef("Inactivated %d tigs with log10_density < %.5f",
-		invalid, lb)
+	if invalid > 0 {
+		log.Noticef("Inactivated %d tigs with log10_density < %.5f",
+			invalid, lb)
+	}
 }
 
 // pruneBySize selects active contigs based on size
@@ -227,8 +228,10 @@ func (r *CLMFile) pruneBySize() {
 			invalid++
 		}
 	}
-	log.Noticef("Inactivated %d tigs with size < %d",
-		invalid, MINSIZE)
+	if invalid > 0 {
+		log.Noticef("Inactivated %d tigs with size < %d",
+			invalid, MINSIZE)
+	}
 }
 
 // pruneTour test deleting each contig and check the delta_score
@@ -238,7 +241,7 @@ func (r *CLMFile) pruneTour() {
 		tour, newTour Tour
 	)
 
-	for phase := 1; phase < 3; phase++ {
+	for {
 		tour = r.Tour
 		tourScore := -tour.Evaluate()
 		log.Noticef("Starting score: %.5f", tourScore)
@@ -265,7 +268,7 @@ func (r *CLMFile) pruneTour() {
 		}
 		// Wait for all workers to finish
 		wg.Wait()
-		fmt.Println(log10ds)
+		//fmt.Println(log10ds)
 
 		// Identify outliers
 		lb, ub := OutlierCutoff(log10ds)
@@ -311,7 +314,7 @@ func (r *CLMFile) pruneTour() {
 func (r *CLMFile) Activate(shuffle bool) {
 	r.reportActive()
 	r.pruneByDensity()
-	r.pruneBySize()
+	//r.pruneBySize()
 	r.reportActive()
 
 	for _, tig := range r.Tigs {
