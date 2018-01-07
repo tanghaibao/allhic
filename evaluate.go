@@ -15,7 +15,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/MaxHalford/gago"
+	"../gago"
 )
 
 // LIMIT determines the largest distance for two tigs to add to total score
@@ -200,7 +200,7 @@ func (r Tour) Shuffle() {
 }
 
 // GARun set up the Genetic Algorithm and run it
-func (r *CLMFile) GARun(fwtour *os.File, npop, ngen int, mutrate float64, phase int) Tour {
+func (r *CLMFile) GARun(fwtour *os.File, npop, ngen int, mutRate, crossRate float64, phase int) Tour {
 	MakeTour := func(rng *rand.Rand) gago.Genome {
 		c := r.Tour.Clone()
 		return c
@@ -214,13 +214,15 @@ func (r *CLMFile) GARun(fwtour *os.File, npop, ngen int, mutrate float64, phase 
 			Selector: gago.SelTournament{
 				NContestants: 3,
 			},
-			MutRate: mutrate,
+			MutRate:   mutRate,
+			CrossRate: crossRate,
 		},
 		ParallelEval: true,
 	}
 	ga.Initialize()
 
-	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.3f)", npop, ngen, mutrate)
+	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.3f, cx: %.3f)",
+		npop, ngen, mutRate, crossRate)
 
 	gen := 1
 	best := 0.0
