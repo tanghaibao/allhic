@@ -12,6 +12,7 @@ package allhic
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"sort"
 
 	"github.com/MaxHalford/gago"
@@ -199,9 +200,9 @@ func (r Tour) Shuffle() {
 }
 
 // GARun set up the Genetic Algorithm and run it
-func GARun(tour Tour, npop, ngen int, mutrate float64) Tour {
+func (r *CLMFile) GARun(fwtour *os.File, npop, ngen int, mutrate float64, phase int) Tour {
 	MakeTour := func(rng *rand.Rand) gago.Genome {
-		c := tour.Clone()
+		c := r.Tour.Clone()
 		return c
 	}
 
@@ -228,7 +229,11 @@ func GARun(tour Tour, npop, ngen int, mutrate float64) Tour {
 		ga.Evolve()
 		currentBest := -ga.HallOfFame[0].Fitness
 		if gen%npop == 0 {
-			fmt.Printf("Current iteration %v: max_score=%.5f\n", gen, currentBest)
+			fmt.Printf("Current iteration GA%d-%d: max_score=%.5f\n",
+				phase, gen, currentBest)
+			currentBestTour := ga.HallOfFame[0].Genome.(Tour)
+			r.PrintTour(fwtour, currentBestTour, fmt.Sprintf("GA%d-%d-%.5f",
+				phase, gen, currentBest))
 		}
 
 		if currentBest > best {
@@ -240,5 +245,6 @@ func GARun(tour Tour, npop, ngen int, mutrate float64) Tour {
 			break
 		}
 	}
-	return ga.HallOfFame[0].Genome.(Tour)
+	r.Tour = ga.HallOfFame[0].Genome.(Tour)
+	return r.Tour
 }

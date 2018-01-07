@@ -51,8 +51,7 @@ func (r *Optimizer) Run() {
 
 // OptimizeOrdering changes the ordering of contigs by Genetic Algorithm
 func (r *CLMFile) OptimizeOrdering(fwtour *os.File, phase int) {
-	gaTour := GARun(r.Tour, 100, 2000, .2)
-	r.Tour = gaTour
+	r.GARun(fwtour, 100, 2000, .2, phase)
 	r.pruneTour()
 	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("GA%d", phase))
 }

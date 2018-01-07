@@ -7,4 +7,4 @@ set -uo pipefail
 
 go build -o main_test main.go
 
-./main_test optimize
+./main_test optimize tests/test.clm
