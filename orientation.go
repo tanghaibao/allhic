@@ -27,11 +27,15 @@ func flipLog(method string, score, scoreFlipped float64, tag string) {
 }
 
 // flipAll initializes the orientations based on pairwise O matrix.
-func (r *CLMFile) flipAll() {
+func (r *CLMFile) flipAll() (tag string) {
 	var (
 		M mat64.Dense
 		e mat64.EigenSym
 	)
+
+	oldSigns := make([]byte, len(r.Signs))
+	copy(oldSigns, r.Signs)
+	score := r.EvaluateQ()
 
 	N := len(r.Tigs)
 	e.Factorize(r.O(), true)
@@ -48,7 +52,14 @@ func (r *CLMFile) flipAll() {
 		}
 	}
 	r.Signs = signs
-	log.Notice("Eigenvector calculated on pairwise orientation matrix")
+	newScore := r.EvaluateQ()
+	tag = ACCEPT
+	if newScore < score {
+		copy(r.Signs, oldSigns) // Recover
+		tag = REJECT
+	}
+	flipLog("FLIPALL", score, newScore, tag)
+	return
 }
 
 // flipWhole test flipping all contigs at the same time to see if score improves

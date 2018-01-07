@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"bufio"
+	"fmt"
 	"math"
 	"os"
 	"path"
@@ -169,7 +170,7 @@ func (r *CLMFile) ParseClm() {
 		pair := Pair{ai, bi}
 		c := Contact{strandedness, nlinks, meanDist}
 		if p, ok := r.contacts[pair]; ok {
-			if p.meanDist > meanDist {
+			if p.meanDist < meanDist {
 				r.contacts[pair] = c
 			}
 		} else {
@@ -191,6 +192,7 @@ func (r *CLMFile) calculateDensities() []float64 {
 		densities[pair.ai] += contact.nlinks
 		densities[pair.bi] += contact.nlinks
 	}
+	fmt.Println(densities)
 
 	logdensities := make([]float64, N)
 	for i, tig := range r.Tigs {
@@ -326,6 +328,10 @@ func (r *CLMFile) Activate(shuffle bool) {
 	r.Tour.M = r.M()
 	if shuffle {
 		r.Tour.Shuffle()
+	}
+	r.Signs = make([]byte, r.Tour.Len())
+	for i := 0; i < r.Tour.Len(); i++ {
+		r.Signs[i] = '+'
 	}
 	r.flipAll() // Initialize with the signs of the tigs
 }
