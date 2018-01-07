@@ -65,9 +65,8 @@ Options:
     --version    Show version.`
 
 	args, _ := docopt.Parse(usage, nil, true, version, false)
-	fmt.Println(args)
-	p := allhic.Partitioner{"tests/prunning.sub.bam"}
-	p.CountLinks()
+	p := allhic.Partitioner{args["<bamfile>"].(string)}
+	p.Run()
 }
 
 // optimizeMain is the entrypoint for optimize
@@ -88,7 +87,6 @@ Options:
 	--skipGA     Skip GA step`
 
 	args, _ := docopt.Parse(usage, nil, true, version, false)
-	fmt.Println(args)
 	runGA := !(args["--skipGA"].(bool))
 	p := allhic.Optimizer{args["<clmfile>"].(string), runGA}
 	p.Run()

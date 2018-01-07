@@ -47,6 +47,7 @@ func (r *Optimizer) Run() {
 			break
 		}
 	}
+	log.Notice("Success")
 }
 
 // OptimizeOrdering changes the ordering of contigs by Genetic Algorithm

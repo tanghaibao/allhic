@@ -22,18 +22,17 @@ type Partitioner struct {
 	Bamfile string
 }
 
-// CountLinks provides the method to count the links
-func (r Partitioner) CountLinks() {
-	fh, err := os.Open(r.Bamfile)
-	log.Noticef("Parse bamfile `%s`", r.Bamfile)
-	if err != nil {
-		panic(err)
-	}
+// Run is the main function body of partition
+func (r *Partitioner) Run() {
+	r.CountLinks()
+	log.Notice("Success")
+}
 
-	br, err := bam.NewReader(fh, 0)
-	if err != nil {
-		panic(err)
-	}
+// CountLinks provides the method to count the links
+func (r *Partitioner) CountLinks() {
+	fh, _ := os.Open(r.Bamfile)
+	log.Noticef("Parse bamfile `%s`", r.Bamfile)
+	br, _ := bam.NewReader(fh, 0)
 	defer br.Close()
 
 	for _, rg := range br.Header().RGs() {
