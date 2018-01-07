@@ -36,6 +36,10 @@ Given a set of Hi-C contacts between contigs, as specified in the
 clmfile, reconstruct the highest scoring ordering and orientations
 for these contigs.
 
+Optimize uses Genetic Algorithm (GA) to search for the best scoring solution.
+
+![ga](tests/test-movie.gif)
+
 ```bash
 allhic optimize tests/test.clm
 ```
