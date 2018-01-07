@@ -121,8 +121,12 @@ func min(a, b int) int {
 }
 
 // median gets the median value of an array
-func median(numbers []float64) float64 {
+func median(s []float64) float64 {
+	// Make a sorted copy
+	numbers := make([]float64, len(s))
+	copy(numbers, s)
 	sort.Float64s(numbers)
+
 	middle := len(numbers) / 2
 	result := numbers[middle]
 	if len(numbers)%2 == 0 {

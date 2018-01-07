@@ -228,7 +228,7 @@ func (r *CLMFile) GARun(fwtour *os.File, npop, ngen int, mutrate float64, phase 
 	for ; ; gen++ {
 		ga.Evolve()
 		currentBest := -ga.HallOfFame[0].Fitness
-		if gen%npop == 0 {
+		if gen%(ngen/10) == 0 {
 			fmt.Printf("Current iteration GA%d-%d: max_score=%.5f\n",
 				phase, gen, currentBest)
 			currentBestTour := ga.HallOfFame[0].Genome.(Tour)
