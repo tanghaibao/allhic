@@ -54,7 +54,6 @@ func (r *Optimizer) Run() {
 func (r *CLMFile) OptimizeOrdering(fwtour *os.File, phase int) {
 	r.GARun(fwtour, 100, 2000, .2, phase)
 	r.pruneTour()
-	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("GA%d", phase))
 }
 
 // OptimizeOrientations changes the orientations of contigs by using heuristic flipping algorithms.

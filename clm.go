@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"bufio"
+	"fmt"
 	"math"
 	"os"
 	"path"
@@ -206,20 +207,28 @@ func (r *CLMFile) pruneByDensity() {
 	logdensities := r.calculateDensities()
 	lb, ub := OutlierCutoff(logdensities)
 	log.Noticef("Log10(link_densities) ~ [%.5f, %.5f]", lb, ub)
+	invalid := 0
 	for i, tig := range r.Tigs {
 		if logdensities[i] < lb && tig.Size < MINSIZE*10 {
-			tig.IsActive = false
+			r.Tigs[i].IsActive = false
+			invalid++
 		}
 	}
+	log.Noticef("Inactivated %d tigs with log10_density < %.5f",
+		invalid, lb)
 }
 
 // pruneBySize selects active contigs based on size
 func (r *CLMFile) pruneBySize() {
-	for _, tig := range r.Tigs {
+	invalid := 0
+	for i, tig := range r.Tigs {
 		if tig.Size < MINSIZE {
-			tig.IsActive = false
+			r.Tigs[i].IsActive = false
+			invalid++
 		}
 	}
+	log.Noticef("Inactivated %d tigs with size < %d",
+		invalid, MINSIZE)
 }
 
 // pruneTour test deleting each contig and check the delta_score
@@ -256,20 +265,23 @@ func (r *CLMFile) pruneTour() {
 		}
 		// Wait for all workers to finish
 		wg.Wait()
-		// fmt.Println(log10ds)
+		fmt.Println(log10ds)
 
 		// Identify outliers
 		lb, ub := OutlierCutoff(log10ds)
 		log.Noticef("Log10(delta_score) ~ [%.5f, %.5f]", lb, ub)
 
-		remove := false
-		for i := 0; i < len(r.Tigs); i++ {
+		invalid := 0
+		for i, tig := range tour.Tigs {
 			if log10ds[i] < lb {
-				r.Tigs[i].IsActive = false
-				remove = true
+				r.Tigs[tig.Idx].IsActive = false
+				invalid++
 			}
 		}
-		if !remove {
+		log.Noticef("Inactivated %d tigs with log10ds < %.5f",
+			invalid, lb)
+
+		if invalid == 0 {
 			break
 		}
 
@@ -324,7 +336,7 @@ func (r *CLMFile) reportActive() {
 			sumLength += tig.Size
 		}
 	}
-	log.Noticef("Active contigs: %d (length=%d)", activeCounts, sumLength)
+	log.Noticef("Active tigs: %d (length=%d)", activeCounts, sumLength)
 }
 
 // M yields a contact frequency matrix, where each cell contains how many
