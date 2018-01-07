@@ -13,14 +13,10 @@ import (
 	"fmt"
 	"os"
 
-	"./allhic"
-
+	"github.com/tanghaibao/allhic"
 	"github.com/docopt/docopt-go"
 	logging "github.com/op/go-logging"
 )
-
-// version is the current version tag of ALLHIC
-const version = "ALLHIC 0.8.1"
 
 // main is the entrypoint for the entire program, routes to commands
 func main() {
@@ -64,7 +60,7 @@ Options:
     --help       Show this screen.
     --version    Show version.`
 
-	args, _ := docopt.Parse(usage, nil, true, version, false)
+	args, _ := docopt.Parse(usage, nil, true, allhic.Version, false)
 	p := allhic.Partitioner{args["<bamfile>"].(string)}
 	p.Run()
 }
@@ -86,7 +82,7 @@ Options:
 	--version    Show version
 	--skipGA     Skip GA step`
 
-	args, _ := docopt.Parse(usage, nil, true, version, false)
+	args, _ := docopt.Parse(usage, nil, true, allhic.Version, false)
 	runGA := !(args["--skipGA"].(bool))
 	p := allhic.Optimizer{args["<clmfile>"].(string), runGA}
 	p.Run()

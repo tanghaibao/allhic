@@ -4,6 +4,18 @@
 
 **This software is currently under active development. DO NOT USE.**
 
+## Installation
+
+The easiest way to install allhic is to download the latest binary from
+the [releases](https://github.com/tanghaibao/allhic/releases) and make sure to
+`chmod +x` the resulting binary.
+
+If you are using [go](https://github.com/golang/go), you can build from source with:
+```
+go get -u github.com/tanghaibao/allhic/...
+go install github.com/tanghaibao/allhic/main/allhic
+```
+
 ## Usage
 
 ### Partition
