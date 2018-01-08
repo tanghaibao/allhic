@@ -197,38 +197,54 @@ func (r *CLMFile) ParseClm() {
 // calculateDensities calculated the density of inter-contig links per base.
 // Strong contigs are considered to have high level of inter-contig links in the current
 // partition.
-func (r *CLMFile) calculateDensities() []float64 {
+func (r *CLMFile) calculateDensities() ([]float64, []int) {
 	N := len(r.Tigs)
 	densities := make([]int, N)
 	for pair, contact := range r.contacts {
-		densities[pair.ai] += contact.nlinks
-		densities[pair.bi] += contact.nlinks
+		ai := pair.ai
+		bi := pair.bi
+		if r.Tigs[ai].IsActive && r.Tigs[bi].IsActive {
+			densities[ai] += contact.nlinks
+			densities[bi] += contact.nlinks
+		}
 	}
 
-	logdensities := make([]float64, N)
+	activeCounts, _ := r.reportActive(false)
+	logdensities := make([]float64, activeCounts)
+	active := make([]int, activeCounts)
+	idx := 0
 	for i, tig := range r.Tigs {
-		d := float64(densities[i])
-		s := float64(min(tig.Size, 500000))
-		logdensities[i] = math.Log10(d / s)
+		if tig.IsActive {
+			d := float64(densities[i])
+			s := float64(min(tig.Size, 500000))
+			logdensities[idx] = math.Log10(d / s)
+			active[idx] = tig.Idx
+			idx++
+		}
 	}
-	return logdensities
+	return logdensities, active
 }
 
 // pruneByDensity selects active contigs based on logdensities
 func (r *CLMFile) pruneByDensity() {
-	logdensities := r.calculateDensities()
-	lb, ub := OutlierCutoff(logdensities)
-	log.Noticef("Log10(link_densities) ~ [%.5f, %.5f]", lb, ub)
-	invalid := 0
-	for i, tig := range r.Tigs {
-		if logdensities[i] < lb && tig.Size < MINSIZE*10 {
-			r.Tigs[i].IsActive = false
-			invalid++
+	for {
+		logdensities, active := r.calculateDensities()
+		lb, ub := OutlierCutoff(logdensities)
+		log.Noticef("Log10(link_densities) ~ [%.5f, %.5f]", lb, ub)
+		invalid := 0
+		for i, idx := range active {
+			tig := r.Tigs[idx]
+			if logdensities[i] < lb && tig.Size < MINSIZE*10 {
+				r.Tigs[idx].IsActive = false
+				invalid++
+			}
 		}
-	}
-	if invalid > 0 {
-		log.Noticef("Inactivated %d tigs with log10_density < %.5f",
-			invalid, lb)
+		if invalid > 0 {
+			log.Noticef("Inactivated %d tigs with log10_density < %.5f",
+				invalid, lb)
+		} else {
+			break
+		}
 	}
 }
 
@@ -302,14 +318,16 @@ func (r *CLMFile) pruneTour() {
 				invalid, lb)
 		}
 
-		newTour.Tigs = newTour.Tigs[:0]
+		activeCounts, _ := r.reportActive(true)
+		newTour.Tigs = make([]Tig, activeCounts)
+		idx := 0
 		for _, tig := range tour.Tigs {
 			if r.Tigs[tig.Idx].IsActive {
-				newTour.Tigs = append(newTour.Tigs, tig)
+				newTour.Tigs[idx] = tig
+				idx++
 			}
 		}
 		r.Tour = newTour
-		r.reportActive()
 	}
 }
 
@@ -325,14 +343,18 @@ func (r *CLMFile) pruneTour() {
 //    tourfile. In this case, the active contig list and orientations are
 //    derived from the last tour in the file.
 func (r *CLMFile) Activate(shuffle bool) {
-	r.reportActive()
+	N := len(r.Tigs)
+	r.reportActive(true)
 	r.pruneByDensity()
 	//r.pruneBySize()
-	r.reportActive()
+	activeCounts, _ := r.reportActive(true)
 
+	r.Tour.Tigs = make([]Tig, activeCounts)
+	idx := 0
 	for _, tig := range r.Tigs {
 		if tig.IsActive {
-			r.Tour.Tigs = append(r.Tour.Tigs, Tig{tig.Idx, tig.Size})
+			r.Tour.Tigs[idx] = Tig{tig.Idx, tig.Size}
+			idx++
 		}
 	}
 
@@ -340,24 +362,26 @@ func (r *CLMFile) Activate(shuffle bool) {
 	if shuffle {
 		r.Tour.Shuffle()
 	}
-	r.Signs = make([]byte, r.Tour.Len())
-	for i := 0; i < r.Tour.Len(); i++ {
+	r.Signs = make([]byte, N)
+	for i := 0; i < N; i++ {
 		r.Signs[i] = '+'
 	}
 	r.flipAll() // Initialize with the signs of the tigs
 }
 
 // reportActive prints number and total length of active contigs
-func (r *CLMFile) reportActive() {
-	activeCounts := 0
-	sumLength := 0
+func (r *CLMFile) reportActive(verbose bool) (activeCounts, sumLength int) {
 	for _, tig := range r.Tigs {
 		if tig.IsActive {
 			activeCounts++
 			sumLength += tig.Size
 		}
 	}
-	log.Noticef("Active tigs: %d (length=%d)", activeCounts, sumLength)
+
+	if verbose {
+		log.Noticef("Active tigs: %d (length=%d)", activeCounts, sumLength)
+	}
+	return
 }
 
 // M yields a contact frequency matrix, where each cell contains how many
