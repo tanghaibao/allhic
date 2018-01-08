@@ -18,6 +18,10 @@ go install github.com/tanghaibao/allhic/main/allhic
 
 ## Usage
 
+### Prune
+
+Prune bamfile to remove weak links. WIP.
+
 ### Partition
 
 Given a target `k`, number of partitions, the goal of the partitioning
@@ -43,3 +47,7 @@ Optimize uses Genetic Algorithm (GA) to search for the best scoring solution.
 ```bash
 allhic optimize tests/test.clm
 ```
+
+### Build
+
+Build genome release. WIP.

@@ -10,85 +10,107 @@
 package main
 
 import (
-	"fmt"
 	"os"
-	"strconv"
+	"time"
 
 	".."
-	"github.com/docopt/docopt-go"
 	logging "github.com/op/go-logging"
+	"github.com/urfave/cli"
 )
 
 // main is the entrypoint for the entire program, routes to commands
 func main() {
-	usage := `ALLHIC: genome scaffolding based on Hi-C data
-
-Usage:
-  allhic partition [options] <bamfile>
-  allhic optimize [options] <clmfile>`
-
 	logging.SetBackend(allhic.BackendFormatter)
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, usage)
-		return
-	}
 
-	command := os.Args[1]
-	if command == "partition" {
-		partitionMain()
-	} else if command == "optimize" {
-		optimizeMain()
-	} else {
-		fmt.Fprintln(os.Stderr, usage)
-		return
-	}
-}
+	app := cli.NewApp()
+	app.Compiled = time.Now()
+	app.Copyright = "(c) Haibao Tang 2017-2018"
+	app.Name = "ALLHIC"
+	app.Usage = "Genome scaffolding based on Hi-C data"
+	app.Version = allhic.Version
 
-// partitionMain is the entrypoint for partition
-func partitionMain() {
-	usage := `ALLHIC: genome scaffolding based on Hi-C data
+	app.Commands = []cli.Command{
+		{
+			Name:  "prune",
+			Usage: "Prune bamfile to remove weak links",
+			Action: func(c *cli.Context) error {
+				return nil
+			},
+		},
+		{
+			Name:  "partition",
+			Usage: "Separate bamfile into k groups",
+			UsageText: `
+	allhic optimize <bamfile> [options]
 
 Partition function:
 Given a target k, number of partitions, the goal of the partitioning is to
 separate all the contigs into separate clusters. As with all clustering
 algorithm, there is an optimization goal here. The LACHESIS algorithm is
 a hierarchical clustering algorithm using average links.
+`,
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) < 1 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify bamfile", 1)
+				}
 
-Usage:
-    allhic partition <bamfile> [options]
-
-Options:
-    --help       Show this screen.
-    --version    Show version.`
-
-	args, _ := docopt.Parse(usage, nil, true, allhic.Version, false)
-	p := allhic.Partitioner{args["<bamfile>"].(string)}
-	p.Run()
-}
-
-// optimizeMain is the entrypoint for optimize
-func optimizeMain() {
-	usage := `ALLHIC: genome scaffolding based on Hi-C data
+				bamfile := c.Args().Get(0)
+				p := allhic.Partitioner{bamfile}
+				p.Run()
+				return nil
+			},
+		},
+		{
+			Name:  "optimize",
+			Usage: "Order-and-orient tigs in a group",
+			UsageText: `
+	allhic optimize <clmfile> [options]
 
 Optimize function:
 Given a set of Hi-C contacts between contigs, as specified in the
 clmfile, reconstruct the highest scoring ordering and orientations
 for these contigs.
+`,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "skipGA",
+					Usage: "Skip GA step",
+				},
+				cli.Float64Flag{
+					Name:  "mutpb",
+					Usage: "Mutation prob in GA",
+					Value: .2,
+				},
+				cli.Float64Flag{
+					Name:  "cxpb",
+					Usage: "Crossover prob in GA",
+					Value: .7,
+				},
+			},
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) < 1 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify clmfile", 1)
+				}
 
-Usage:
-    allhic optimize <clmfile> [options]
+				clmfile := c.Args().Get(0)
+				runGA := !c.Bool("skipGA")
+				mutpb := c.Float64("mutpb")
+				cxpb := c.Float64("cxpb")
+				p := allhic.Optimizer{clmfile, runGA, mutpb, cxpb}
+				p.Run()
+				return nil
+			},
+		},
+		{
+			Name:  "build",
+			Usage: "Build genome release",
+			Action: func(c *cli.Context) error {
+				return nil
+			},
+		},
+	}
 
-Options:
-	--help       Show this screen
-	--version    Show version
-	--skipGA     Skip GA step
-	--mutpb=p    Mutation prob in GA [default: 0.2]
-	--cxpb=p     Crossover prob in GA [default: 0.7]`
-
-	args, _ := docopt.Parse(usage, nil, true, allhic.Version, false)
-	runGA := !(args["--skipGA"].(bool))
-	mutpb, _ := strconv.ParseFloat(args["--mutpb"].(string), 64)
-	cxpb, _ := strconv.ParseFloat(args["--cxpb"].(string), 64)
-	p := allhic.Optimizer{args["<clmfile>"].(string), runGA, mutpb, cxpb}
-	p.Run()
+	app.Run(os.Args)
 }
