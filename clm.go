@@ -11,7 +11,7 @@ package allhic
 
 import (
 	"bufio"
-	"fmt"
+	"io"
 	"math"
 	"os"
 	"path"
@@ -133,9 +133,13 @@ func rr(b byte) byte {
 func (r *CLMFile) ParseClm() {
 	file, _ := os.Open(r.Clmfile)
 	log.Noticef("Parse clmfile `%s`", r.Clmfile)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		row := strings.TrimSpace(scanner.Text())
+	reader := bufio.NewReader(file)
+	for {
+		row, err := reader.ReadString('\n')
+		row = strings.TrimSpace(row)
+		if row == "" && err == io.EOF {
+			break
+		}
 		words := strings.Split(row, "\t")
 		abtig := strings.Split(words[0], " ")
 		atig, btig := abtig[0], abtig[1]
@@ -159,6 +163,9 @@ func (r *CLMFile) ParseClm() {
 			d, _ := strconv.Atoi(dist)
 			dists = append(dists, d)
 		}
+		if nlinks != len(dists) {
+			log.Errorf("Malformed line: %v", row)
+		}
 
 		// Store all these info in contacts
 		gdists := GoldenArray(dists)
@@ -170,7 +177,7 @@ func (r *CLMFile) ParseClm() {
 		pair := Pair{ai, bi}
 		c := Contact{strandedness, nlinks, meanDist}
 		if p, ok := r.contacts[pair]; ok {
-			if p.meanDist < meanDist {
+			if meanDist < p.meanDist {
 				r.contacts[pair] = c
 			}
 		} else {
@@ -178,6 +185,11 @@ func (r *CLMFile) ParseClm() {
 		}
 		r.orientedContacts[OrientedPair{ai, bi, ao, bo}] = gdists
 		r.orientedContacts[OrientedPair{bi, ai, rr(bo), rr(ao)}] = gdists
+
+		// ReadString encounters an error, usually io.EOF
+		if err != nil {
+			break
+		}
 	}
 	// fmt.Println(r.orientedContacts)
 }
@@ -192,7 +204,6 @@ func (r *CLMFile) calculateDensities() []float64 {
 		densities[pair.ai] += contact.nlinks
 		densities[pair.bi] += contact.nlinks
 	}
-	fmt.Println(densities)
 
 	logdensities := make([]float64, N)
 	for i, tig := range r.Tigs {
