@@ -12,8 +12,8 @@ the [releases](https://github.com/tanghaibao/allhic/releases) and make sure to
 
 If you are using [go](https://github.com/golang/go), you can build from source with:
 ```
-go get -u github.com/tanghaibao/allhic/...
-go install github.com/tanghaibao/allhic/main/allhic
+go get -u -t -v github.com/tanghaibao/allhic/...
+go install github.com/tanghaibao/allhic/cmd/allhic
 ```
 
 ## Usage
