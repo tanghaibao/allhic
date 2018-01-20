@@ -11,10 +11,10 @@ package allhic
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/biogo/hts/bam"
-	"github.com/biogo/hts/sam"
 )
 
 // Partitioner converts the bamfile into a matrix of link counts
@@ -24,18 +24,40 @@ type Partitioner struct {
 
 // Run is the main function body of partition
 func (r *Partitioner) Run() {
-	r.CountLinks()
+	counts := r.CountLinks()
+	fmt.Println(counts)
 	log.Notice("Success")
 }
 
 // CountLinks provides the method to count the links
-func (r *Partitioner) CountLinks() {
+func (r *Partitioner) CountLinks() [][]int {
 	fh, _ := os.Open(r.Bamfile)
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
 	defer br.Close()
 
-	for _, rg := range br.Header().RGs() {
-		fmt.Println(rg.Get(sam.Tag([2]byte{'S', 'M'})))
+	tigToIdx := make(map[string]int)
+	for i, ref := range br.Header().Refs() {
+		tigToIdx[ref.Name()] = i
 	}
+
+	N := len(tigToIdx)
+	C := Make2DSlice(N, N)
+	log.Noticef("Initiating matrix of size %d x %d", N, N)
+	// Collect all links in a 2D matrix
+	for {
+		rec, err := br.Read()
+		if err != nil {
+			if err != io.EOF {
+				log.Error(err)
+			}
+			break
+		}
+		ai := tigToIdx[rec.Ref.Name()]
+		bi := tigToIdx[rec.MateRef.Name()]
+		// fmt.Println(rec.Ref.Name(), rec.MateRef.Name())
+		C[ai][bi]++
+		C[bi][ai]++
+	}
+	return C
 }
