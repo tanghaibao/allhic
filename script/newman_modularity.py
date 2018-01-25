@@ -36,6 +36,7 @@ def partition(G):
     k = A.sum(axis=0)
     m = k.sum() / 2
     n = len(k)
+    print "A total of {} nodes".format(n)
     k = np.resize(k, (n, 1)).astype(np.float)
     B = A - np.dot(k, k.T) / (2 * m)
     #print B.sum(axis=0)  # Make sure this is almost all zero
@@ -43,8 +44,29 @@ def partition(G):
     # Only interested in the largest eigenvector
     #evals_large, evecs_large = eigh(B, eigvals=(N - 1, N - 1))
     w, v = eigh(B)
-    print w[-1]
-    print v[-1]
+    z = np.argmax(w)
+    print "Largest eigenvalue:", w[z]
+    s = np.sign(v[:, z])
+    print "Q: ", evaluate(s, n, m, B)
+
+    # Fine-tuning - iteratively modify the partition of s_i
+    for i in xrange(n):
+        orig_score = evaluate(s, n, m, B)
+        s[i] = -s[i]
+        new_score = evaluate(s, n, m, B)
+        if new_score <= orig_score:
+            print "REJECTED: Q = {}, Q' = {}".format(orig_score, new_score)
+            s[i] = -s[i]
+        else:
+            print "ACCEPTED: Q = {}, Q' = {}".format(orig_score, new_score)
+
+
+def evaluate(s, n, m, B):
+    """ Calculate Q
+    """
+    ps = np.resize(s, (n, 1))
+    Q = np.dot(np.dot(ps.T, B), ps) / (4 * m)
+    return Q[0][0]
 
 
 def main():
