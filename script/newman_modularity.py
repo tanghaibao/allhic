@@ -6,11 +6,11 @@ Newman. (2006) Modularity and community structure in networks.
 """
 
 
+import sys
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
-#from scipy.linalg import eigh
 from numpy.linalg import eigh
 
 
@@ -79,16 +79,16 @@ def evaluate(s, n, m, B):
     return Q[0][0]
 
 
-def main():
+def main(arg):
     """ Main entry
     """
-    fp = open("karate/out.ucidata-zachary")
+    fp = open(arg)
     G = nx.Graph()
     for row in fp:
         if row[0] == '%': # Comments
             continue
         a, b = row.split()
-        a, b = int(a), int(b)
+        #a, b = int(a), int(b)
         G.add_edge(a, b)
 
     print G.edges()
@@ -103,4 +103,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) != 2:
+        print >> sys.stderr, "Usage:"
+        print >> sys.stderr, "\t{} karate/out.ucidata-zachary".format(sys.argv[0])
+        print >> sys.stderr, "\t{} rice/out".format(sys.argv[0])
+        sys.exit(1)
+
+    main(sys.argv[1])
