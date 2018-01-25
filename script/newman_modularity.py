@@ -36,8 +36,8 @@ def partition(G):
     k = A.sum(axis=0)
     m = k.sum() / 2
     n = len(k)
-    print "A total of {} nodes".format(n)
-    k = np.resize(k, (n, 1)).astype(np.float)
+    print "A total of {} nodes and {} edges".format(n, m)
+    k = np.resize(k, (n, 1)).astype(np.float64)
     B = A - np.dot(k, k.T) / (2 * m)
     #print B.sum(axis=0)  # Make sure this is almost all zero
     print B
@@ -47,18 +47,28 @@ def partition(G):
     z = np.argmax(w)
     print "Largest eigenvalue:", w[z]
     s = np.sign(v[:, z])
-    print "Q: ", evaluate(s, n, m, B)
+    orig_score = evaluate(s, n, m, B)
+    print "Q:", orig_score
 
     # Fine-tuning - iteratively modify the partition of s_i
-    for i in xrange(n):
-        orig_score = evaluate(s, n, m, B)
-        s[i] = -s[i]
-        new_score = evaluate(s, n, m, B)
-        if new_score <= orig_score:
-            print "REJECTED: Q = {}, Q' = {}".format(orig_score, new_score)
+    seen = set()
+    while True:
+        ans = []
+        for i in xrange(n):
             s[i] = -s[i]
+            new_score = evaluate(s, n, m, B)
+            ans.append((new_score, i))
+            s[i] = -s[i]
+
+        best_score, best_i = max(ans)
+        if best_score > orig_score and i not in seen:
+            print "ACCEPTED: Q = {}, Q' = {}".format(orig_score, best_score)
+            s[best_i] = -s[best_i]
+            seen.add(best_i)
         else:
-            print "ACCEPTED: Q = {}, Q' = {}".format(orig_score, new_score)
+            break
+    print s
+    return s
 
 
 def evaluate(s, n, m, B):
@@ -82,11 +92,14 @@ def main():
         G.add_edge(a, b)
 
     print G.edges()
-    partition(G)
+    s = partition(G)
     pos = nx.spring_layout(G)
     nx.draw(G, pos, node_color=range(G.number_of_nodes()),
             cmap=plt.cm.Blues)
     plt.savefig("graph.png")
+    plt.gca().clear()
+    nx.draw(G, pos, node_color=s, cmap=plt.cm.jet)
+    plt.savefig("graph.partitioned.png")
 
 
 if __name__ == '__main__':
