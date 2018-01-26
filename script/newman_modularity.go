@@ -344,5 +344,11 @@ func main() {
 	g := ParseGraph(os.Args[1])
 	// fmt.Println(g)
 	ans := NewmanPartition(g)
-	fmt.Println(ans)
+	for i, a := range ans {
+		var b []string
+		for _, ia := range a {
+			b = append(b, g.nodes[ia])
+		}
+		fmt.Println("Group", i, ":", b)
+	}
 }
