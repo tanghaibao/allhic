@@ -55,19 +55,22 @@ def partition(G):
     while True:
         ans = []
         for i in xrange(n):
+            if i in seen:
+                continue
             s[i] = -s[i]
             new_score = evaluate(s, n, m, B)
             ans.append((new_score, i))
             s[i] = -s[i]
 
         best_score, best_i = max(ans)
-        if best_score > orig_score and i not in seen:
+        if best_score > orig_score:
             print "ACCEPTED: Q = {}, Q' = {}".format(orig_score, best_score)
             s[best_i] = -s[best_i]
             seen.add(best_i)
+            orig_score = best_score
         else:
             break
-    print s
+
     return s
 
 
@@ -87,12 +90,18 @@ def main(arg):
     for row in fp:
         if row[0] == '%': # Comments
             continue
-        a, b = row.split()
-        #a, b = int(a), int(b)
-        G.add_edge(a, b)
+        if len(row.split()) == 2:
+            a, b = row.split()
+            G.add_edge(a, b)
+        else:
+            a, b, w = row.split()
+            w = int(w)
+            G.add_edge(a, b, weight=w)
 
     print G.edges()
     s = partition(G)
+    for node, part in zip(G.nodes(), s):
+        print node, part
     pos = nx.spring_layout(G)
     nx.draw(G, pos, node_color=range(G.number_of_nodes()),
             cmap=plt.cm.Blues)
