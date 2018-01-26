@@ -62,10 +62,10 @@ func (r *Partitioner) CountLinks() [][]int {
 	}
 
 	// Write the edge list
-	for i, a := range C {
-		for j, b := range a {
-			if b != 0 {
-				fmt.Printf("%s\t%s\t%d\n", refs[i].Name(), refs[j].Name(), b)
+	for i := 0; i < N; i++ {
+		for j := i + 1; j < N; j++ {
+			if C[i][j] != 0 {
+				fmt.Printf("%s\t%s\t%d\n", refs[i].Name(), refs[j].Name(), C[i][j])
 			}
 		}
 	}
