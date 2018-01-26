@@ -115,6 +115,32 @@ func ParseGraph(filename string) Graph {
 	return g
 }
 
+// NewmanSubPartition further split a partition into smaller parts
+// B* = B_ij - d_ij * Sum_k belongs to g B_ik
+// d_ij is the Kronecker delta function: d_ij = 0 when i != j, 1 otherwise
+func NewmanSubPartition(g Graph, B *mat64.SymDense, selected []int) {
+	n := len(selected)
+	// B*: modularity matrix for partition G only
+	C := mat64.NewSymDense(n, nil)
+	// Map the original idx to the index within this partition
+	index := make(map[int]int)
+	for i, idx := range selected {
+		index[idx] = i
+	}
+	for i := 0; i < n; i++ {
+		Cii := 0.0
+		for j := 0; j < n; j++ {
+			if i == j {
+				continue
+			}
+			b := B.At(selected[i], selected[j])
+			C.SetSym(i, j, b)
+			Cii -= b
+		}
+		C.SetSym(i, i, Cii)
+	}
+}
+
 // NewmanPartition partitions the graph to maximize 'modularity'
 // Newman modularity inference method:
 //
@@ -154,7 +180,7 @@ func NewmanPartition(g Graph) {
 	e.Factorize(B, true)
 	M.EigenvectorsSym(&e)
 	v := M.ColView(g.n - 1) // Eigenvector corresponding to the largest eigenval
-	fmt.Printf("%0.2v\n\n", mat64.Formatted(v))
+	// fmt.Printf("%0.2v\n\n", mat64.Formatted(v))
 
 	s := make([]int, g.n)
 	for i := 0; i < g.n; i++ {
