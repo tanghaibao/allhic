@@ -24,8 +24,8 @@ type Partitioner struct {
 
 // Run is the main function body of partition
 func (r *Partitioner) Run() {
-	counts := r.CountLinks()
-	fmt.Println(counts)
+	r.CountLinks()
+	// fmt.Println(counts)
 	log.Notice("Success")
 }
 
@@ -37,7 +37,8 @@ func (r *Partitioner) CountLinks() [][]int {
 	defer br.Close()
 
 	tigToIdx := make(map[string]int)
-	for i, ref := range br.Header().Refs() {
+	refs := br.Header().Refs()
+	for i, ref := range refs {
 		tigToIdx[ref.Name()] = i
 	}
 
@@ -58,6 +59,15 @@ func (r *Partitioner) CountLinks() [][]int {
 		// fmt.Println(rec.Ref.Name(), rec.MateRef.Name())
 		C[ai][bi]++
 		C[bi][ai]++
+	}
+
+	// Write the edge list
+	for i, a := range C {
+		for j, b := range a {
+			if b != 0 {
+				fmt.Printf("%s\t%s\t%d\n", refs[i].Name(), refs[j].Name(), b)
+			}
+		}
 	}
 	return C
 }
