@@ -213,23 +213,13 @@ func RefinePartition(s []int, m, n int, B *mat64.SymDense) (float64, []int) {
 	var wg sync.WaitGroup
 
 	origScore := EvaluateQ(s, m, n, B)
-	visited := make([]bool, n)
 	for {
 		ch := make(chan Score, n)
 		for i := 0; i < n; i++ {
-			if visited[i] {
-				continue
-			}
-
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
 				newScore := EvaluateDeltaQ(s, m, n, B, i)
-				// ps := make([]int, n)
-				// copy(ps, s)
-				// ps[i] = -ps[i]
-				// newScore := EvaluateQ(ps, m, n, B) - origScore
-				// ps[i] = -ps[i]
 				ch <- Score{newScore, i}
 			}(i)
 		}
@@ -250,7 +240,6 @@ func RefinePartition(s []int, m, n int, B *mat64.SymDense) (float64, []int) {
 			log.Noticef("ACCEPTED: Q = %.5f, Q' = %.5f (flip %d)",
 				origScore, origScore+best.score, best.idx)
 			s[best.idx] = -s[best.idx]
-			visited[best.idx] = true
 			origScore += best.score
 		} else {
 			break
