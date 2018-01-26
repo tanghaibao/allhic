@@ -25,6 +25,9 @@ import (
 	logging "github.com/op/go-logging"
 )
 
+// EPS is that Q must be larger than this value
+const EPS = 1e-5
+
 var log = logging.MustGetLogger("allhic")
 var format = logging.MustStringFormatter(
 	`%{color}%{time:15:04:05} %{shortfunc} | %{level:.6s} %{color:reset} %{message}`,
@@ -119,9 +122,14 @@ func ParseGraph(filename string) Graph {
 // B* = B_ij - d_ij * Sum_k belongs to g B_ik
 // d_ij is the Kronecker delta function: d_ij = 0 when i != j, 1 otherwise
 func NewmanSubPartition(g Graph, B *mat64.SymDense, selected []int) {
+	var (
+		M mat64.Dense
+		e mat64.EigenSym
+	)
+
 	n := len(selected)
 	// B*: modularity matrix for partition G only
-	C := mat64.NewSymDense(n, nil)
+	Bs := mat64.NewSymDense(n, nil)
 	// Map the original idx to the index within this partition
 	index := make(map[int]int)
 	for i, idx := range selected {
@@ -134,11 +142,50 @@ func NewmanSubPartition(g Graph, B *mat64.SymDense, selected []int) {
 				continue
 			}
 			b := B.At(selected[i], selected[j])
-			C.SetSym(i, j, b)
+			Bs.SetSym(i, j, b)
 			Cii -= b
 		}
-		C.SetSym(i, i, Cii)
+		Bs.SetSym(i, i, Cii)
 	}
+
+	// Eigen decomposition
+	e.Factorize(Bs, true)
+	M.EigenvectorsSym(&e)
+	v := M.ColView(n - 1) // Eigenvector corresponding to the largest eigenval
+	// fmt.Printf("%0.2v\n\n", mat64.Formatted(v))
+
+	s := make([]int, n)
+	for i := 0; i < n; i++ {
+		if v.At(i, 0) < 0 {
+			s[i] = -1
+		} else {
+			s[i] = 1
+		}
+	}
+
+	// Refinement
+	score, s := RefinePartition(s, g.m, n, Bs)
+	if score > EPS {
+		log.Noticef("Final Q = %.5f", score)
+	} else {
+		log.Notice("Cannot further divide this graph")
+		return
+	}
+
+	// Get into partitions
+	var partA, partB []int
+	for i, num := range s {
+		if num > 0 {
+			partA = append(partA, selected[i])
+		} else {
+			partB = append(partB, selected[i])
+		}
+	}
+	fmt.Println(s)
+	fmt.Println(partA)
+	fmt.Println(partB)
+	NewmanSubPartition(g, B, partA)
+	NewmanSubPartition(g, B, partB)
 }
 
 // NewmanPartition partitions the graph to maximize 'modularity'
@@ -168,7 +215,7 @@ func NewmanPartition(g Graph) {
 			k[i] += g.A[i][j]
 		}
 	}
-	fmt.Println(k)
+	// fmt.Println(k)
 
 	for i := 0; i < g.n; i++ {
 		for j := i; j < g.n; j++ {
@@ -190,16 +237,30 @@ func NewmanPartition(g Graph) {
 			s[i] = 1
 		}
 	}
-	fmt.Println(s)
 
 	// Refinement
 	score, s := RefinePartition(s, g.m, g.n, B)
-	if score > 0 {
+	if score > EPS {
 		log.Noticef("Final Q = %.5f", score)
 	} else {
-		log.Criticalf("Cannot divide this graph")
+		log.Notice("Cannot further divide this graph")
+		return
+	}
+
+	// Get into partitions
+	var partA, partB []int
+	for i, num := range s {
+		if num > 0 {
+			partA = append(partA, i)
+		} else {
+			partB = append(partB, i)
+		}
 	}
 	fmt.Println(s)
+	fmt.Println(partA)
+	fmt.Println(partB)
+	NewmanSubPartition(g, B, partA)
+	NewmanSubPartition(g, B, partB)
 }
 
 // EvaluateQ calculates the Q score
