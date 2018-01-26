@@ -14,6 +14,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -35,17 +36,27 @@ var BackendFormatter = logging.NewBackendFormatter(Backend, format)
 
 // Edge represents an edge in the graph
 type Edge struct {
-	a, b   string
+	a, b   int
 	weight int
+}
+
+// Make2DSlice allocates a 2D matrix with shape (m, n)
+func Make2DSlice(m, n int) [][]int {
+	P := make([][]int, m)
+	for i := 0; i < m; i++ {
+		P[i] = make([]int, n)
+	}
+	return P
 }
 
 // ParseGraph imports a graph in its "edge list" form. Returns an adjacency matrix.
 // a b weight
-func ParseGraph(filename string) {
+func ParseGraph(filename string) [][]int {
 	file, _ := os.Open(filename)
 	reader := bufio.NewReader(file)
 	var edges []Edge
-	nodes := make(map[string]bool)
+	var nodes []string
+	nodesIdx := make(map[string]int)
 
 	for {
 		row, err := reader.ReadString('\n')
@@ -58,23 +69,41 @@ func ParseGraph(filename string) {
 		}
 		words := strings.Fields(row)
 		a, b := words[0], words[1]
-		nodes[a] = true
-		nodes[b] = true
+		ai, aok := nodesIdx[a]
+		if !aok {
+			ai = len(nodes)
+			nodesIdx[a] = ai
+			nodes = append(nodes, a)
+		}
+		bi, bok := nodesIdx[b]
+		if !bok {
+			bi = len(nodes)
+			nodesIdx[b] = bi
+			nodes = append(nodes, b)
+		}
 
 		if len(words) == 2 {
-			edges = append(edges, Edge{a, b, 1})
+			edges = append(edges, Edge{ai, bi, 1})
 		} else {
 			weight, _ := strconv.Atoi(words[2])
-			edges = append(edges, Edge{a, b, weight})
+			edges = append(edges, Edge{ai, bi, weight})
 		}
 	}
 
 	m := len(edges)
 	n := len(nodes)
 	log.Noticef("Graph contains %d nodes and %d edges", m, n)
+
+	A := Make2DSlice(n, n)
+	for _, e := range edges {
+		A[e.a][e.b] = e.weight
+		A[e.b][e.a] = e.weight
+	}
+	return A
 }
 
 func main() {
 	logging.SetBackend(BackendFormatter)
-	ParseGraph("karate/out.ucidata-zachary")
+	A := ParseGraph("karate/out.ucidata-zachary")
+	fmt.Println(A)
 }
