@@ -188,6 +188,19 @@ func EvaluateQ(s []int, m, n int, B *mat64.SymDense) float64 {
 	return ans / float64(4*m)
 }
 
+// EvaluateDeltaQ avoids recomputing the Q score
+func EvaluateDeltaQ(s []int, m, n int, B *mat64.SymDense, i int) float64 {
+	ans := 0.0
+	// We flip the partition of s[i]
+	for j := 0; j < n; j++ {
+		// - s_i * s_j + (- s_i * s_j)
+		if i != j {
+			ans -= 4 * B.At(i, j) * float64(s[i]*s[j])
+		}
+	}
+	return ans / float64(4*m)
+}
+
 // Score of a particular signs array
 type Score struct {
 	score float64
@@ -211,12 +224,13 @@ func RefinePartition(s []int, m, n int, B *mat64.SymDense) (float64, []int) {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				ps := make([]int, n)
-				copy(ps, s)
-				ps[i] = -ps[i]
-				newScore := EvaluateQ(ps, m, n, B)
+				newScore := EvaluateDeltaQ(s, m, n, B, i)
+				// ps := make([]int, n)
+				// copy(ps, s)
+				// ps[i] = -ps[i]
+				// newScore := EvaluateQ(ps, m, n, B) - origScore
+				// ps[i] = -ps[i]
 				ch <- Score{newScore, i}
-				ps[i] = -ps[i]
 			}(i)
 		}
 
@@ -232,11 +246,12 @@ func RefinePartition(s []int, m, n int, B *mat64.SymDense) (float64, []int) {
 			}
 		}
 
-		if best.score > origScore {
-			log.Noticef("ACCEPTED: Q = %.5f, Q' = %.5f", origScore, best.score)
+		if best.score > 0 {
+			log.Noticef("ACCEPTED: Q = %.5f, Q' = %.5f (flip %d)",
+				origScore, origScore+best.score, best.idx)
 			s[best.idx] = -s[best.idx]
 			visited[best.idx] = true
-			origScore = best.score
+			origScore += best.score
 		} else {
 			break
 		}
