@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from numpy.linalg import eigh
 
 
-def partition(G):
+def partition(G, refinement=True):
     """ Newman modularity inference method
 
     Q = 1/4m Sum_ij(A_ij - k_i * k_j / 2m) s_i * s_j
@@ -24,7 +24,7 @@ def partition(G):
     k_i, k_j: degree of node i, j
     s_i, s_j: partition of node i, j, either +1 or -1
 
-    We can conveniently wrtie Q in matrix form
+    We can conveniently write Q in matrix form
 
     Q = 1/4m s.T * B * s
 
@@ -50,6 +50,13 @@ def partition(G):
     orig_score = evaluate(s, n, m, B)
     print "Q:", orig_score
 
+    if orig_score <= 0:
+        print >> sys.stderr, "Cannot divide this graph"
+        return None
+
+    if not refinement:
+        return s
+
     # Fine-tuning - iteratively modify the partition of s_i
     seen = set()
     while True:
@@ -64,7 +71,7 @@ def partition(G):
 
         best_score, best_i = max(ans)
         if best_score > orig_score:
-            print "ACCEPTED: Q = {}, Q' = {}".format(orig_score, best_score)
+            print >> sys.stderr, "ACCEPTED: Q = {}, Q' = {}".format(orig_score, best_score)
             s[best_i] = -s[best_i]
             seen.add(best_i)
             orig_score = best_score
@@ -99,7 +106,7 @@ def main(arg):
             G.add_edge(a, b, weight=w)
 
     print G.edges()
-    s = partition(G)
+    s = partition(G, refinement=True)
     for node, part in zip(G.nodes(), s):
         print node, part
     pos = nx.spring_layout(G)
