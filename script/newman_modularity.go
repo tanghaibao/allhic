@@ -164,6 +164,56 @@ func NewmanPartition(g Graph) {
 		}
 	}
 	fmt.Println(signs)
+
+	// Refinement
+	signs = RefinePartition(signs, g.m, g.n, B)
+}
+
+// EvaluateQ calculates the Q score
+func EvaluateQ(s []int, m, n int, B *mat64.SymDense) float64 {
+	ans := 0.0
+	for i := 0; i < n; i++ {
+		ans += B.At(i, i)
+		for j := i + 1; j < n; j++ {
+			ans += 2 * B.At(i, j) * float64(s[i]*s[j])
+		}
+	}
+	return ans / float64(4*m)
+}
+
+// RefinePartition refines partition by testing if flipping partition for each
+// contig could increase score Q. At each iteration, the largest deltaQ is selected.
+func RefinePartition(s []int, m, n int, B *mat64.SymDense) []int {
+	origScore := EvaluateQ(s, m, n, B)
+	log.Noticef("Q = %.5f", origScore)
+
+	visited := make([]bool, n)
+	for {
+		bestScore := -1.0
+		bestIdx := -1
+		for i := 0; i < n; i++ {
+			if visited[i] {
+				continue
+			}
+			s[i] = -s[i]
+			newScore := EvaluateQ(s, m, n, B)
+			if newScore > bestScore {
+				bestScore = newScore
+				bestIdx = i
+			}
+			s[i] = -s[i]
+		}
+
+		if bestScore > origScore {
+			log.Noticef("ACCEPTED: Q = %.5f, Q' = %.5f", origScore, bestScore)
+			s[bestIdx] = -s[bestIdx]
+			visited[bestIdx] = true
+			origScore = bestScore
+		} else {
+			break
+		}
+	}
+	return s
 }
 
 func main() {
