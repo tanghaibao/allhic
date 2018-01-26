@@ -155,18 +155,24 @@ func NewmanPartition(g Graph) {
 	v := M.ColView(g.n - 1) // Eigenvector corresponding to the largest eigenval
 	fmt.Printf("%0.2v\n\n", mat64.Formatted(v))
 
-	signs := make([]int, g.n)
+	s := make([]int, g.n)
 	for i := 0; i < g.n; i++ {
 		if v.At(i, 0) < 0 {
-			signs[i] = -1
+			s[i] = -1
 		} else {
-			signs[i] = 1
+			s[i] = 1
 		}
 	}
-	fmt.Println(signs)
+	fmt.Println(s)
 
 	// Refinement
-	signs = RefinePartition(signs, g.m, g.n, B)
+	score, s := RefinePartition(s, g.m, g.n, B)
+	if score > 0 {
+		log.Noticef("Final Q = %.5f", score)
+	} else {
+		log.Criticalf("Cannot divide this graph")
+	}
+	fmt.Println(s)
 }
 
 // EvaluateQ calculates the Q score
@@ -183,10 +189,8 @@ func EvaluateQ(s []int, m, n int, B *mat64.SymDense) float64 {
 
 // RefinePartition refines partition by testing if flipping partition for each
 // contig could increase score Q. At each iteration, the largest deltaQ is selected.
-func RefinePartition(s []int, m, n int, B *mat64.SymDense) []int {
+func RefinePartition(s []int, m, n int, B *mat64.SymDense) (float64, []int) {
 	origScore := EvaluateQ(s, m, n, B)
-	log.Noticef("Q = %.5f", origScore)
-
 	visited := make([]bool, n)
 	for {
 		bestScore := -1.0
@@ -213,7 +217,8 @@ func RefinePartition(s []int, m, n int, B *mat64.SymDense) []int {
 			break
 		}
 	}
-	return s
+
+	return origScore, s
 }
 
 func main() {
