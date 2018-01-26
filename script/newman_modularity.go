@@ -121,11 +121,8 @@ func ParseGraph(filename string) Graph {
 // NewmanSubPartition further split a partition into smaller parts
 // B* = B_ij - d_ij * Sum_k belongs to g B_ik
 // d_ij is the Kronecker delta function: d_ij = 0 when i != j, 1 otherwise
-func NewmanSubPartition(g Graph, B *mat64.SymDense, selected []int) {
-	var (
-		M mat64.Dense
-		e mat64.EigenSym
-	)
+func NewmanSubPartition(g Graph, B *mat64.SymDense, selected []int) [][]int {
+	var ans [][]int
 
 	n := len(selected)
 	// B*: modularity matrix for partition G only
@@ -148,28 +145,12 @@ func NewmanSubPartition(g Graph, B *mat64.SymDense, selected []int) {
 		Bs.SetSym(i, i, Cii)
 	}
 
-	// Eigen decomposition
-	e.Factorize(Bs, true)
-	M.EigenvectorsSym(&e)
-	v := M.ColView(n - 1) // Eigenvector corresponding to the largest eigenval
-	// fmt.Printf("%0.2v\n\n", mat64.Formatted(v))
-
-	s := make([]int, n)
-	for i := 0; i < n; i++ {
-		if v.At(i, 0) < 0 {
-			s[i] = -1
-		} else {
-			s[i] = 1
-		}
-	}
-
-	// Refinement
-	score, s := RefinePartition(s, g.m, n, Bs)
+	score, s := GetPartition(g.m, n, Bs)
 	if score > EPS {
 		log.Noticef("Final Q = %.5f", score)
 	} else {
 		log.Notice("Cannot further divide this graph")
-		return
+		return append(ans, selected)
 	}
 
 	// Get into partitions
@@ -184,8 +165,14 @@ func NewmanSubPartition(g Graph, B *mat64.SymDense, selected []int) {
 	fmt.Println(s)
 	fmt.Println(partA)
 	fmt.Println(partB)
-	NewmanSubPartition(g, B, partA)
-	NewmanSubPartition(g, B, partB)
+
+	for _, part := range NewmanSubPartition(g, B, partA) {
+		ans = append(ans, part)
+	}
+	for _, part := range NewmanSubPartition(g, B, partB) {
+		ans = append(ans, part)
+	}
+	return ans
 }
 
 // NewmanPartition partitions the graph to maximize 'modularity'
@@ -203,11 +190,9 @@ func NewmanSubPartition(g Graph, B *mat64.SymDense, selected []int) {
 //     Q = 1/4m s.T * B * s
 //
 //     Where B_ij = A_ij - k_i * k_j / 2m
-func NewmanPartition(g Graph) {
-	var (
-		M mat64.Dense
-		e mat64.EigenSym
-	)
+func NewmanPartition(g Graph) [][]int {
+	var ans [][]int
+
 	B := mat64.NewSymDense(g.n, nil)
 	k := make([]int, g.n)
 	for i := 0; i < g.n; i++ {
@@ -223,28 +208,16 @@ func NewmanPartition(g Graph) {
 		}
 	}
 
-	// Eigen decomposition
-	e.Factorize(B, true)
-	M.EigenvectorsSym(&e)
-	v := M.ColView(g.n - 1) // Eigenvector corresponding to the largest eigenval
-	// fmt.Printf("%0.2v\n\n", mat64.Formatted(v))
-
-	s := make([]int, g.n)
-	for i := 0; i < g.n; i++ {
-		if v.At(i, 0) < 0 {
-			s[i] = -1
-		} else {
-			s[i] = 1
-		}
-	}
-
-	// Refinement
-	score, s := RefinePartition(s, g.m, g.n, B)
+	score, s := GetPartition(g.m, g.n, B)
 	if score > EPS {
 		log.Noticef("Final Q = %.5f", score)
 	} else {
 		log.Notice("Cannot further divide this graph")
-		return
+		selected := make([]int, g.n)
+		for i := 0; i < g.n; i++ {
+			selected[i] = i
+		}
+		return append(ans, selected)
 	}
 
 	// Get into partitions
@@ -259,8 +232,13 @@ func NewmanPartition(g Graph) {
 	fmt.Println(s)
 	fmt.Println(partA)
 	fmt.Println(partB)
-	NewmanSubPartition(g, B, partA)
-	NewmanSubPartition(g, B, partB)
+	for _, part := range NewmanSubPartition(g, B, partA) {
+		ans = append(ans, part)
+	}
+	for _, part := range NewmanSubPartition(g, B, partB) {
+		ans = append(ans, part)
+	}
+	return ans
 }
 
 // EvaluateQ calculates the Q score
@@ -292,6 +270,31 @@ func EvaluateDeltaQ(s []int, m, n int, B *mat64.SymDense, i int) float64 {
 type Score struct {
 	score float64
 	idx   int
+}
+
+// GetPartition returns score and partition s
+func GetPartition(m, n int, B *mat64.SymDense) (float64, []int) {
+	var (
+		M mat64.Dense
+		e mat64.EigenSym
+	)
+	// Eigen decomposition
+	e.Factorize(B, true)
+	M.EigenvectorsSym(&e)
+	v := M.ColView(n - 1) // Eigenvector corresponding to the largest eigenval
+	// fmt.Printf("%0.2v\n\n", mat64.Formatted(v))
+
+	s := make([]int, n)
+	for i := 0; i < n; i++ {
+		if v.At(i, 0) < 0 {
+			s[i] = -1
+		} else {
+			s[i] = 1
+		}
+	}
+
+	// Refinement
+	return RefinePartition(s, m, n, B)
 }
 
 // RefinePartition refines partition by testing if flipping partition for each
@@ -340,5 +343,6 @@ func main() {
 	logging.SetBackend(BackendFormatter)
 	g := ParseGraph(os.Args[1])
 	// fmt.Println(g)
-	NewmanPartition(g)
+	ans := NewmanPartition(g)
+	fmt.Println(ans)
 }
