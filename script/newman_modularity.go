@@ -19,6 +19,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/gonum/matrix/mat64"
 	logging "github.com/op/go-logging"
@@ -187,32 +188,55 @@ func EvaluateQ(s []int, m, n int, B *mat64.SymDense) float64 {
 	return ans / float64(4*m)
 }
 
+// Score of a particular signs array
+type Score struct {
+	score float64
+	idx   int
+}
+
 // RefinePartition refines partition by testing if flipping partition for each
 // contig could increase score Q. At each iteration, the largest deltaQ is selected.
 func RefinePartition(s []int, m, n int, B *mat64.SymDense) (float64, []int) {
+	var wg sync.WaitGroup
+
 	origScore := EvaluateQ(s, m, n, B)
 	visited := make([]bool, n)
 	for {
-		bestScore := -1.0
-		bestIdx := -1
+		ch := make(chan Score, n)
 		for i := 0; i < n; i++ {
 			if visited[i] {
 				continue
 			}
-			s[i] = -s[i]
-			newScore := EvaluateQ(s, m, n, B)
-			if newScore > bestScore {
-				bestScore = newScore
-				bestIdx = i
-			}
-			s[i] = -s[i]
+
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				ps := make([]int, n)
+				copy(ps, s)
+				ps[i] = -ps[i]
+				newScore := EvaluateQ(ps, m, n, B)
+				ch <- Score{newScore, i}
+				ps[i] = -ps[i]
+			}(i)
 		}
 
-		if bestScore > origScore {
-			log.Noticef("ACCEPTED: Q = %.5f, Q' = %.5f", origScore, bestScore)
-			s[bestIdx] = -s[bestIdx]
-			visited[bestIdx] = true
-			origScore = bestScore
+		// Wait for all workers to finish
+		wg.Wait()
+		close(ch)
+
+		// Find the best score
+		best := Score{-1.0, -1}
+		for e := range ch {
+			if e.score > best.score {
+				best = e
+			}
+		}
+
+		if best.score > origScore {
+			log.Noticef("ACCEPTED: Q = %.5f, Q' = %.5f", origScore, best.score)
+			s[best.idx] = -s[best.idx]
+			visited[best.idx] = true
+			origScore = best.score
 		} else {
 			break
 		}
@@ -223,7 +247,7 @@ func RefinePartition(s []int, m, n int, B *mat64.SymDense) (float64, []int) {
 
 func main() {
 	logging.SetBackend(BackendFormatter)
-	g := ParseGraph("karate/out.ucidata-zachary")
-	fmt.Println(g)
+	g := ParseGraph(os.Args[1])
+	// fmt.Println(g)
 	NewmanPartition(g)
 }
