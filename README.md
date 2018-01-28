@@ -32,8 +32,8 @@ average links. ALLHIC uses a community detection method based on
 [Newman 2006](http://www.pnas.org/content/103/23/8577.full),
 using eigen decomposition of the modularity matrix.
 
-![networkbefore](script/graph.png)
-![networkafter](script/graph.partitioned.png)
+![networkbefore](script/graph-s.png)
+![networkafter](script/graph-s.partitioned.png)
 
 ```bash
 allhic partition tests/test.bam
