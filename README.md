@@ -1,6 +1,7 @@
 # ALLHIC: Genome scaffolding based on HiC data
 
 [![Travis-CI](https://travis-ci.org/tanghaibao/allhic.svg?branch=master)](https://travis-ci.org/tanghaibao/allhic)
+[![GOreport](https://goreportcard.com/badge/github.com/tanghaibao/allhic)](https://goreportcard.com/report/github.com/tanghaibao/allhic)
 
 **This software is currently under active development. DO NOT USE.**
 
