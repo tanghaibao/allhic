@@ -28,7 +28,12 @@ Given a target `k`, number of partitions, the goal of the partitioning
 is to separate all the contigs into separate clusters. As with all
 clustering algorithm, there is an optimization goal here. The
 LACHESIS algorithm is a hierarchical clustering algorithm using
-average links.
+average links. ALLHIC uses a community detection method based on
+[Newman 2006](http://www.pnas.org/content/103/23/8577.full),
+using eigen decomposition of the modularity matrix.
+
+![networkbefore](script/graph.png)
+![networkafter](script/graph.partitioned.png)
 
 ```bash
 allhic partition tests/test.bam
