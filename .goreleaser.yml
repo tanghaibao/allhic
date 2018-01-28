@@ -1,0 +1,20 @@
+# .goreleaser.yml
+# Build customization
+builds:
+  - main: cmd/allhic.go
+    binary: allhic
+    goos:
+      - windows
+      - darwin
+      - linux
+    goarch:
+      - amd64
+# Archive customization
+archive:
+  format: tar.gz
+  replacements:
+    amd64: 64-bit
+    darwin: macOS
+    linux: Tux
+  files:
+    - drum-roll.licence.txt
