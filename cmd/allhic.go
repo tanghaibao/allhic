@@ -106,7 +106,23 @@ for these contigs.
 		{
 			Name:  "build",
 			Usage: "Build genome release",
+			UsageText: `
+	allhic build <tourfile> <contigs.fasta> [options]
+
+Build function:
+Convert the tourfile into the standard AGP file, which is then converted
+into a FASTA genome release.
+`,
 			Action: func(c *cli.Context) error {
+				if len(c.Args()) < 2 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify tourfile and fastafile", 1)
+				}
+
+				tourfile := c.Args().Get(0)
+				fastafile := c.Args().Get(1)
+				p := allhic.Builder{tourfile, fastafile}
+				p.Run()
 				return nil
 			},
 		},
