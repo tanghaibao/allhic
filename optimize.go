@@ -25,7 +25,7 @@ type Optimizer struct {
 
 // Run kicks off the Optimizer
 func (r *Optimizer) Run() {
-	clm := InitCLMFile(r.Clmfile)
+	clm := NewCLMFile(r.Clmfile)
 	tourfile := RemoveExt(r.Clmfile) + ".tour"
 
 	shuffle := true

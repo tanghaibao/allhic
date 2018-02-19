@@ -83,8 +83,8 @@ type Tour struct {
 	M    [][]int
 }
 
-// InitCLMFile is the constructor for CLMFile
-func InitCLMFile(Clmfile string) *CLMFile {
+// NewCLMFile is the constructor for CLMFile
+func NewCLMFile(Clmfile string) *CLMFile {
 	p := new(CLMFile)
 	p.Name = RemoveExt(path.Base(Clmfile))
 	p.Clmfile = Clmfile
