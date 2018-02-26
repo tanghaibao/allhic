@@ -49,16 +49,13 @@ type OOLine struct {
 	id            string
 	componentID   string
 	componentSize int
-	strand        string
+	strand        byte
 }
 
 // OO describes a scaffolding experiment and contains an array of OOLine
 type OO struct {
-	name         string
-	contigs      []string
-	orientations []byte
-	sizes        map[string]int
-	entries      []OOLine
+	sizes   map[string]int
+	entries []OOLine
 }
 
 // IsNewerFile checks if file a is newer than file b
@@ -70,8 +67,7 @@ func IsNewerFile(a, b string) bool {
 	}
 	am := af.ModTime()
 	bm := bf.ModTime()
-	diff := am.Sub(bm)
-	return diff > 0
+	return am.Sub(bm) > 0
 }
 
 // GetFastaSizes returns a dictionary of contig sizes
@@ -102,7 +98,7 @@ func (r *Builder) ReadFiles() *OO {
 }
 
 // Add instantiates a new OOLine object and add to the array in OO
-func (r *OO) Add(scaffold, ctg string, ctgsize int, strand string) {
+func (r *OO) Add(scaffold, ctg string, ctgsize int, strand byte) {
 	o := OOLine{scaffold, ctg, ctgsize, strand}
 	r.entries = append(r.entries, o)
 }
@@ -111,8 +107,8 @@ func (r *OO) Add(scaffold, ctg string, ctgsize int, strand string) {
 func (r *Builder) WriteAGP(oo *OO) {
 	gapSize := 100
 	gapType := "scaffold"
-	log.Noticef("Gapsize = %d, Gaptype = %s", gapSize, gapType)
-	fmt.Println(oo.sizes)
+	linkage := "yes"
+	log.Noticef("Gapsize = %d, Gaptype = %s, Linkage = %s", gapSize, gapType, linkage)
 }
 
 // Run kicks off the Builder
@@ -131,21 +127,24 @@ func (r *OO) ParseTour(tourfile string) {
 
 	file, _ := os.Open(tourfile)
 	scanner := bufio.NewScanner(file)
+	var (
+		name   string
+		strand byte
+	)
 	for scanner.Scan() {
 		words := strings.Fields(scanner.Text())
 		if words[0][0] == '>' {
-			r.name = words[0][1:]
+			name = words[0][1:]
 			continue
 		}
 		for _, tig := range words {
 			at, ao := tig[:len(tig)-1], tig[len(tig)-1]
 			if ao == '+' || ao == '-' || ao == '?' {
-				r.contigs = append(r.contigs, at)
-				r.orientations = append(r.orientations, ao)
+				tig, strand = at, ao
 			} else {
-				r.contigs = append(r.contigs, tig)
-				r.orientations = append(r.orientations, '?')
+				strand = '?'
 			}
+			r.Add(name, tig, r.sizes[tig], strand)
 		}
 	}
 	fmt.Println(r)
