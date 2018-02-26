@@ -10,7 +10,10 @@
 package allhic
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/shenwei356/bio/seqio/fai"
 )
@@ -51,29 +54,32 @@ type OOLine struct {
 
 // OO describes a scaffolding experiment and contains an array of OOLine
 type OO struct {
-	contigs []string
-	sizes   map[string]int
-	entries []OOLine
+	name         string
+	contigs      []string
+	orientations []byte
+	sizes        map[string]int
+	entries      []OOLine
 }
 
 // GetFastaSizes returns a dictionary of contig sizes
-func GetFastaSizes(fastafile string) map[string]int {
-	sizes := make(map[string]int)
+func (r *OO) GetFastaSizes(fastafile string) {
+	log.Noticef("Parse FASTA file `%s`", fastafile)
+	r.sizes = make(map[string]int)
 	faidx, _ := fai.New(fastafile)
 	defer faidx.Close()
 
 	for name, rec := range faidx.Index {
-		sizes[name] = rec.Length
+		r.sizes[name] = rec.Length
 	}
-
-	return sizes
 }
 
-// NewOO initializes OO object
-func NewOO(fastafile string) *OO {
-	p := new(OO)
-	p.sizes = GetFastaSizes(fastafile)
-	return p
+// ReadFiles initializes OO object
+func (r *Builder) ReadFiles() *OO {
+	oo := new(OO)
+	oo.GetFastaSizes(r.Fastafile)
+	oo.ParseTour(r.Tourfile)
+
+	return oo
 }
 
 // Add instantiates a new OOLine object and add to the array in OO
@@ -83,16 +89,45 @@ func (r *OO) Add(scaffold, ctg string, ctgsize int, strand string) {
 }
 
 // WriteAGP converts the simplistic OOLine into AGP format
-func (r *OO) WriteAGP() {
+func (r *Builder) WriteAGP(oo *OO) {
 	gapSize := 100
 	gapType := "scaffold"
 	log.Noticef("Gapsize = %d, Gaptype = %s", gapSize, gapType)
-	fmt.Println(r.sizes)
+	fmt.Println(oo.sizes)
 }
 
 // Run kicks off the Builder
 func (r *Builder) Run() {
-	fmt.Println(r.Tourfile, r.Fastafile)
-	oo := NewOO(r.Fastafile)
-	oo.WriteAGP()
+	oo := r.ReadFiles()
+	r.WriteAGP(oo)
+}
+
+// ParseTour reads tour from file
+//
+// A tour file has the following format:
+// > name
+// contig1+ contig2- contig3?
+func (r *OO) ParseTour(tourfile string) {
+	log.Noticef("Parse tourfile `%s`", tourfile)
+
+	file, _ := os.Open(tourfile)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		words := strings.Fields(scanner.Text())
+		if words[0][0] == '>' {
+			r.name = words[0][1:]
+		} else {
+			for _, tig := range words {
+				at, ao := tig[:len(tig)-1], tig[len(tig)-1]
+				if ao == '+' || ao == '-' || ao == '?' {
+					r.contigs = append(r.contigs, at)
+					r.orientations = append(r.orientations, ao)
+				} else {
+					r.contigs = append(r.contigs, tig)
+					r.orientations = append(r.orientations, '?')
+				}
+			}
+		}
+	}
+	fmt.Println(r)
 }
