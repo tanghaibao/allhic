@@ -24,26 +24,6 @@ type Builder struct {
 	Fastafile string
 }
 
-// AGPLine is a line in the AGP file
-type AGPLine struct {
-	object        string
-	objectBeg     int
-	objectEnd     int
-	partNumber    int
-	componentType byte
-	isGap         bool
-	strand        byte
-	// As a gap
-	gapLength       int
-	gapType         string
-	linkage         string
-	linkageEvidence string
-	// As a sequence chunk
-	componentID  int
-	componentBeg int
-	componentEnd int
-}
-
 // OOLine describes a simple contig entry in a scaffolding experiment
 type OOLine struct {
 	id            string
@@ -56,18 +36,6 @@ type OOLine struct {
 type OO struct {
 	sizes   map[string]int
 	entries []OOLine
-}
-
-// IsNewerFile checks if file a is newer than file b
-func IsNewerFile(a, b string) bool {
-	af, aerr := os.Stat(a)
-	bf, berr := os.Stat(b)
-	if os.IsNotExist(aerr) || os.IsNotExist(berr) {
-		return false
-	}
-	am := af.ModTime()
-	bm := bf.ModTime()
-	return am.Sub(bm) > 0
 }
 
 // GetFastaSizes returns a dictionary of contig sizes
@@ -109,8 +77,6 @@ func (r *Builder) WriteAGP(oo *OO, filename string) {
 	gapType := "scaffold"
 	linkage := "yes"
 	evidence := "map"
-	log.Noticef("Gapsize = %d, Gaptype = %s, Linkage = %s", gapSize, gapType, linkage)
-
 	prevObject := ""
 	objectBeg := 1
 	objectEnd := 1
@@ -158,6 +124,11 @@ func (r *Builder) Run() {
 	oo := r.ReadFiles()
 	agpfile := RemoveExt(r.Tourfile) + ".agp"
 	r.WriteAGP(oo, agpfile)
+	r.Build(agpfile)
+}
+
+// Build constructs molecule using component FASTA sequence
+func (r *Builder) Build(agpfile string) {
 }
 
 // ParseTour reads tour from file
@@ -190,5 +161,4 @@ func (r *OO) ParseTour(tourfile string) {
 			r.Add(name, tig, r.sizes[tig], strand)
 		}
 	}
-	fmt.Println(r)
 }

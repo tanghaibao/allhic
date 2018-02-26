@@ -64,6 +64,18 @@ func RemoveExt(filename string) string {
 	return strings.TrimSuffix(filename, path.Ext(filename))
 }
 
+// IsNewerFile checks if file a is newer than file b
+func IsNewerFile(a, b string) bool {
+	af, aerr := os.Stat(a)
+	bf, berr := os.Stat(b)
+	if os.IsNotExist(aerr) || os.IsNotExist(berr) {
+		return false
+	}
+	am := af.ModTime()
+	bm := bf.ModTime()
+	return am.Sub(bm) > 0
+}
+
 // Round makes a round number
 func Round(input float64) float64 {
 	if input < 0 {
