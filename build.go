@@ -30,9 +30,9 @@ type AGPLine struct {
 	objectBeg     int
 	objectEnd     int
 	partNumber    int
-	componentType rune
+	componentType byte
 	isGap         bool
-	orientation   string
+	strand        byte
 	// As a gap
 	gapLength       int
 	gapType         string
@@ -104,17 +104,60 @@ func (r *OO) Add(scaffold, ctg string, ctgsize int, strand byte) {
 }
 
 // WriteAGP converts the simplistic OOLine into AGP format
-func (r *Builder) WriteAGP(oo *OO) {
+func (r *Builder) WriteAGP(oo *OO, filename string) {
 	gapSize := 100
 	gapType := "scaffold"
 	linkage := "yes"
+	evidence := "map"
 	log.Noticef("Gapsize = %d, Gaptype = %s, Linkage = %s", gapSize, gapType, linkage)
+
+	prevObject := ""
+	objectBeg := 1
+	objectEnd := 1
+	partNumber := 0
+	componentType := 'W'
+	f, _ := os.Create(filename)
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	components := 0
+
+	// Write AGP for each object group
+	for _, line := range oo.entries {
+		if line.id != prevObject {
+			prevObject = line.id
+			objectBeg = 1
+			partNumber = 0
+		}
+		if partNumber > 0 && gapSize > 0 {
+			if gapSize == 100 {
+				componentType = 'U'
+			} else {
+				componentType = 'N'
+			}
+			objectEnd = objectBeg + gapSize - 1
+			partNumber++
+			fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%c\t%d\t%s\t%s\t%s\n",
+				line.id, objectBeg, objectEnd, partNumber,
+				componentType, gapSize, gapType, linkage, evidence)
+			objectBeg += gapSize
+		}
+		objectEnd = objectBeg + line.componentSize - 1
+		partNumber++
+		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%c\t%s\t%d\t%d\t%c\n",
+			line.id, objectBeg, objectEnd, partNumber,
+			'W', line.componentID, 1, line.componentSize, line.strand)
+		objectBeg += line.componentSize
+		components++
+	}
+	w.Flush()
+	log.Noticef("A total of %d tigs written to `%s`", components, filename)
 }
 
 // Run kicks off the Builder
 func (r *Builder) Run() {
 	oo := r.ReadFiles()
-	r.WriteAGP(oo)
+	agpfile := RemoveExt(r.Tourfile) + ".agp"
+	r.WriteAGP(oo, agpfile)
 }
 
 // ParseTour reads tour from file
