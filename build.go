@@ -61,10 +61,29 @@ type OO struct {
 	entries      []OOLine
 }
 
+// IsNewerFile checks if file a is newer than file b
+func IsNewerFile(a, b string) bool {
+	af, aerr := os.Stat(a)
+	bf, berr := os.Stat(b)
+	if os.IsNotExist(aerr) || os.IsNotExist(berr) {
+		return false
+	}
+	am := af.ModTime()
+	bm := bf.ModTime()
+	diff := am.Sub(bm)
+	return diff > 0
+}
+
 // GetFastaSizes returns a dictionary of contig sizes
 func (r *OO) GetFastaSizes(fastafile string) {
 	log.Noticef("Parse FASTA file `%s`", fastafile)
 	r.sizes = make(map[string]int)
+	faifile := fastafile + ".fai"
+	// Check if the .fai file is outdated
+	if !IsNewerFile(faifile, fastafile) {
+		os.Remove(faifile)
+	}
+
 	faidx, _ := fai.New(fastafile)
 	defer faidx.Close()
 
@@ -116,16 +135,16 @@ func (r *OO) ParseTour(tourfile string) {
 		words := strings.Fields(scanner.Text())
 		if words[0][0] == '>' {
 			r.name = words[0][1:]
-		} else {
-			for _, tig := range words {
-				at, ao := tig[:len(tig)-1], tig[len(tig)-1]
-				if ao == '+' || ao == '-' || ao == '?' {
-					r.contigs = append(r.contigs, at)
-					r.orientations = append(r.orientations, ao)
-				} else {
-					r.contigs = append(r.contigs, tig)
-					r.orientations = append(r.orientations, '?')
-				}
+			continue
+		}
+		for _, tig := range words {
+			at, ao := tig[:len(tig)-1], tig[len(tig)-1]
+			if ao == '+' || ao == '-' || ao == '?' {
+				r.contigs = append(r.contigs, at)
+				r.orientations = append(r.orientations, ao)
+			} else {
+				r.contigs = append(r.contigs, tig)
+				r.orientations = append(r.orientations, '?')
 			}
 		}
 	}
