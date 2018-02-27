@@ -11,10 +11,12 @@ package allhic
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/shenwei356/bio/seq"
+	"github.com/shenwei356/bio/seqio/fai"
 )
 
 // AGPLine is a line in the AGP file
@@ -39,7 +41,7 @@ type AGPLine struct {
 
 // AGP is a collection of AGPLines
 type AGP struct {
-	lines []*AGPLine
+	lines []AGPLine
 }
 
 // NewAGP is the constructor for AGP
@@ -51,7 +53,7 @@ func NewAGP(agpfile string) *AGP {
 // Add adds an AGPLine to the collection
 func (r *AGP) Add(row string) {
 	words := strings.Fields(row)
-	line := new(AGPLine)
+	var line AGPLine
 	line.object = words[0]
 	line.objectBeg, _ = strconv.Atoi(words[1])
 	line.objectEnd, _ = strconv.Atoi(words[2])
@@ -70,7 +72,6 @@ func (r *AGP) Add(row string) {
 		line.strand = words[8][0]
 	}
 	r.lines = append(r.lines, line)
-	fmt.Println(*line)
 }
 
 // BuildFasta builds target FASTA based on info from agpfile
@@ -82,5 +83,28 @@ func BuildFasta(agpfile, fastafile string) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		agp.Add(scanner.Text())
+	}
+
+	// Compile the list of sequence chunks and join them
+	faidx, _ := fai.New(fastafile)
+	defer faidx.Close()
+
+	var collections []string
+	var chunk string
+	for _, line := range agp.lines {
+		if line.isGap {
+			chunk = strings.Repeat("N", line.gapLength)
+		} else {
+			s, _ := faidx.SubSeq(line.componentID,
+				line.componentBeg, line.componentEnd)
+			if line.strand == '-' {
+				ns, _ := seq.NewSeq(seq.DNA, s)
+				ns.RevComInplace()
+				chunk = string(ns.Seq)
+			} else {
+				chunk = string(s)
+			}
+		}
+		collections = append(collections, chunk)
 	}
 }
