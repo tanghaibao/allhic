@@ -27,7 +27,7 @@ func flipLog(method string, score, scoreFlipped float64, tag string) {
 }
 
 // flipAll initializes the orientations based on pairwise O matrix.
-func (r *CLMFile) flipAll() (tag string) {
+func (r *CLM) flipAll() (tag string) {
 	var (
 		M mat64.Dense
 		e mat64.EigenSym
@@ -63,7 +63,7 @@ func (r *CLMFile) flipAll() (tag string) {
 }
 
 // flipWhole test flipping all contigs at the same time to see if score improves
-func (r *CLMFile) flipWhole() (tag string) {
+func (r *CLM) flipWhole() (tag string) {
 	oldSigns := make([]byte, len(r.Signs))
 	copy(oldSigns, r.Signs)
 	score := r.EvaluateQ()
@@ -83,7 +83,7 @@ func (r *CLMFile) flipWhole() (tag string) {
 }
 
 // flipOne test flipping every single contig sequentially to see if score improves
-func (r *CLMFile) flipOne() (tag string) {
+func (r *CLM) flipOne() (tag string) {
 	nAccepts := 0
 	nRejects := 0
 	anyTagACCEPT := false
@@ -118,7 +118,7 @@ func (r *CLMFile) flipOne() (tag string) {
 
 // O yields a pairwise orientation matrix, where each cell contains the strandedness
 // times the number of links between i-th and j-th contig
-func (r *CLMFile) O() *mat64.SymDense {
+func (r *CLM) O() *mat64.SymDense {
 	N := len(r.Tigs)
 	P := mat64.NewSymDense(N, nil)
 	for pair, contact := range r.contacts {
@@ -131,7 +131,7 @@ func (r *CLMFile) O() *mat64.SymDense {
 // Q yields a contact frequency matrix when contigs are already oriented. This is a
 // similar matrix as M, but rather than having the number of links in the
 // cell, it points to an array that has the actual distances.
-func (r *CLMFile) Q() [][]GArray {
+func (r *CLM) Q() [][]GArray {
 	N := len(r.Tigs)
 	P := Make2DGArraySlice(N, N)
 	for i := 0; i < N; i++ {
@@ -153,7 +153,7 @@ func (r *CLMFile) Q() [][]GArray {
 // plus the actual link distances. Maximize Sum(1 / distance) for all links.
 // For performance consideration, we actually use a histogram to approximate
 // all link distances. See goldenArray() for details.
-func (r *CLMFile) EvaluateQ() (score float64) {
+func (r *CLM) EvaluateQ() (score float64) {
 	tour := r.Tour
 	Q := r.Q()
 

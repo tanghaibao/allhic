@@ -20,7 +20,7 @@ import (
 	"sync"
 )
 
-// CLMFile has the following format:
+// CLM has the following format:
 //
 // tig00046211+ tig00063795+       1       53173
 // tig00046211+ tig00063795-       1       116050
@@ -30,7 +30,7 @@ import (
 // tig00030676+ tig00077819-       7       126178 152952 152952 35680 118923 98367 98367
 // tig00030676- tig00077819+       7       118651 91877 91877 209149 125906 146462 146462
 // tig00030676- tig00077819-       7       108422 157204 157204 137924 142611 75169 75169
-type CLMFile struct {
+type CLM struct {
 	Name             string
 	Clmfile          string
 	Idsfile          string
@@ -83,9 +83,9 @@ type Tour struct {
 	M    [][]int
 }
 
-// NewCLMFile is the constructor for CLMFile
-func NewCLMFile(Clmfile string) *CLMFile {
-	p := new(CLMFile)
+// NewCLM is the constructor for CLM
+func NewCLM(Clmfile string) *CLM {
+	p := new(CLM)
 	p.Name = RemoveExt(path.Base(Clmfile))
 	p.Clmfile = Clmfile
 	p.Idsfile = RemoveExt(Clmfile) + ".ids"
@@ -99,13 +99,13 @@ func NewCLMFile(Clmfile string) *CLMFile {
 	return p
 }
 
-// ParseIds parses the idsfile into data stored in CLMFile.
+// ParseIds parses the idsfile into data stored in CLM.
 // IDS file has a list of contigs that need to be ordered. 'recover',
 // keyword, if available in the third column, is less confident.
 // tig00015093     46912
 // tig00035238     46779   recover
 // tig00030900     119291
-func (r *CLMFile) ParseIds() {
+func (r *CLM) ParseIds() {
 	file, _ := os.Open(r.Idsfile)
 	log.Noticef("Parse idsfile `%s`", r.Idsfile)
 	scanner := bufio.NewScanner(file)
@@ -129,8 +129,8 @@ func rr(b byte) byte {
 	return '-'
 }
 
-// ParseClm parses the clmfile into data stored in CLMFile.
-func (r *CLMFile) ParseClm() {
+// ParseClm parses the clmfile into data stored in CLM.
+func (r *CLM) ParseClm() {
 	file, _ := os.Open(r.Clmfile)
 	log.Noticef("Parse clmfile `%s`", r.Clmfile)
 	reader := bufio.NewReader(file)
@@ -197,7 +197,7 @@ func (r *CLMFile) ParseClm() {
 // calculateDensities calculated the density of inter-contig links per base.
 // Strong contigs are considered to have high level of inter-contig links in the current
 // partition.
-func (r *CLMFile) calculateDensities() ([]float64, []int) {
+func (r *CLM) calculateDensities() ([]float64, []int) {
 	N := len(r.Tigs)
 	densities := make([]int, N)
 	for pair, contact := range r.contacts {
@@ -226,7 +226,7 @@ func (r *CLMFile) calculateDensities() ([]float64, []int) {
 }
 
 // pruneByDensity selects active contigs based on logdensities
-func (r *CLMFile) pruneByDensity() {
+func (r *CLM) pruneByDensity() {
 	for {
 		logdensities, active := r.calculateDensities()
 		lb, ub := OutlierCutoff(logdensities)
@@ -249,7 +249,7 @@ func (r *CLMFile) pruneByDensity() {
 }
 
 // pruneBySize selects active contigs based on size
-func (r *CLMFile) pruneBySize() {
+func (r *CLM) pruneBySize() {
 	invalid := 0
 	for i, tig := range r.Tigs {
 		if tig.Size < MINSIZE {
@@ -264,7 +264,7 @@ func (r *CLMFile) pruneBySize() {
 }
 
 // pruneTour test deleting each contig and check the delta_score
-func (r *CLMFile) pruneTour() {
+func (r *CLM) pruneTour() {
 	var (
 		wg            sync.WaitGroup
 		tour, newTour Tour
@@ -342,7 +342,7 @@ func (r *CLMFile) pruneTour() {
 // - "hotstart": This is useful when there was a past run, with a given
 //    tourfile. In this case, the active contig list and orientations are
 //    derived from the last tour in the file.
-func (r *CLMFile) Activate(shuffle bool) {
+func (r *CLM) Activate(shuffle bool) {
 	N := len(r.Tigs)
 	r.reportActive(true)
 	r.pruneByDensity()
@@ -370,7 +370,7 @@ func (r *CLMFile) Activate(shuffle bool) {
 }
 
 // reportActive prints number and total length of active contigs
-func (r *CLMFile) reportActive(verbose bool) (activeCounts, sumLength int) {
+func (r *CLM) reportActive(verbose bool) (activeCounts, sumLength int) {
 	for _, tig := range r.Tigs {
 		if tig.IsActive {
 			activeCounts++
@@ -386,7 +386,7 @@ func (r *CLMFile) reportActive(verbose bool) (activeCounts, sumLength int) {
 
 // M yields a contact frequency matrix, where each cell contains how many
 // links between i-th and j-th contig
-func (r *CLMFile) M() [][]int {
+func (r *CLM) M() [][]int {
 	N := len(r.Tigs)
 	P := Make2DSlice(N, N)
 	for pair, contact := range r.contacts {

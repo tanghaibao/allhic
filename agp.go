@@ -9,6 +9,10 @@
 
 package allhic
 
+import (
+	"fmt"
+)
+
 // AGPLine is a line in the AGP file
 type AGPLine struct {
 	object        string
@@ -27,4 +31,21 @@ type AGPLine struct {
 	componentID  int
 	componentBeg int
 	componentEnd int
+}
+
+// AGP is a collection of AGPLines
+type AGP struct {
+	lines []AGPLine
+}
+
+// NewAGP is the constructor for AGP
+func NewAGP(agpfile string) *AGP {
+	p := new(AGP)
+	return p
+}
+
+// BuildFasta builds target FASTA based on info from agpfile
+func BuildFasta(agpfile, fastafile string) {
+	agp := NewAGP(agpfile)
+	fmt.Println(agp)
 }

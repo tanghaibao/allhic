@@ -200,7 +200,7 @@ func (r Tour) Shuffle() {
 }
 
 // GARun set up the Genetic Algorithm and run it
-func (r *CLMFile) GARun(fwtour *os.File, npop, ngen int, mutRate, crossRate float64, phase int) Tour {
+func (r *CLM) GARun(fwtour *os.File, npop, ngen int, mutRate, crossRate float64, phase int) Tour {
 	MakeTour := func(rng *rand.Rand) gago.Genome {
 		c := r.Tour.Clone()
 		return c

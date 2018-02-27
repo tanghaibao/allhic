@@ -129,6 +129,7 @@ func (r *Builder) Run() {
 
 // Build constructs molecule using component FASTA sequence
 func (r *Builder) Build(agpfile string) {
+	BuildFasta(r.Fastafile, agpfile)
 }
 
 // ParseTour reads tour from file

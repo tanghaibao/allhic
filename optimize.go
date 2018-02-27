@@ -25,7 +25,7 @@ type Optimizer struct {
 
 // Run kicks off the Optimizer
 func (r *Optimizer) Run() {
-	clm := NewCLMFile(r.Clmfile)
+	clm := NewCLM(r.Clmfile)
 	tourfile := RemoveExt(r.Clmfile) + ".tour"
 
 	shuffle := true
@@ -53,13 +53,13 @@ func (r *Optimizer) Run() {
 }
 
 // OptimizeOrdering changes the ordering of contigs by Genetic Algorithm
-func (r *CLMFile) OptimizeOrdering(fwtour *os.File, phase int, mutpb, cxpb float64) {
+func (r *CLM) OptimizeOrdering(fwtour *os.File, phase int, mutpb, cxpb float64) {
 	r.GARun(fwtour, 100, 5000, mutpb, cxpb, phase)
 	r.pruneTour()
 }
 
 // OptimizeOrientations changes the orientations of contigs by using heuristic flipping algorithms.
-func (r *CLMFile) OptimizeOrientations(fwtour *os.File, phase int) (string, string) {
+func (r *CLM) OptimizeOrientations(fwtour *os.File, phase int) (string, string) {
 	tag1 := r.flipWhole()
 	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("FLIPWHOLE%d", phase))
 	tag2 := r.flipOne()
@@ -68,7 +68,7 @@ func (r *CLMFile) OptimizeOrientations(fwtour *os.File, phase int) (string, stri
 }
 
 // PrintTour logs the current tour to file
-func (r *CLMFile) PrintTour(fwtour *os.File, tour Tour, label string) {
+func (r *CLM) PrintTour(fwtour *os.File, tour Tour, label string) {
 	fwtour.WriteString(">" + label + "\n")
 	atoms := make([]string, tour.Len())
 	for i := 0; i < tour.Len(); i++ {
