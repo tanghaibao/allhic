@@ -11,6 +11,8 @@ package allhic
 
 import (
 	"bufio"
+	"bytes"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -89,22 +91,22 @@ func BuildFasta(agpfile, fastafile string) {
 	faidx, _ := fai.New(fastafile)
 	defer faidx.Close()
 
-	var collections []string
-	var chunk string
+	var buf bytes.Buffer
 	for _, line := range agp.lines {
 		if line.isGap {
-			chunk = strings.Repeat("N", line.gapLength)
+			buf.WriteString(strings.Repeat("N", line.gapLength))
 		} else {
 			s, _ := faidx.SubSeq(line.componentID,
 				line.componentBeg, line.componentEnd)
 			if line.strand == '-' {
 				ns, _ := seq.NewSeq(seq.DNA, s)
 				ns.RevComInplace()
-				chunk = string(ns.Seq)
+				buf.Write(ns.Seq)
 			} else {
-				chunk = string(s)
+				buf.Write(s)
 			}
 		}
-		collections = append(collections, chunk)
 	}
+
+	fmt.Println(buf.String()[:50])
 }

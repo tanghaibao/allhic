@@ -56,7 +56,7 @@ a hierarchical clustering algorithm using average links.
 				}
 
 				bamfile := c.Args().Get(0)
-				p := allhic.Partitioner{bamfile}
+				p := allhic.Partitioner{Bamfile: bamfile}
 				p.Run()
 				return nil
 			},
@@ -98,7 +98,7 @@ for these contigs.
 				runGA := !c.Bool("skipGA")
 				mutpb := c.Float64("mutpb")
 				cxpb := c.Float64("cxpb")
-				p := allhic.Optimizer{clmfile, runGA, mutpb, cxpb}
+				p := allhic.Optimizer{Clmfile: clmfile, RunGA: runGA, MutProb: mutpb, CrossProb: cxpb}
 				p.Run()
 				return nil
 			},
@@ -121,7 +121,7 @@ into a FASTA genome release.
 
 				tourfile := c.Args().Get(0)
 				fastafile := c.Args().Get(1)
-				p := allhic.Builder{tourfile, fastafile}
+				p := allhic.Builder{Tourfile: tourfile, Fastafile: fastafile}
 				p.Run()
 				return nil
 			},
