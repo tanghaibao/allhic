@@ -12,13 +12,21 @@ package allhic
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/shenwei356/bio/seq"
 	"github.com/shenwei356/bio/seqio/fai"
+	"github.com/shenwei356/bio/seqio/fastx"
+	"github.com/shenwei356/xopen"
+)
+
+const (
+	// LineWidth specifies how many bases to show per line
+	LineWidth = 60
+	// LargeSequence will notify the writer to send a notification
+	LargeSequence = 1000000
 )
 
 // AGPLine is a line in the AGP file
@@ -92,9 +100,19 @@ func BuildFasta(agpfile, fastafile string) {
 	defer faidx.Close()
 
 	var buf bytes.Buffer
+	outFile := RemoveExt(agpfile) + ".chr.fasta"
+	outfh, _ := xopen.Wopen(outFile)
+	prevObject := ""
 	for _, line := range agp.lines {
+		if line.object != prevObject {
+			if prevObject != "" {
+				WriteRecord(prevObject, buf, outfh)
+			}
+			prevObject = line.object
+			buf.Reset()
+		}
 		if line.isGap {
-			buf.WriteString(strings.Repeat("N", line.gapLength))
+			buf.Write(bytes.Repeat([]byte("N"), line.gapLength))
 		} else {
 			s, _ := faidx.SubSeq(line.componentID,
 				line.componentBeg, line.componentEnd)
@@ -107,6 +125,16 @@ func BuildFasta(agpfile, fastafile string) {
 			}
 		}
 	}
+	// Last one
+	WriteRecord(prevObject, buf, outfh)
+	buf.Reset()
+}
 
-	fmt.Println(buf.String()[:50])
+// WriteRecord writes the FASTA record to the file
+func WriteRecord(object string, buf bytes.Buffer, outfh *xopen.Writer) {
+	record, _ := fastx.NewRecordWithoutValidation(seq.DNA, []byte{}, []byte(object), buf.Bytes())
+	if record.Seq.Length() > LargeSequence {
+		log.Noticef("Write sequence %s", record.Name)
+	}
+	record.FormatToWriter(outfh, LineWidth)
 }
