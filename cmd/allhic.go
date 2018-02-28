@@ -33,7 +33,22 @@ func main() {
 		{
 			Name:  "prune",
 			Usage: "Prune bamfile to remove weak links",
+			UsageText: `
+	allhic prune <bamfile> [options]
+
+Prune function:
+Given a bamfile, the goal of the pruning step is to remove all inter-allelic
+links, then it is possible to reconstruct allele-separated assemblies.
+`,
 			Action: func(c *cli.Context) error {
+				if len(c.Args()) < 1 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify bamfile", 1)
+				}
+
+				bamfile := c.Args().Get(0)
+				p := allhic.Pruner{Bamfile: bamfile}
+				p.Run()
 				return nil
 			},
 		},
