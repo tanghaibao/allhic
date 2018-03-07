@@ -31,6 +31,28 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
+			Name:  "distribution",
+			Usage: "Extract Hi-C link size distribution",
+			UsageText: `
+	allhic distribution <bamfile> [options]
+
+Distribution function:
+Given a bamfile, the goal of the distribution step is to calculate an empirical
+distribution of Hi-C link size based on intra-contig links.
+`,
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) < 1 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify bamfile", 1)
+				}
+
+				bamfile := c.Args().Get(0)
+				p := allhic.Distribution{Bamfile: bamfile}
+				p.Run()
+				return nil
+			},
+		},
+		{
 			Name:  "prune",
 			Usage: "Prune bamfile to remove weak links",
 			UsageText: `
