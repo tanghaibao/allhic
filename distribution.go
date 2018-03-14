@@ -25,7 +25,6 @@ var s = [...]uint{1, 2, 4, 8, 16}
 // Distribution processes the distribution step
 type Distribution struct {
 	Bamfile     string
-	minLinkDist int
 	maxLinkDist int
 	binStarts   []int
 	links       []int
@@ -85,13 +84,9 @@ func uintLog2Frac(x float64) uint {
 
 // LinkBin takes a link distance and convert to a binID
 func (r *Distribution) LinkBin(dist int) int {
-	if dist < r.minLinkDist {
-		return -1
-	}
-
-	distOverMin := dist / r.minLinkDist
+	distOverMin := dist / MinLinkDist
 	log2i := uintLog2(uint(distOverMin))
-	log2f := uintLog2Frac(float64(dist) / float64(r.minLinkDist<<log2i))
+	log2f := uintLog2Frac(float64(dist) / float64(int(MinLinkDist)<<log2i))
 	return int(16*log2i + log2f)
 }
 
@@ -114,7 +109,7 @@ func (r *Distribution) Run() {
 		words := strings.Split(row, "\t")
 		for _, link := range strings.Split(words[1], ",") {
 			ll, _ := strconv.Atoi(link)
-			if ll > 0 {
+			if ll >= MinLinkDist {
 				r.links = append(r.links, ll)
 			}
 		}
@@ -130,19 +125,15 @@ func (r *Distribution) Run() {
 func (r *Distribution) Makebins() {
 	// Step 1: make geometrically sized bins
 	// We fit 16 bins into each power of 2
-	r.minLinkDist, r.maxLinkDist = MaxInt, MinInt
+	linkRange := math.Log2(float64(MaxLinkDist) / float64(MinLinkDist))
+	nBins := int(math.Ceil(linkRange * 16))
+
+	r.maxLinkDist = MinInt
 	for _, link := range r.links {
 		if link > r.maxLinkDist {
 			r.maxLinkDist = link
 		}
-		if link < r.minLinkDist {
-			r.minLinkDist = link
-		}
 	}
-	linkRange := math.Log2(float64(MaxLinkDist) / float64(MinLinkDist))
-	nBins := int(math.Ceil(linkRange * 16))
-	log.Noticef("Min link: %d, Max link: %d, # Bins: %d",
-		r.minLinkDist, r.maxLinkDist, nBins)
 
 	for i := 0; 16*i <= nBins; i++ {
 		jpower := 1.0
@@ -154,6 +145,7 @@ func (r *Distribution) Makebins() {
 	}
 	// fmt.Println(r.binStarts)
 
+	// Step 2: calculate assayable sequence length
 	// TODO: this is just rice chromosome array for testing, need to change to real contig sizes
 	// based on BAM file header
 	var contigLens = [...]int{43270923, 35937250, 36413819, 35502694, 29958434, 31248787,
@@ -163,6 +155,7 @@ func (r *Distribution) Makebins() {
 	nIntraContigBins := int(math.Ceil(intraContigLinkRange * 16))
 
 	binNorms := make([]int, nIntraContigBins)
+	nLinks := make([]int, nIntraContigBins)
 	for _, contiglen := range contigLens {
 		for j := 0; j < nIntraContigBins; j++ {
 			r := contiglen - r.binStarts[j]
@@ -172,5 +165,22 @@ func (r *Distribution) Makebins() {
 			binNorms[j] += r
 		}
 	}
-	fmt.Println(binNorms)
+	// fmt.Println(binNorms)
+
+	// Step 3: loop through all links and tabulate the counts
+	for _, link := range r.links {
+		if link < MinLinkDist {
+			continue
+		}
+		bin := r.LinkBin(link)
+		nLinks[bin]++
+	}
+	// fmt.Println(nLinks)
+
+	// Step 4: normalize to calculate link density
+	linkDensity := make([]float64, nIntraContigBins)
+	for i := 0; i < nIntraContigBins; i++ {
+		linkDensity[i] = float64(nLinks[i]) * float64(BinNorm) / float64(binNorms[i]) / float64(r.BinSize(i))
+		fmt.Println(i, nLinks[i], binNorms[i], r.binStarts[i], r.BinSize(i), linkDensity[i])
+	}
 }
