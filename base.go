@@ -48,6 +48,10 @@ const (
 	MinInt = -MaxInt - 1
 	// GeometricBinSize is the max/min ratio for each bin
 	GeometricBinSize = 1.0442737824274138403219664787399
+	// MinLinkDist is the minimum link distance we care about
+	MinLinkDist = 4096
+	// MaxLinkDist is the maximum link distance we care about
+	MaxLinkDist = 1 << 28
 )
 
 // GArray contains golden array of size BB
