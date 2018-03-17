@@ -17,6 +17,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/biogo/hts/bam"
 )
 
 var b = [...]uint{0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000}
@@ -24,10 +26,12 @@ var s = [...]uint{1, 2, 4, 8, 16}
 
 // Distribution processes the distribution step
 type Distribution struct {
+	Distfile    string
 	Bamfile     string
 	maxLinkDist int
 	binStarts   []int
 	links       []int
+	contigLens  []int
 }
 
 // uintLog2 calculates the integer log2 of a number
@@ -97,8 +101,15 @@ func (r *Distribution) BinSize(i int) int {
 
 // Run calls the distribution steps
 func (r *Distribution) Run() {
-	file, _ := os.Open(r.Bamfile)
-	log.Noticef("Parse dist file `%s`", r.Bamfile)
+	r.ExtractLinks()
+	r.ExtractContigLens()
+	r.Makebins()
+}
+
+// ExtractLinks populates links
+func (r *Distribution) ExtractLinks() {
+	file, _ := os.Open(r.Distfile)
+	log.Noticef("Parse dist file `%s`", r.Distfile)
 	reader := bufio.NewReader(file)
 	for {
 		row, err := reader.ReadString('\n')
@@ -115,8 +126,20 @@ func (r *Distribution) Run() {
 		}
 	}
 	log.Noticef("Imported %d intra-contig links", len(r.links))
+}
 
-	r.Makebins()
+// ExtractContigLens populates contigLens
+func (r *Distribution) ExtractContigLens() {
+	fh, _ := os.Open(r.Bamfile)
+	log.Noticef("Parse bamfile `%s`", r.Bamfile)
+	br, _ := bam.NewReader(fh, 0)
+	defer br.Close()
+
+	refs := br.Header().Refs()
+	for _, ref := range refs {
+		r.contigLens = append(r.contigLens, ref.Len())
+	}
+	log.Noticef("Imported %d contigs", len(r.contigLens))
 }
 
 // Makebins makes geometric bins and count links that fall in each bin
@@ -146,17 +169,16 @@ func (r *Distribution) Makebins() {
 	// fmt.Println(r.binStarts)
 
 	// Step 2: calculate assayable sequence length
-	// TODO: this is just rice chromosome array for testing, need to change to real contig sizes
-	// based on BAM file header
-	var contigLens = [...]int{43270923, 35937250, 36413819, 35502694, 29958434, 31248787,
-		29697621, 28443022, 23012720, 23207287, 29021106, 27531856, 633585, 592136}
+	// var contigLens = [...]int{43270923, 35937250, 36413819, 35502694, 29958434, 31248787,
+	// 	29697621, 28443022, 23012720, 23207287, 29021106, 27531856, 633585, 592136}
+
 	// Find the length of assayable intra-contig sequence in each bin
 	intraContigLinkRange := math.Log2(float64(r.maxLinkDist) / float64(MinLinkDist))
 	nIntraContigBins := int(math.Ceil(intraContigLinkRange * 16))
 
 	binNorms := make([]int, nIntraContigBins)
 	nLinks := make([]int, nIntraContigBins)
-	for _, contiglen := range contigLens {
+	for _, contiglen := range r.contigLens {
 		for j := 0; j < nIntraContigBins; j++ {
 			r := contiglen - r.binStarts[j]
 			if r < 0 {
@@ -172,7 +194,6 @@ func (r *Distribution) Makebins() {
 		bin := r.LinkBin(link)
 		nLinks[bin]++
 	}
-	// fmt.Println(nLinks)
 
 	// Step 4: normalize to calculate link density
 	linkDensity := make([]float64, nBins)
@@ -196,8 +217,10 @@ func (r *Distribution) Makebins() {
 	}
 	avgLinkDensity /= float64(nIntraContigBins - topBin)
 
-	for i := nIntraContigBins - 1; i < nBins; i++ {
-		linkDensity[i] = avgLinkDensity * float64(r.BinSize(i)) / BinNorm
+	for i := 0; i < nBins; i++ {
+		if linkDensity[i] == 0 {
+			linkDensity[i] = avgLinkDensity * float64(r.BinSize(i)) / BinNorm
+		}
 	}
 	fmt.Println(linkDensity)
 }
