@@ -169,18 +169,35 @@ func (r *Distribution) Makebins() {
 
 	// Step 3: loop through all links and tabulate the counts
 	for _, link := range r.links {
-		if link < MinLinkDist {
-			continue
-		}
 		bin := r.LinkBin(link)
 		nLinks[bin]++
 	}
 	// fmt.Println(nLinks)
 
 	// Step 4: normalize to calculate link density
-	linkDensity := make([]float64, nIntraContigBins)
+	linkDensity := make([]float64, nBins)
 	for i := 0; i < nIntraContigBins; i++ {
 		linkDensity[i] = float64(nLinks[i]) * float64(BinNorm) / float64(binNorms[i]) / float64(r.BinSize(i))
 		fmt.Println(i, nLinks[i], binNorms[i], r.binStarts[i], r.BinSize(i), linkDensity[i])
 	}
+	fmt.Println(linkDensity)
+
+	// Step 5: assume the distribution approximates 1/x for large x
+	topBin := nIntraContigBins - 1
+	nTopLinks := 0
+	nTopLinksNeeded := len(r.links) / 100
+	for ; nTopLinks < nTopLinksNeeded; topBin-- {
+		nTopLinks += nLinks[topBin]
+	}
+
+	avgLinkDensity := 0.0
+	for i := topBin; i < nIntraContigBins; i++ {
+		avgLinkDensity += linkDensity[i] * float64(r.BinSize(i)) / BinNorm
+	}
+	avgLinkDensity /= float64(nIntraContigBins - topBin)
+
+	for i := nIntraContigBins - 1; i < nBins; i++ {
+		linkDensity[i] = avgLinkDensity * float64(r.BinSize(i)) / BinNorm
+	}
+	fmt.Println(linkDensity)
 }
