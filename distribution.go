@@ -29,6 +29,7 @@ type Distribution struct {
 	Distfile    string
 	Bamfile     string
 	maxLinkDist int
+	nBins       int
 	binStarts   []int
 	links       []int
 	linkDensity []float64
@@ -105,7 +106,6 @@ func (r *Distribution) Run() {
 	r.ExtractLinks()
 	r.ExtractContigLens()
 	r.Makebins()
-	r.ExpectedLinks(100000, 100000)
 }
 
 // ExtractLinks populates links
@@ -152,6 +152,7 @@ func (r *Distribution) Makebins() {
 	// We fit 16 bins into each power of 2
 	linkRange := math.Log2(float64(MaxLinkDist) / float64(MinLinkDist))
 	nBins := int(math.Ceil(linkRange * 16))
+	r.nBins = nBins
 
 	r.maxLinkDist = MinInt
 	for _, link := range r.links {
@@ -241,14 +242,40 @@ func (r *Distribution) Makebins() {
 	fmt.Println(normLinkDensity)
 }
 
+// WriteFile writes the link size distribution to file
+func (r *Distribution) WriteFile(outfile string) {
+	f, _ := os.Create(outfile)
+	defer f.Close()
+}
+
 // FindEnrichmentOnContig determine the local enrichment of links on this contig.
 func (r *Distribution) FindEnrichmentOnContig(size int, links []int) {
 
 }
 
-// ExpectedLinks calculates the expected number of links between two contigs
-func (r *Distribution) ExpectedLinks(sizeA, sizeB int) {
-	for i := 0; i < len(r.binStarts)-1; i++ {
-		// fmt.Println(r.linkDensity[i] * float64(r.BinSize(i)))
+// FindDistanceBetweenLinks calculates the most likely inter-contig distance
+// Method credit to LACHESIS src code:
+// https://github.com/shendurelab/LACHESIS/blob/master/src/LinkSizeDistribution.cc
+func (r *Distribution) FindDistanceBetweenLinks(sizeA, sizeB int, LDE float64, links []int) {
+
+}
+
+// LogLikelihoodD calculates the log-likelihood given the distance between contigs D
+// This function gets called by FindDistanceBetweenLinks
+func (r *Distribution) LogLikelihoodD(D, L1, L2 int, LDE float64, links []int) {
+	// Step 1. Find expected number of links per bin
+}
+
+// FindExpectedInterContigLinks calculates the expected number of links between two contigs
+func (r *Distribution) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64, links []int) {
+	// nExpectedLinks := make([]float64, r.nBins)
+
+	for i := 0; i < r.nBins; i++ {
+		binStart := r.binStarts[i]
+		binStop := r.binStarts[i+1]
+
+		if binStop <= D || binStart >= D+L1+L2 {
+			continue
+		}
 	}
 }
