@@ -31,6 +31,7 @@ type Distribution struct {
 	maxLinkDist int
 	binStarts   []int
 	links       []int
+	linkDensity []float64
 	contigLens  []int
 }
 
@@ -104,6 +105,7 @@ func (r *Distribution) Run() {
 	r.ExtractLinks()
 	r.ExtractContigLens()
 	r.Makebins()
+	r.ExpectedLinks(100000, 100000)
 }
 
 // ExtractLinks populates links
@@ -187,7 +189,6 @@ func (r *Distribution) Makebins() {
 			binNorms[j] += r
 		}
 	}
-	// fmt.Println(binNorms)
 
 	// Step 3: loop through all links and tabulate the counts
 	for _, link := range r.links {
@@ -196,12 +197,11 @@ func (r *Distribution) Makebins() {
 	}
 
 	// Step 4: normalize to calculate link density
-	linkDensity := make([]float64, nBins)
+	r.linkDensity = make([]float64, nBins)
 	for i := 0; i < nIntraContigBins; i++ {
-		linkDensity[i] = float64(nLinks[i]) * float64(BinNorm) / float64(binNorms[i]) / float64(r.BinSize(i))
-		fmt.Println(i, nLinks[i], binNorms[i], r.binStarts[i], r.BinSize(i), linkDensity[i])
+		r.linkDensity[i] = float64(nLinks[i]) * float64(BinNorm) / float64(binNorms[i]) / float64(r.BinSize(i))
+		fmt.Println(i, nLinks[i], binNorms[i], r.binStarts[i], r.BinSize(i), r.linkDensity[i])
 	}
-	fmt.Println(linkDensity)
 
 	// Step 5: assume the distribution approximates 1/x for large x
 	topBin := nIntraContigBins - 1
@@ -213,14 +213,42 @@ func (r *Distribution) Makebins() {
 
 	avgLinkDensity := 0.0
 	for i := topBin; i < nIntraContigBins; i++ {
-		avgLinkDensity += linkDensity[i] * float64(r.BinSize(i)) / BinNorm
+		avgLinkDensity += r.linkDensity[i] * float64(r.BinSize(i))
 	}
 	avgLinkDensity /= float64(nIntraContigBins - topBin)
 
+	// Overwrite the values of last few bins, or a bin with na values
 	for i := 0; i < nBins; i++ {
-		if linkDensity[i] == 0 {
-			linkDensity[i] = avgLinkDensity * float64(r.BinSize(i)) / BinNorm
+		if r.linkDensity[i] == 0 || i >= topBin {
+			r.linkDensity[i] = avgLinkDensity / float64(r.BinSize(i))
 		}
 	}
-	fmt.Println(linkDensity)
+
+	// Step 6: Serialize the distribution
+	fmt.Println(r.linkDensity)
+	sum := 0.0
+	for i, ld := range r.linkDensity {
+		sum += ld * float64(r.BinSize(i))
+	}
+	fmt.Println(sum)
+
+	normLinkDensity := make([]float64, nBins)
+	copy(normLinkDensity, r.linkDensity)
+	for i, ld := range r.linkDensity {
+		normLinkDensity[i] = ld * float64(r.BinSize(i)) / sum
+		fmt.Println(normLinkDensity[i])
+	}
+	fmt.Println(normLinkDensity)
+}
+
+// FindEnrichmentOnContig determine the local enrichment of links on this contig.
+func (r *Distribution) FindEnrichmentOnContig(size int, links []int) {
+
+}
+
+// ExpectedLinks calculates the expected number of links between two contigs
+func (r *Distribution) ExpectedLinks(sizeA, sizeB int) {
+	for i := 0; i < len(r.binStarts)-1; i++ {
+		// fmt.Println(r.linkDensity[i] * float64(r.BinSize(i)))
+	}
 }
