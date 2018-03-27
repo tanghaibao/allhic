@@ -53,7 +53,7 @@ const (
 	// MaxLinkDist is the maximum link distance we care about
 	MaxLinkDist = 1 << 28
 	// BinNorm is a ratio to make the link density human readable
-	BinNorm = 1000000
+	BinNorm = 1000000.0
 )
 
 // GArray contains golden array of size BB
@@ -141,11 +141,37 @@ func GoldenArray(a []int) (counts GArray) {
 }
 
 // min gets the minimum for two ints
-func min(a, b int) int {
-	if a < b {
-		return a
+func min(x, y int) int {
+	if x < y {
+		return x
 	}
-	return b
+	return y
+}
+
+// min gets the maximum for two ints
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+// sum gets the sum for an int slice
+func sum(a []int) int {
+	ans := 0
+	for _, x := range a {
+		ans += x
+	}
+	return ans
+}
+
+// sum gets the sum for an int slice
+func sumf(a []float64) float64 {
+	ans := 0.0
+	for _, x := range a {
+		ans += x
+	}
+	return ans
 }
 
 // median gets the median value of an array

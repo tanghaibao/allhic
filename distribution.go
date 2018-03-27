@@ -27,11 +27,14 @@ var s = [...]uint{1, 2, 4, 8, 16}
 // Distribution processes the distribution step
 type Distribution struct {
 	Distfile    string
+	Clmfile     string
 	Bamfile     string
 	maxLinkDist int
 	nBins       int
 	binStarts   []int
 	links       []int
+	contigLinks map[string][]int
+	contigSizes map[string]int
 	linkDensity []float64
 	contigLens  []int
 }
@@ -106,12 +109,23 @@ func (r *Distribution) Run() {
 	r.ExtractLinks()
 	r.ExtractContigLens()
 	r.Makebins()
+
+	for contig, L := range r.contigSizes {
+		links := r.contigLinks[contig]
+		nExpectedLinks := r.FindExpectedIntraContigLinks(L, links)
+		fmt.Println(nExpectedLinks)
+		fmt.Printf("Contig: %s: Expected: %.1f, Observed: %d\n",
+			contig, sumf(nExpectedLinks), len(links))
+	}
 }
 
 // ExtractLinks populates links
 func (r *Distribution) ExtractLinks() {
 	file, _ := os.Open(r.Distfile)
 	log.Noticef("Parse dist file `%s`", r.Distfile)
+	r.contigLinks = make(map[string][]int)
+	var contigLinks []int
+
 	reader := bufio.NewReader(file)
 	for {
 		row, err := reader.ReadString('\n')
@@ -120,12 +134,15 @@ func (r *Distribution) ExtractLinks() {
 			break
 		}
 		words := strings.Split(row, "\t")
+		contigLinks = []int{}
 		for _, link := range strings.Split(words[1], ",") {
 			ll, _ := strconv.Atoi(link)
 			if ll >= MinLinkDist {
 				r.links = append(r.links, ll)
+				contigLinks = append(contigLinks, ll)
 			}
 		}
+		r.contigLinks[words[0]] = contigLinks
 	}
 	log.Noticef("Imported %d intra-contig links", len(r.links))
 }
@@ -137,9 +154,11 @@ func (r *Distribution) ExtractContigLens() {
 	br, _ := bam.NewReader(fh, 0)
 	defer br.Close()
 
+	r.contigSizes = make(map[string]int)
 	refs := br.Header().Refs()
 	for _, ref := range refs {
 		r.contigLens = append(r.contigLens, ref.Len())
+		r.contigSizes[ref.Name()] = ref.Len()
 	}
 	log.Noticef("Imported %d contigs", len(r.contigLens))
 }
@@ -169,7 +188,6 @@ func (r *Distribution) Makebins() {
 			jpower *= GeometricBinSize
 		}
 	}
-	// fmt.Println(r.binStarts)
 
 	// Step 2: calculate assayable sequence length
 	// var contigLens = [...]int{43270923, 35937250, 36413819, 35502694, 29958434, 31248787,
@@ -200,7 +218,7 @@ func (r *Distribution) Makebins() {
 	// Step 4: normalize to calculate link density
 	r.linkDensity = make([]float64, nBins)
 	for i := 0; i < nIntraContigBins; i++ {
-		r.linkDensity[i] = float64(nLinks[i]) * float64(BinNorm) / float64(binNorms[i]) / float64(r.BinSize(i))
+		r.linkDensity[i] = float64(nLinks[i]) * BinNorm / float64(binNorms[i]) / float64(r.BinSize(i))
 		fmt.Println(i, nLinks[i], binNorms[i], r.binStarts[i], r.BinSize(i), r.linkDensity[i])
 	}
 
@@ -231,13 +249,11 @@ func (r *Distribution) Makebins() {
 	for i, ld := range r.linkDensity {
 		sum += ld * float64(r.BinSize(i))
 	}
-	fmt.Println(sum)
 
 	normLinkDensity := make([]float64, nBins)
 	copy(normLinkDensity, r.linkDensity)
 	for i, ld := range r.linkDensity {
 		normLinkDensity[i] = ld * float64(r.BinSize(i)) / sum
-		fmt.Println(normLinkDensity[i])
 	}
 	fmt.Println(normLinkDensity)
 }
@@ -266,16 +282,45 @@ func (r *Distribution) LogLikelihoodD(D, L1, L2 int, LDE float64, links []int) {
 	// Step 1. Find expected number of links per bin
 }
 
-// FindExpectedInterContigLinks calculates the expected number of links between two contigs
-func (r *Distribution) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64, links []int) {
-	// nExpectedLinks := make([]float64, r.nBins)
+// FindExpectedIntraContigLinks calculates the expected number of links within a contig
+func (r *Distribution) FindExpectedIntraContigLinks(L int, links []int) []float64 {
+	nExpectedLinks := make([]float64, r.nBins)
 
 	for i := 0; i < r.nBins; i++ {
 		binStart := r.binStarts[i]
 		binStop := r.binStarts[i+1]
 
-		if binStop <= D || binStart >= D+L1+L2 {
+		if binStart >= L {
+			break
+		}
+
+		left := binStart
+		right := min(binStop, L)
+		middleX := (left + right) / 2
+		middleY := L - middleX
+		nObservableLinks := (right - left) * middleY
+
+		nExpectedLinks[i] = float64(nObservableLinks) * r.linkDensity[i] / BinNorm
+	}
+
+	return nExpectedLinks
+}
+
+// FindExpectedInterContigLinks calculates the expected number of links between two contigs
+func (r *Distribution) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64, links []int) []float64 {
+	nExpectedLinks := make([]float64, r.nBins)
+
+	for i := 0; i < r.nBins; i++ {
+		binStart := r.binStarts[i]
+		binStop := r.binStarts[i+1]
+
+		if binStop <= D {
 			continue
 		}
+		if binStart >= D+L1+L2 {
+			break
+		}
 	}
+
+	return nExpectedLinks
 }
