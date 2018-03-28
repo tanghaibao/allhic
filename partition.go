@@ -56,7 +56,6 @@ func (r *Partitioner) CountLinks() [][]int {
 		}
 		ai := tigToIdx[rec.Ref.Name()]
 		bi := tigToIdx[rec.MateRef.Name()]
-		// fmt.Println(rec.Ref.Name(), rec.MateRef.Name())
 		C[ai][bi]++
 		C[bi][ai]++
 	}

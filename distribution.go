@@ -108,56 +108,12 @@ func (r *Distribution) BinSize(i int) int {
 
 // Run calls the distribution steps
 func (r *Distribution) Run() {
-	r.ExtractLinks()
-	r.BamToClm()
+	r.ExtractIntraContigLinks()
+	r.ExtractInterContigLinks()
 	r.Makebins()
 	r.WriteDistribution("distribution.txt")
 	r.FindEnrichmentOnContigs("enrichment.txt")
 	r.FindDistanceBetweenContigs("distance.txt")
-}
-
-// ExtractLinks populates links
-func (r *Distribution) ExtractLinks() {
-	file, _ := os.Open(r.Distfile)
-	log.Noticef("Parse dist file `%s`", r.Distfile)
-	r.contigLinks = make(map[string][]int)
-	var contigLinks []int
-
-	reader := bufio.NewReader(file)
-	for {
-		row, err := reader.ReadString('\n')
-		row = strings.TrimSpace(row)
-		if row == "" && err == io.EOF {
-			break
-		}
-		words := strings.Split(row, "\t")
-		contigLinks = []int{}
-		for _, link := range strings.Split(words[1], ",") {
-			ll, _ := strconv.Atoi(link)
-			if ll >= MinLinkDist {
-				r.links = append(r.links, ll)
-				contigLinks = append(contigLinks, ll)
-			}
-		}
-		r.contigLinks[words[0]] = contigLinks
-	}
-	log.Noticef("Imported %d intra-contig links", len(r.links))
-}
-
-// ExtractContigLens populates contigLens
-func (r *Distribution) ExtractContigLens() {
-	fh, _ := os.Open(r.Bamfile)
-	log.Noticef("Parse bamfile `%s`", r.Bamfile)
-	br, _ := bam.NewReader(fh, 0)
-	defer br.Close()
-
-	r.contigSizes = make(map[string]int)
-	refs := br.Header().Refs()
-	for _, ref := range refs {
-		r.contigLens = append(r.contigLens, ref.Len())
-		r.contigSizes[ref.Name()] = ref.Len()
-	}
-	log.Noticef("Imported %d contigs", len(r.contigLens))
 }
 
 // Makebins makes geometric bins and count links that fall in each bin
@@ -356,18 +312,46 @@ func (r *Distribution) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64, 
 	return nExpectedLinks
 }
 
-// BamToClm converts the BAM file to .clm and .ids
-func (r *Distribution) BamToClm() {
+// ExtractIntraContigLinks populates links
+func (r *Distribution) ExtractIntraContigLinks() {
+	file, _ := os.Open(r.Distfile)
+	log.Noticef("Parse dist file `%s`", r.Distfile)
+	r.contigLinks = make(map[string][]int)
+	var contigLinks []int
+
+	reader := bufio.NewReader(file)
+	for {
+		row, err := reader.ReadString('\n')
+		row = strings.TrimSpace(row)
+		if row == "" && err == io.EOF {
+			break
+		}
+		words := strings.Split(row, "\t")
+		contigLinks = []int{}
+		for _, link := range strings.Split(words[1], ",") {
+			ll, _ := strconv.Atoi(link)
+			if ll >= MinLinkDist {
+				r.links = append(r.links, ll)
+				contigLinks = append(contigLinks, ll)
+			}
+		}
+		r.contigLinks[words[0]] = contigLinks
+	}
+	log.Noticef("Imported %d intra-contig links", len(r.links))
+}
+
+// ExtractInterContigLinks converts the BAM file to .clm and .ids
+func (r *Distribution) ExtractInterContigLinks() {
 	fh, _ := os.Open(r.Bamfile)
-	// clmfile := RemoveExt(r.Bamfile) + ".clm"
+	clmfile := RemoveExt(r.Bamfile) + ".clm"
 	idsfile := RemoveExt(r.Bamfile) + ".ids"
 
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
 	defer br.Close()
 
-	// fclm, _ := os.Create(clmfile)
-	// wclm := bufio.NewWriter(fclm)
+	fclm, _ := os.Create(clmfile)
+	wclm := bufio.NewWriter(fclm)
 	fids, _ := os.Create(idsfile)
 	wids := bufio.NewWriter(fids)
 
@@ -378,5 +362,63 @@ func (r *Distribution) BamToClm() {
 		r.contigSizes[ref.Name()] = ref.Len()
 		fmt.Fprintf(wids, "%s\t%d\n", ref.Name(), ref.Len())
 	}
+	wids.Flush()
 	log.Noticef("Extracted %d contigs to `%s`", len(r.contigLens), idsfile)
+
+	// Import links into pairs of contigs
+	var a, a2, b, b2 int
+	contigPairs := make(map[[2]string][][4]int)
+	for {
+		rec, err := br.Read()
+		if err != nil {
+			if err != io.EOF {
+				log.Error(err)
+			}
+			break
+		}
+		at, bt := rec.Ref.Name(), rec.MateRef.Name()
+
+		// Disable extraction of intra-contig links for now
+		if at == bt {
+			continue
+		}
+
+		//         read1                                               read2
+		//     ---a-- X|----- dist = a2 ----|         |--- dist = b ---|X ------ b2 ------
+		//     ==============================         ====================================
+		//             C1 (length L1)       |----D----|         C2 (length L2)
+		rlen := rec.Len()
+		a, b = rec.Pos, rec.MatePos
+
+		if at > bt {
+			at, bt = bt, at
+			a, b = b, a
+		}
+
+		L1, _ := r.contigSizes[at]
+		L2, _ := r.contigSizes[bt]
+		a2, b2 = L1-rlen-a, L2-rlen-b
+		ApBp := a2 + b
+		ApBm := a2 + b2
+		AmBp := a + b
+		AmBm := a + b2
+		pair := [2]string{at, bt}
+		contigPairs[pair] = append(contigPairs[pair], [4]int{ApBp, ApBm, AmBp, AmBm})
+		// fmt.Println(at, bt, L1, L2, a, b)
+	}
+
+	tags := []string{"++", "+-", "-+", "--"}
+	for pair, links := range contigPairs {
+		for i := 0; i < 4; i++ {
+			nLinks := len(links)
+			linksWithDir := make([]int, nLinks)
+			for j, link := range links {
+				linksWithDir[j] = link[i]
+			}
+			fmt.Fprintf(wclm, "%s%c %s%c\t%d\t%s\n",
+				pair[0], tags[i][0], pair[1], tags[i][1], nLinks, arrayToString(linksWithDir, " "))
+		}
+	}
+	wclm.Flush()
+	log.Noticef("Extracted %d contig link pairs to `%s`", len(contigPairs), clmfile)
 }

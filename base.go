@@ -10,6 +10,7 @@
 package allhic
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"path"
@@ -165,13 +166,18 @@ func sum(a []int) int {
 	return ans
 }
 
-// sum gets the sum for an int slice
+// sumf gets the sum for an int slice
 func sumf(a []float64) float64 {
 	ans := 0.0
 	for _, x := range a {
 		ans += x
 	}
 	return ans
+}
+
+// arrayToString print comma-separated int slice
+func arrayToString(a []int, delim string) string {
+	return strings.Trim(strings.Replace(fmt.Sprint(a), " ", delim, -1), "[]")
 }
 
 // median gets the median value of an array
