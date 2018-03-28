@@ -26,17 +26,18 @@ var s = [...]uint{1, 2, 4, 8, 16}
 
 // Distribution processes the distribution step
 type Distribution struct {
-	Distfile    string
-	Clmfile     string
-	Bamfile     string
-	maxLinkDist int
-	nBins       int
-	binStarts   []int
-	links       []int
-	contigLinks map[string][]int
-	contigSizes map[string]int
-	linkDensity []float64
-	contigLens  []int
+	Distfile          string
+	Clmfile           string
+	Bamfile           string
+	maxLinkDist       int
+	nBins             int
+	binStarts         []int
+	links             []int
+	contigLens        []int
+	linkDensity       []float64
+	contigLinks       map[string][]int
+	contigSizes       map[string]int
+	contigEnrichments map[string]float64
 }
 
 // uintLog2 calculates the integer log2 of a number
@@ -109,14 +110,7 @@ func (r *Distribution) Run() {
 	r.ExtractLinks()
 	r.ExtractContigLens()
 	r.Makebins()
-
-	for contig, L := range r.contigSizes {
-		links := r.contigLinks[contig]
-		nExpectedLinks := r.FindExpectedIntraContigLinks(L, links)
-		fmt.Println(nExpectedLinks)
-		fmt.Printf("Contig: %s: Expected: %.1f, Observed: %d\n",
-			contig, sumf(nExpectedLinks), len(links))
-	}
+	r.FindEnrichmentOnContigs()
 }
 
 // ExtractLinks populates links
@@ -264,9 +258,20 @@ func (r *Distribution) WriteFile(outfile string) {
 	defer f.Close()
 }
 
-// FindEnrichmentOnContig determine the local enrichment of links on this contig.
-func (r *Distribution) FindEnrichmentOnContig(size int, links []int) {
+// FindEnrichmentOnContigs determine the local enrichment of links on this contig.
+func (r *Distribution) FindEnrichmentOnContigs() {
+	r.contigEnrichments = make(map[string]float64)
+	for contig, L := range r.contigSizes {
+		links := r.contigLinks[contig]
+		nObservedLinks := len(links)
+		nExpectedLinks := r.FindExpectedIntraContigLinks(L, links)
+		LDE := float64(nObservedLinks) / sumf(nExpectedLinks)
 
+		fmt.Printf("Contig: %s, Length: %d, Expected: %.1f, Observed: %d, LDE: %.1f\n",
+			contig, L, sumf(nExpectedLinks), nObservedLinks, LDE)
+
+		r.contigEnrichments[contig] = LDE
+	}
 }
 
 // FindDistanceBetweenLinks calculates the most likely inter-contig distance
