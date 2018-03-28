@@ -224,10 +224,15 @@ func (r *Distribution) FindEnrichmentOnContigs(outfile string) {
 		nExpectedLinks := r.FindExpectedIntraContigLinks(L, links)
 		var LDE float64
 		if nObservedLinks == 0 {
-			// Avoid LDE set to zero
-			LDE = (float64(nObservedLinks) + 0.01) / (sumf(nExpectedLinks) + 0.01)
+			LDE = 0.0
 		} else {
 			LDE = float64(nObservedLinks) / sumf(nExpectedLinks)
+		}
+		// Cap the LDE value within [0.1, 10.0]
+		if LDE < 0.1 {
+			LDE = 0.1
+		} else if LDE > 10.0 {
+			LDE = 10.0
 		}
 		fmt.Fprintf(w, "%s\t%d\t%.1f\t%d\t%.4f\n",
 			contig, L, sumf(nExpectedLinks), nObservedLinks, LDE)
