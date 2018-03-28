@@ -110,7 +110,7 @@ func (r *Distribution) Run() {
 	r.ExtractLinks()
 	r.ExtractContigLens()
 	r.Makebins()
-	r.FindEnrichmentOnContigs()
+	r.FindEnrichmentOnContigs("enrichment.txt")
 }
 
 // ExtractLinks populates links
@@ -259,19 +259,26 @@ func (r *Distribution) WriteFile(outfile string) {
 }
 
 // FindEnrichmentOnContigs determine the local enrichment of links on this contig.
-func (r *Distribution) FindEnrichmentOnContigs() {
+func (r *Distribution) FindEnrichmentOnContigs(outfile string) {
 	r.contigEnrichments = make(map[string]float64)
+	f, _ := os.Create(outfile)
+	w := bufio.NewWriter(f)
+	defer f.Close()
+
+	fmt.Fprintf(w, "#Contig\tLength\tExpected\tObserved\tLDE\n")
+
 	for contig, L := range r.contigSizes {
 		links := r.contigLinks[contig]
 		nObservedLinks := len(links)
 		nExpectedLinks := r.FindExpectedIntraContigLinks(L, links)
 		LDE := float64(nObservedLinks) / sumf(nExpectedLinks)
-
-		fmt.Printf("Contig: %s, Length: %d, Expected: %.1f, Observed: %d, LDE: %.1f\n",
+		fmt.Fprintf(w, "%s\t%d\t%.1f\t%d\t%.1f\n",
 			contig, L, sumf(nExpectedLinks), nObservedLinks, LDE)
 
 		r.contigEnrichments[contig] = LDE
 	}
+	w.Flush()
+	log.Noticef("Link enrichments written to `%s`", outfile)
 }
 
 // FindDistanceBetweenLinks calculates the most likely inter-contig distance
