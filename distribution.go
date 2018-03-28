@@ -35,6 +35,8 @@ type Distribution struct {
 	links             []int
 	contigLens        []int
 	linkDensity       []float64
+	nLinks            []int
+	binNorms          []int
 	contigLinks       map[string][]int
 	contigSizes       map[string]int
 	contigEnrichments map[string]float64
@@ -110,6 +112,7 @@ func (r *Distribution) Run() {
 	r.ExtractLinks()
 	r.ExtractContigLens()
 	r.Makebins()
+	r.WriteDistribution("distribution.txt")
 	r.FindEnrichmentOnContigs("enrichment.txt")
 }
 
@@ -191,29 +194,28 @@ func (r *Distribution) Makebins() {
 	intraContigLinkRange := math.Log2(float64(r.maxLinkDist) / float64(MinLinkDist))
 	nIntraContigBins := int(math.Ceil(intraContigLinkRange * 16))
 
-	binNorms := make([]int, nIntraContigBins)
-	nLinks := make([]int, nIntraContigBins)
+	r.binNorms = make([]int, nBins)
+	r.nLinks = make([]int, nBins)
 	for _, contiglen := range r.contigLens {
 		for j := 0; j < nIntraContigBins; j++ {
-			r := contiglen - r.binStarts[j]
-			if r < 0 {
+			z := contiglen - r.binStarts[j]
+			if z < 0 {
 				break
 			}
-			binNorms[j] += r
+			r.binNorms[j] += z
 		}
 	}
 
 	// Step 3: loop through all links and tabulate the counts
 	for _, link := range r.links {
 		bin := r.LinkBin(link)
-		nLinks[bin]++
+		r.nLinks[bin]++
 	}
 
 	// Step 4: normalize to calculate link density
 	r.linkDensity = make([]float64, nBins)
 	for i := 0; i < nIntraContigBins; i++ {
-		r.linkDensity[i] = float64(nLinks[i]) * BinNorm / float64(binNorms[i]) / float64(r.BinSize(i))
-		fmt.Println(i, nLinks[i], binNorms[i], r.binStarts[i], r.BinSize(i), r.linkDensity[i])
+		r.linkDensity[i] = float64(r.nLinks[i]) * BinNorm / float64(r.binNorms[i]) / float64(r.BinSize(i))
 	}
 
 	// Step 5: assume the distribution approximates 1/x for large x
@@ -221,7 +223,7 @@ func (r *Distribution) Makebins() {
 	nTopLinks := 0
 	nTopLinksNeeded := len(r.links) / 100
 	for ; nTopLinks < nTopLinksNeeded; topBin-- {
-		nTopLinks += nLinks[topBin]
+		nTopLinks += r.nLinks[topBin]
 	}
 
 	avgLinkDensity := 0.0
@@ -252,10 +254,20 @@ func (r *Distribution) Makebins() {
 	fmt.Println(normLinkDensity)
 }
 
-// WriteFile writes the link size distribution to file
-func (r *Distribution) WriteFile(outfile string) {
+// WriteDistribution writes the link size distribution to file
+func (r *Distribution) WriteDistribution(outfile string) {
 	f, _ := os.Create(outfile)
+	w := bufio.NewWriter(f)
 	defer f.Close()
+
+	fmt.Fprintf(w, "#Bin\tBinStart\tBinSize\tNumLinks\tTotalSize\tLinkDensity\n")
+	for i := 0; i < r.nBins; i++ {
+		fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%.4g\n",
+			i, r.binStarts[i], r.BinSize(i), r.nLinks[i], r.binNorms[i], r.linkDensity[i])
+	}
+
+	w.Flush()
+	log.Noticef("Link size distribution written to `%s`", outfile)
 }
 
 // FindEnrichmentOnContigs determine the local enrichment of links on this contig.
