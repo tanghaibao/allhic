@@ -224,11 +224,12 @@ func (r *Distribution) FindEnrichmentOnContigs(outfile string) {
 		nExpectedLinks := r.FindExpectedIntraContigLinks(L, links)
 		var LDE float64
 		if nObservedLinks == 0 {
-			LDE = 0.0
+			// Avoid LDE set to zero
+			LDE = (float64(nObservedLinks) + 0.01) / (sumf(nExpectedLinks) + 0.01)
 		} else {
 			LDE = float64(nObservedLinks) / sumf(nExpectedLinks)
 		}
-		fmt.Fprintf(w, "%s\t%d\t%.1f\t%d\t%.1f\n",
+		fmt.Fprintf(w, "%s\t%d\t%.1f\t%d\t%.4f\n",
 			contig, L, sumf(nExpectedLinks), nObservedLinks, LDE)
 
 		r.contigEnrichments[contig] = LDE
@@ -250,7 +251,8 @@ func (r *Distribution) FindDistanceBetweenContigs(outfile string) {
 		// localLDE is weighted average of LDEs of contig A and B
 		lde1, _ := r.contigEnrichments[at]
 		lde2, _ := r.contigEnrichments[bt]
-		localLDE := math.Pow(lde1, float64(2*L1)/float64(L1+L2)) * math.Pow(lde2, float64(2*L2)/float64(L1+L2))
+		// Solve: lde1^L1 * lde2^L2 = x^(L1+L2)
+		localLDE := math.Exp((float64(L1)*math.Log(lde1) + float64(L2)*math.Log(lde2)) / float64(L1+L2))
 		fmt.Println(at, bt, L1, L2, lde1, lde2, localLDE, line.links)
 		r.FindDistanceBetweenLinks(L1, L2, localLDE, line.links)
 	}
