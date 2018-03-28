@@ -127,7 +127,6 @@ func (r *CLM) ParseIds() {
 		r.tigToIdx[tig] = idx
 		idx++
 	}
-	// fmt.Println(r.Tigs)
 }
 
 // rr map orientations to bit ('+' => '-', '-' => '+')

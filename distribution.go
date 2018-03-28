@@ -27,7 +27,6 @@ var s = [...]uint{1, 2, 4, 8, 16}
 // Distribution processes the distribution step
 type Distribution struct {
 	Distfile          string
-	Clmfile           string
 	Bamfile           string
 	maxLinkDist       int
 	nBins             int
@@ -110,10 +109,11 @@ func (r *Distribution) BinSize(i int) int {
 // Run calls the distribution steps
 func (r *Distribution) Run() {
 	r.ExtractLinks()
-	r.ExtractContigLens()
+	r.BamToClm()
 	r.Makebins()
 	r.WriteDistribution("distribution.txt")
 	r.FindEnrichmentOnContigs("enrichment.txt")
+	r.FindDistanceBetweenContigs("distance.txt")
 }
 
 // ExtractLinks populates links
@@ -187,9 +187,6 @@ func (r *Distribution) Makebins() {
 	}
 
 	// Step 2: calculate assayable sequence length
-	// var contigLens = [...]int{43270923, 35937250, 36413819, 35502694, 29958434, 31248787,
-	// 	29697621, 28443022, 23012720, 23207287, 29021106, 27531856, 633585, 592136}
-
 	// Find the length of assayable intra-contig sequence in each bin
 	intraContigLinkRange := math.Log2(float64(r.maxLinkDist) / float64(MinLinkDist))
 	nIntraContigBins := int(math.Ceil(intraContigLinkRange * 16))
@@ -238,19 +235,6 @@ func (r *Distribution) Makebins() {
 			r.linkDensity[i] = avgLinkDensity / float64(r.BinSize(i))
 		}
 	}
-
-	// Step 6: Serialize the distribution
-	sum := 0.0
-	for i, ld := range r.linkDensity {
-		sum += ld * float64(r.BinSize(i))
-	}
-
-	normLinkDensity := make([]float64, nBins)
-	copy(normLinkDensity, r.linkDensity)
-	for i, ld := range r.linkDensity {
-		normLinkDensity[i] = ld * float64(r.BinSize(i)) / sum
-	}
-	fmt.Println(normLinkDensity)
 }
 
 // WriteDistribution writes the link size distribution to file
@@ -282,7 +266,12 @@ func (r *Distribution) FindEnrichmentOnContigs(outfile string) {
 		links := r.contigLinks[contig]
 		nObservedLinks := len(links)
 		nExpectedLinks := r.FindExpectedIntraContigLinks(L, links)
-		LDE := float64(nObservedLinks) / sumf(nExpectedLinks)
+		var LDE float64
+		if nObservedLinks == 0 {
+			LDE = 0.0
+		} else {
+			LDE = float64(nObservedLinks) / sumf(nExpectedLinks)
+		}
 		fmt.Fprintf(w, "%s\t%d\t%.1f\t%d\t%.1f\n",
 			contig, L, sumf(nExpectedLinks), nObservedLinks, LDE)
 
@@ -292,10 +281,29 @@ func (r *Distribution) FindEnrichmentOnContigs(outfile string) {
 	log.Noticef("Link enrichments written to `%s`", outfile)
 }
 
+// FindDistanceBetweenContigs calculates the MLE of distance between all contigs
+func (r *Distribution) FindDistanceBetweenContigs(outfile string) {
+	clmfile := RemoveExt(r.Bamfile) + ".clm"
+	lines := ParseClmLines(clmfile)
+	fmt.Println(r.contigSizes)
+	fmt.Println(r.contigEnrichments)
+	for _, line := range lines {
+		at, bt := line.at, line.bt
+		L1, _ := r.contigSizes[at]
+		L2, _ := r.contigSizes[bt]
+		// localLDE is weighted average of LDEs of contig A and B
+		lde1, _ := r.contigEnrichments[at]
+		lde2, _ := r.contigEnrichments[bt]
+		localLDE := math.Pow(lde1, float64(2*L1)/float64(L1+L2)) * math.Pow(lde2, float64(2*L2)/float64(L1+L2))
+		fmt.Println(at, bt, L1, L2, lde1, lde2, localLDE, line.links)
+		r.FindDistanceBetweenLinks(L1, L2, localLDE, line.links)
+	}
+}
+
 // FindDistanceBetweenLinks calculates the most likely inter-contig distance
 // Method credit to LACHESIS src code:
 // https://github.com/shendurelab/LACHESIS/blob/master/src/LinkSizeDistribution.cc
-func (r *Distribution) FindDistanceBetweenLinks(sizeA, sizeB int, LDE float64, links []int) {
+func (r *Distribution) FindDistanceBetweenLinks(L1, L2 int, LDE float64, links []int) {
 
 }
 
@@ -346,4 +354,29 @@ func (r *Distribution) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64, 
 	}
 
 	return nExpectedLinks
+}
+
+// BamToClm converts the BAM file to .clm and .ids
+func (r *Distribution) BamToClm() {
+	fh, _ := os.Open(r.Bamfile)
+	// clmfile := RemoveExt(r.Bamfile) + ".clm"
+	idsfile := RemoveExt(r.Bamfile) + ".ids"
+
+	log.Noticef("Parse bamfile `%s`", r.Bamfile)
+	br, _ := bam.NewReader(fh, 0)
+	defer br.Close()
+
+	// fclm, _ := os.Create(clmfile)
+	// wclm := bufio.NewWriter(fclm)
+	fids, _ := os.Create(idsfile)
+	wids := bufio.NewWriter(fids)
+
+	r.contigSizes = make(map[string]int)
+	refs := br.Header().Refs()
+	for _, ref := range refs {
+		r.contigLens = append(r.contigLens, ref.Len())
+		r.contigSizes[ref.Name()] = ref.Len()
+		fmt.Fprintf(wids, "%s\t%d\n", ref.Name(), ref.Len())
+	}
+	log.Noticef("Extracted %d contigs to `%s`", len(r.contigLens), idsfile)
 }

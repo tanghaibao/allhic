@@ -34,22 +34,21 @@ func main() {
 			Name:  "distribution",
 			Usage: "Extract Hi-C link size distribution",
 			UsageText: `
-	allhic distribution <distfile> <clmfile> <bamfile> [options]
+	allhic distribution <distfile> <bamfile> [options]
 
 Distribution function:
 Given a bamfile, the goal of the distribution step is to calculate an empirical
 distribution of Hi-C link size based on intra-contig links.
 `,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 3 {
+				if len(c.Args()) < 2 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify distfile, clmfile and bamfile", 1)
 				}
 
 				distfile := c.Args().Get(0)
-				clmfile := c.Args().Get(1)
-				bamfile := c.Args().Get(2)
-				p := allhic.Distribution{Distfile: distfile, Clmfile: clmfile, Bamfile: bamfile}
+				bamfile := c.Args().Get(1)
+				p := allhic.Distribution{Distfile: distfile, Bamfile: bamfile}
 				p.Run()
 				return nil
 			},
