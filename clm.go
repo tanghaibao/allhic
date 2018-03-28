@@ -42,6 +42,15 @@ type CLM struct {
 	orientedContacts map[OrientedPair]GArray // (tigA, tigB, oriA, oriB) => golden array i.e. exponential histogram
 }
 
+// CLMLine stores the data structure
+type CLMLine struct {
+	at    string
+	bt    string
+	ao    byte
+	bo    byte
+	links []int
+}
+
 // Pair contains two contigs in contact
 type Pair struct {
 	ai int
@@ -129,11 +138,13 @@ func rr(b byte) byte {
 	return '-'
 }
 
-// ParseClm parses the clmfile into data stored in CLM.
-func (r *CLM) ParseClm() {
-	file, _ := os.Open(r.Clmfile)
-	log.Noticef("Parse clmfile `%s`", r.Clmfile)
+// ParseClmLines parses the clmfile into a slice of CLMLine
+func ParseClmLines(clmfile string) []CLMLine {
+	file, _ := os.Open(clmfile)
+	log.Noticef("Parse clmfile `%s`", clmfile)
 	reader := bufio.NewReader(file)
+
+	var lines []CLMLine
 	for {
 		row, err := reader.ReadString('\n')
 		row = strings.TrimSpace(row)
@@ -146,16 +157,6 @@ func (r *CLM) ParseClm() {
 		at, ao := atig[:len(atig)-1], atig[len(atig)-1]
 		bt, bo := btig[:len(btig)-1], btig[len(btig)-1]
 
-		// Make sure both contigs are in the ids file
-		ai, aok := r.tigToIdx[at]
-		if !aok {
-			continue
-		}
-		bi, bok := r.tigToIdx[bt]
-		if !bok {
-			continue
-		}
-
 		nlinks, _ := strconv.Atoi(words[1])
 		// Convert all distances to int
 		var dists []int
@@ -166,16 +167,39 @@ func (r *CLM) ParseClm() {
 		if nlinks != len(dists) {
 			log.Errorf("Malformed line: %v", row)
 		}
+		lines = append(lines, CLMLine{at, bt, ao, bo, dists})
+
+		if err != nil {
+			break
+		}
+	}
+	return lines
+}
+
+// ParseClm parses the clmfile into data stored in CLM.
+func (r *CLM) ParseClm() {
+	lines := ParseClmLines(r.Clmfile)
+	for _, line := range lines {
+		// Make sure both contigs are in the ids file
+		ai, aok := r.tigToIdx[line.at]
+		if !aok {
+			continue
+		}
+		bi, bok := r.tigToIdx[line.bt]
+		if !bok {
+			continue
+		}
+		ao, bo := line.ao, line.bo
 
 		// Store all these info in contacts
-		gdists := GoldenArray(dists)
-		meanDist := HmeanInt(dists, GRLB, GRUB)
+		gdists := GoldenArray(line.links)
+		meanDist := HmeanInt(line.links, GRLB, GRUB)
 		strandedness := 1
-		if ao != bo {
+		if line.ao != line.bo {
 			strandedness = -1
 		}
 		pair := Pair{ai, bi}
-		c := Contact{strandedness, nlinks, meanDist}
+		c := Contact{strandedness, len(line.links), meanDist}
 		if p, ok := r.contacts[pair]; ok {
 			if meanDist < p.meanDist {
 				r.contacts[pair] = c
@@ -185,13 +209,7 @@ func (r *CLM) ParseClm() {
 		}
 		r.orientedContacts[OrientedPair{ai, bi, ao, bo}] = gdists
 		r.orientedContacts[OrientedPair{bi, ai, rr(bo), rr(ao)}] = gdists
-
-		// ReadString encounters an error, usually io.EOF
-		if err != nil {
-			break
-		}
 	}
-	// fmt.Println(r.orientedContacts)
 }
 
 // calculateDensities calculated the density of inter-contig links per base.

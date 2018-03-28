@@ -240,7 +240,6 @@ func (r *Distribution) Makebins() {
 	}
 
 	// Step 6: Serialize the distribution
-	fmt.Println(r.linkDensity)
 	sum := 0.0
 	for i, ld := range r.linkDensity {
 		sum += ld * float64(r.BinSize(i))
