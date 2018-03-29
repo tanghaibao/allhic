@@ -94,6 +94,9 @@ func uintLog2Frac(x float64) uint {
 
 // LinkBin takes a link distance and convert to a binID
 func (r *Distribution) LinkBin(dist int) int {
+	if dist < MinLinkDist {
+		return -1
+	}
 	distOverMin := dist / MinLinkDist
 	log2i := uintLog2(uint(distOverMin))
 	log2f := uintLog2Frac(float64(dist) / float64(int(MinLinkDist)<<log2i))
@@ -161,6 +164,9 @@ func (r *Distribution) Makebins() {
 	// Step 3: loop through all links and tabulate the counts
 	for _, link := range r.links {
 		bin := r.LinkBin(link)
+		if bin == -1 {
+			continue
+		}
 		r.nLinks[bin]++
 	}
 
@@ -273,9 +279,20 @@ func (r *Distribution) FindDistanceBetweenLinks(L1, L2 int, LDE float64, links [
 // LogLikelihoodD calculates the log-likelihood given the distance between contigs D
 // This function gets called by FindDistanceBetweenLinks
 func (r *Distribution) LogLikelihoodD(D, L1, L2 int, LDE float64, links []int) {
-	// Step 1. Find expected number of links per bin
+	// Find expected number of links per bin
 	nExpectedLinks := r.FindExpectedInterContigLinks(D, L1, L2, LDE)
+	nObservedLinks := make([]float64, r.nBins)
 	fmt.Printf("Expected: %.1f, Observed: %d\n", sumf(nExpectedLinks), len(links))
+
+	// Find actual number of links falling into each bin
+	for _, link := range links {
+		bin := r.LinkBin(link + D)
+		if bin == -1 {
+			continue
+		}
+		nObservedLinks[bin]++
+	}
+	// fmt.Println(nObservedLinks)
 }
 
 // FindExpectedIntraContigLinks calculates the expected number of links within a contig
@@ -455,6 +472,7 @@ func (r *Distribution) ExtractInterContigLinks() {
 
 	// Write intra-links to .dis file
 	for contig, links := range contigLinks {
+		links = unique(links)
 		fmt.Fprintf(wdis, "%s\t%s\n", contig, arrayToString(links, ","))
 	}
 	wdis.Flush()
@@ -464,13 +482,13 @@ func (r *Distribution) ExtractInterContigLinks() {
 	tags := []string{"++", "+-", "-+", "--"}
 	for pair, links := range contigPairs {
 		for i := 0; i < 4; i++ {
-			nLinks := len(links)
-			linksWithDir := make([]int, nLinks)
+			linksWithDir := make([]int, len(links))
 			for j, link := range links {
 				linksWithDir[j] = link[i]
 			}
+			linksWithDir = unique(linksWithDir)
 			fmt.Fprintf(wclm, "%s%c %s%c\t%d\t%s\n",
-				pair[0], tags[i][0], pair[1], tags[i][1], nLinks, arrayToString(linksWithDir, " "))
+				pair[0], tags[i][0], pair[1], tags[i][1], len(linksWithDir), arrayToString(linksWithDir, " "))
 		}
 	}
 

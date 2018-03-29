@@ -183,6 +183,20 @@ func sumf(a []float64) float64 {
 	return ans
 }
 
+// unique returns a distinct slice of ints
+func unique(a []int) []int {
+	keys := make(map[int]bool)
+	list := []int{}
+	for _, entry := range a {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	sort.Ints(list)
+	return list
+}
+
 // arrayToString print comma-separated int slice
 func arrayToString(a []int, delim string) string {
 	return strings.Trim(strings.Replace(fmt.Sprint(a), " ", delim, -1), "[]")
