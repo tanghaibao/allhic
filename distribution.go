@@ -255,7 +255,7 @@ func (r *Distribution) FindDistanceBetweenContigs(outfile string) {
 		lde2, _ := r.contigEnrichments[bt]
 		// Solve: lde1^L1 * lde2^L2 = x^(L1+L2)
 		localLDE := math.Exp((float64(L1)*math.Log(lde1) + float64(L2)*math.Log(lde2)) / float64(L1+L2))
-		// fmt.Println(at, bt, L1, L2, lde1, lde2, localLDE, line.links)
+		fmt.Println(at, bt, L1, L2, lde1, lde2, localLDE, line.links)
 		r.FindDistanceBetweenLinks(L1, L2, localLDE, line.links)
 	}
 }
@@ -264,13 +264,18 @@ func (r *Distribution) FindDistanceBetweenContigs(outfile string) {
 // Method credit to LACHESIS src code:
 // https://github.com/shendurelab/LACHESIS/blob/master/src/LinkSizeDistribution.cc
 func (r *Distribution) FindDistanceBetweenLinks(L1, L2 int, LDE float64, links []int) {
-
+	if L1 > L2 {
+		L1, L2 = L2, L1
+	}
+	r.LogLikelihoodD(0, L1, L2, LDE, links)
 }
 
 // LogLikelihoodD calculates the log-likelihood given the distance between contigs D
 // This function gets called by FindDistanceBetweenLinks
 func (r *Distribution) LogLikelihoodD(D, L1, L2 int, LDE float64, links []int) {
 	// Step 1. Find expected number of links per bin
+	nExpectedLinks := r.FindExpectedInterContigLinks(D, L1, L2, LDE)
+	fmt.Printf("Expected: %.1f, Observed: %d\n", sumf(nExpectedLinks), len(links))
 }
 
 // FindExpectedIntraContigLinks calculates the expected number of links within a contig
@@ -298,7 +303,7 @@ func (r *Distribution) FindExpectedIntraContigLinks(L int, links []int) []float6
 }
 
 // FindExpectedInterContigLinks calculates the expected number of links between two contigs
-func (r *Distribution) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64, links []int) []float64 {
+func (r *Distribution) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64) []float64 {
 	nExpectedLinks := make([]float64, r.nBins)
 
 	for i := 0; i < r.nBins; i++ {
@@ -311,6 +316,34 @@ func (r *Distribution) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64, 
 		if binStart >= D+L1+L2 {
 			break
 		}
+
+		nObservableLinks := 0
+
+		// If the bin falls along the left slope of the trapezoid
+		if binStart < D+L1 {
+			left := max(binStart, D)
+			right := min(binStop, D+L1)
+			middleX := (left + right) / 2
+			middleY := middleX - D
+			nObservableLinks += (right - left) * middleY
+		}
+
+		// If the bin falls along the flat middle of the trapezoid
+		if binStop >= D+L1 && binStart < D+L2 {
+			left := max(binStart, D+L1)
+			right := min(binStop, D+L2)
+			nObservableLinks += (right - left) * L1
+		}
+
+		// If the bin falls along the right slope of the trapezoid
+		if binStop >= D+L2 {
+			left := max(binStart, D+L2)
+			right := min(binStop, D+L1+L2)
+			middleX := (left + right) / 2
+			middleY := D + L1 + L2 - middleX
+			nObservableLinks += (right - left) * middleY
+		}
+		nExpectedLinks[i] = float64(nObservableLinks) * r.linkDensity[i] / BinNorm * LDE
 	}
 
 	return nExpectedLinks
@@ -400,7 +433,11 @@ func (r *Distribution) ExtractInterContigLinks() {
 			if link := abs(a - b); link >= MinLinkDist {
 				contigLinks[at] = append(contigLinks[at], link)
 			}
-		} else if at > bt {
+			continue
+		}
+
+		// An inter-contig link
+		if at > bt {
 			at, bt = bt, at
 			a, b = b, a
 		}
