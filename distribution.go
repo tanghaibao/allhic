@@ -29,6 +29,7 @@ type Distribution struct {
 	Bamfile           string
 	maxLinkDist       int
 	nBins             int
+	logFactorials     []float64
 	binStarts         []int
 	links             []int
 	contigLens        []int
@@ -115,6 +116,7 @@ func (r *Distribution) Run() {
 	r.Makebins()
 	r.WriteDistribution("distribution.txt")
 	r.FindEnrichmentOnContigs("enrichment.txt")
+	r.PreComputeLogFactorials()
 	r.FindDistanceBetweenContigs("distance.txt")
 }
 
@@ -273,26 +275,54 @@ func (r *Distribution) FindDistanceBetweenLinks(L1, L2 int, LDE float64, links [
 	if L1 > L2 {
 		L1, L2 = L2, L1
 	}
-	r.LogLikelihoodD(0, L1, L2, LDE, links)
+
+	bestLogLikelihood := math.Inf(-1)
+	bestD := MaxLinkDist
+	for _, D := range r.binStarts[:r.nBins-1] {
+		logLikelihood := r.LogLikelihoodD(D, L1, L2, LDE, links)
+		// fmt.Println(D, logLikelihood)
+		if logLikelihood > bestLogLikelihood {
+			bestLogLikelihood = logLikelihood
+			bestD = D
+		}
+	}
+	fmt.Printf("Expected: %.1f, Observed: %d, bestD: %d, bestLogLikelihood: %.4g\n",
+		sumf(r.FindExpectedInterContigLinks(0, L1, L2, LDE)), len(links), bestD, bestLogLikelihood)
 }
 
 // LogLikelihoodD calculates the log-likelihood given the distance between contigs D
 // This function gets called by FindDistanceBetweenLinks
-func (r *Distribution) LogLikelihoodD(D, L1, L2 int, LDE float64, links []int) {
+func (r *Distribution) LogLikelihoodD(D, L1, L2 int, LDE float64, links []int) float64 {
 	// Find expected number of links per bin
 	nExpectedLinks := r.FindExpectedInterContigLinks(D, L1, L2, LDE)
-	nObservedLinks := make([]float64, r.nBins)
-	fmt.Printf("Expected: %.1f, Observed: %d\n", sumf(nExpectedLinks), len(links))
+	nObservedLinks := make([]int, r.nBins)
 
 	// Find actual number of links falling into each bin
 	for _, link := range links {
 		bin := r.LinkBin(link + D)
-		if bin == -1 {
+		if bin < 0 || bin >= r.nBins {
 			continue
 		}
 		nObservedLinks[bin]++
 	}
+	// fmt.Println(nExpectedLinks)
 	// fmt.Println(nObservedLinks)
+
+	// Calculate the log likelihood of the observed link distribution
+	// The log likelihood of the data is sum of log likelihood of all bins where
+	// logLL = -m + k ln m - ln(k!)
+	logLikelihood := 0.0
+	for i := 0; i < r.nBins; i++ {
+		m := nExpectedLinks[i]
+		k := nObservedLinks[i]
+
+		if m == 0 { // empty bin
+			continue
+		}
+		logLikelihood += -m + float64(k)*math.Log(float64(m)) - r.logFactorials[k]
+	}
+
+	return logLikelihood
 }
 
 // FindExpectedIntraContigLinks calculates the expected number of links within a contig
@@ -425,7 +455,7 @@ func (r *Distribution) ExtractInterContigLinks() {
 	log.Noticef("Extracted %d contigs to `%s`", len(r.contigLens), idsfile)
 
 	// Import links into pairs of contigs
-	var a, a2, b, b2 int
+	var a, a2, b, b2, total int
 	contigPairs := make(map[[2]string][][4]int)
 	contigLinks := make(map[string][]int)
 	for {
@@ -473,12 +503,16 @@ func (r *Distribution) ExtractInterContigLinks() {
 	// Write intra-links to .dis file
 	for contig, links := range contigLinks {
 		links = unique(links)
+		total += len(links)
 		fmt.Fprintf(wdis, "%s\t%s\n", contig, arrayToString(links, ","))
 	}
 	wdis.Flush()
-	log.Noticef("Extracted %d intra-contig links to `%s`", len(contigLinks), disfile)
+	log.Noticef("Extracted %d intra-contig link groups to `%s` (total = %d)",
+		len(contigLinks), disfile, total)
 
 	// Write inter-links to .clm file
+	total = 0
+	maxLinks := 0
 	tags := []string{"++", "+-", "-+", "--"}
 	for pair, links := range contigPairs {
 		for i := 0; i < 4; i++ {
@@ -487,11 +521,26 @@ func (r *Distribution) ExtractInterContigLinks() {
 				linksWithDir[j] = link[i]
 			}
 			linksWithDir = unique(linksWithDir)
+			nLinks := len(linksWithDir)
+			if nLinks > maxLinks {
+				maxLinks = nLinks
+			}
+			total += nLinks
 			fmt.Fprintf(wclm, "%s%c %s%c\t%d\t%s\n",
-				pair[0], tags[i][0], pair[1], tags[i][1], len(linksWithDir), arrayToString(linksWithDir, " "))
+				pair[0], tags[i][0], pair[1], tags[i][1], nLinks, arrayToString(linksWithDir, " "))
 		}
 	}
 
 	wclm.Flush()
-	log.Noticef("Extracted %d inter-contig links to `%s`", len(contigPairs), clmfile)
+	log.Noticef("Extracted %d inter-contig groups to `%s` (total = %d, maxLinks = %d)",
+		len(contigPairs), clmfile, total, maxLinks)
+
+	r.logFactorials = make([]float64, maxLinks+1)
+}
+
+// PreComputeLogFactorials precomputes log factorials for calculation of log likelihood
+func (r *Distribution) PreComputeLogFactorials() {
+	for i := 2; i < len(r.logFactorials); i++ {
+		r.logFactorials[i] = r.logFactorials[i-1] + math.Log(float64(i))
+	}
 }
