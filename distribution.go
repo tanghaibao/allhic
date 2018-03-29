@@ -26,7 +26,6 @@ var s = [...]uint{1, 2, 4, 8, 16}
 
 // Distribution processes the distribution step
 type Distribution struct {
-	Distfile          string
 	Bamfile           string
 	maxLinkDist       int
 	nBins             int
@@ -247,8 +246,6 @@ func (r *Distribution) FindEnrichmentOnContigs(outfile string) {
 func (r *Distribution) FindDistanceBetweenContigs(outfile string) {
 	clmfile := RemoveExt(r.Bamfile) + ".clm"
 	lines := ParseClmLines(clmfile)
-	fmt.Println(r.contigSizes)
-	fmt.Println(r.contigEnrichments)
 	for _, line := range lines {
 		at, bt := line.at, line.bt
 		L1, _ := r.contigSizes[at]
@@ -258,7 +255,7 @@ func (r *Distribution) FindDistanceBetweenContigs(outfile string) {
 		lde2, _ := r.contigEnrichments[bt]
 		// Solve: lde1^L1 * lde2^L2 = x^(L1+L2)
 		localLDE := math.Exp((float64(L1)*math.Log(lde1) + float64(L2)*math.Log(lde2)) / float64(L1+L2))
-		fmt.Println(at, bt, L1, L2, lde1, lde2, localLDE, line.links)
+		// fmt.Println(at, bt, L1, L2, lde1, lde2, localLDE, line.links)
 		r.FindDistanceBetweenLinks(L1, L2, localLDE, line.links)
 	}
 }
@@ -321,11 +318,12 @@ func (r *Distribution) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64, 
 
 // ExtractIntraContigLinks populates links
 func (r *Distribution) ExtractIntraContigLinks() {
-	file, _ := os.Open(r.Distfile)
-	log.Noticef("Parse dist file `%s`", r.Distfile)
+	disfile := RemoveExt(r.Bamfile) + ".dis"
+	log.Noticef("Parse dist file `%s`", disfile)
 	r.contigLinks = make(map[string][]int)
 	var contigLinks []int
 
+	file, _ := os.Open(disfile)
 	reader := bufio.NewReader(file)
 	for {
 		row, err := reader.ReadString('\n')
@@ -350,13 +348,17 @@ func (r *Distribution) ExtractIntraContigLinks() {
 // ExtractInterContigLinks converts the BAM file to .clm and .ids
 func (r *Distribution) ExtractInterContigLinks() {
 	fh, _ := os.Open(r.Bamfile)
-	clmfile := RemoveExt(r.Bamfile) + ".clm"
-	idsfile := RemoveExt(r.Bamfile) + ".ids"
+	prefix := RemoveExt(r.Bamfile)
+	disfile := prefix + ".dis"
+	clmfile := prefix + ".clm"
+	idsfile := prefix + ".ids"
 
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
 	defer br.Close()
 
+	fdis, _ := os.Create(disfile)
+	wdis := bufio.NewWriter(fdis)
 	fclm, _ := os.Create(clmfile)
 	wclm := bufio.NewWriter(fclm)
 	fids, _ := os.Create(idsfile)
@@ -375,6 +377,7 @@ func (r *Distribution) ExtractInterContigLinks() {
 	// Import links into pairs of contigs
 	var a, a2, b, b2 int
 	contigPairs := make(map[[2]string][][4]int)
+	contigLinks := make(map[string][]int)
 	for {
 		rec, err := br.Read()
 		if err != nil {
@@ -385,11 +388,6 @@ func (r *Distribution) ExtractInterContigLinks() {
 		}
 		at, bt := rec.Ref.Name(), rec.MateRef.Name()
 
-		// Disable extraction of intra-contig links for now
-		if at == bt {
-			continue
-		}
-
 		//         read1                                               read2
 		//     ---a-- X|----- dist = a2 ----|         |--- dist = b ---|X ------ b2 ------
 		//     ==============================         ====================================
@@ -397,7 +395,12 @@ func (r *Distribution) ExtractInterContigLinks() {
 		rlen := rec.Len()
 		a, b = rec.Pos, rec.MatePos
 
-		if at > bt {
+		// An intra-contig link
+		if at == bt {
+			if link := abs(a - b); link >= MinLinkDist {
+				contigLinks[at] = append(contigLinks[at], link)
+			}
+		} else if at > bt {
 			at, bt = bt, at
 			a, b = b, a
 		}
@@ -411,9 +414,16 @@ func (r *Distribution) ExtractInterContigLinks() {
 		AmBm := a + b2
 		pair := [2]string{at, bt}
 		contigPairs[pair] = append(contigPairs[pair], [4]int{ApBp, ApBm, AmBp, AmBm})
-		// fmt.Println(at, bt, L1, L2, a, b)
 	}
 
+	// Write intra-links to .dis file
+	for contig, links := range contigLinks {
+		fmt.Fprintf(wdis, "%s\t%s\n", contig, arrayToString(links, ","))
+	}
+	wdis.Flush()
+	log.Noticef("Extracted %d intra-contig links to `%s`", len(contigLinks), disfile)
+
+	// Write inter-links to .clm file
 	tags := []string{"++", "+-", "-+", "--"}
 	for pair, links := range contigPairs {
 		for i := 0; i < 4; i++ {
@@ -426,6 +436,7 @@ func (r *Distribution) ExtractInterContigLinks() {
 				pair[0], tags[i][0], pair[1], tags[i][1], nLinks, arrayToString(linksWithDir, " "))
 		}
 	}
+
 	wclm.Flush()
-	log.Noticef("Extracted %d contig link pairs to `%s`", len(contigPairs), clmfile)
+	log.Noticef("Extracted %d inter-contig links to `%s`", len(contigPairs), clmfile)
 }

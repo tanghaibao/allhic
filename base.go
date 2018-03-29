@@ -141,6 +141,14 @@ func GoldenArray(a []int) (counts GArray) {
 	return
 }
 
+// abs gets the absolute value of an int
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 // min gets the minimum for two ints
 func min(x, y int) int {
 	if x < y {
