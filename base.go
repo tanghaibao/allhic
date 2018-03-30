@@ -53,6 +53,8 @@ const (
 	MinLinkDist = 1 << 11
 	// MaxLinkDist is the maximum link distance we care about
 	MaxLinkDist = 1 << 27
+	// EffLinkDist is the link distance where we are willing to accept contig pairs
+	EffLinkDist = 1 << 21
 	// BinNorm is a ratio to make the link density human readable
 	BinNorm = 1000000.0
 )

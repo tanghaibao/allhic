@@ -235,11 +235,11 @@ func (r *Distribution) FindEnrichmentOnContigs(outfile string) {
 		} else {
 			LDE = float64(nObservedLinks) / sumf(nExpectedLinks)
 		}
-		// Cap the LDE value within [0.1, 10.0]
-		if LDE < 0.1 {
-			LDE = 0.1
-		} else if LDE > 10.0 {
-			LDE = 10.0
+		// Cap the LDE value within [0.2, 5.0]
+		if LDE < 0.2 {
+			LDE = 0.2
+		} else if LDE > 5.0 {
+			LDE = 5.0
 		}
 		fmt.Fprintf(w, "%s\t%d\t%.1f\t%d\t%.4f\n",
 			contig, L, sumf(nExpectedLinks), nObservedLinks, LDE)
@@ -250,44 +250,88 @@ func (r *Distribution) FindEnrichmentOnContigs(outfile string) {
 	log.Noticef("Link enrichments written to `%s`", outfile)
 }
 
+// ContigPair stores results calculated from FindDistanceBetweenContigs
+type ContigPair struct {
+	line           *CLMLine
+	L1             int
+	L2             int
+	lde1           float64
+	lde2           float64
+	localLDE       float64
+	nObservedLinks int
+	nExpectedLinks float64
+	mleDistance    int
+	logLikelihood  float64
+}
+
 // FindDistanceBetweenContigs calculates the MLE of distance between all contigs
 func (r *Distribution) FindDistanceBetweenContigs(outfile string) {
 	clmfile := RemoveExt(r.Bamfile) + ".clm"
 	lines := ParseClmLines(clmfile)
-	for _, line := range lines {
+	contigPairs := make(map[[2]string]*ContigPair)
+	var L1, L2 int
+	var lde1, lde2, localLDE float64
+
+	for i := 0; i < len(lines); i++ {
+		line := &lines[i]
 		at, bt := line.at, line.bt
-		L1, _ := r.contigSizes[at]
-		L2, _ := r.contigSizes[bt]
-		// localLDE is weighted average of LDEs of contig A and B
-		lde1, _ := r.contigEnrichments[at]
-		lde2, _ := r.contigEnrichments[bt]
-		// Solve: lde1^L1 * lde2^L2 = x^(L1+L2)
-		localLDE := math.Exp((float64(L1)*math.Log(lde1) + float64(L2)*math.Log(lde2)) / float64(L1+L2))
-		fmt.Println(at, bt, L1, L2, lde1, lde2, localLDE, line.links)
-		r.FindDistanceBetweenLinks(L1, L2, localLDE, line.links)
+		pair := [2]string{at, bt}
+		cp, cpok := contigPairs[pair]
+		if !cpok {
+			L1, _ = r.contigSizes[at]
+			L2, _ = r.contigSizes[bt]
+			// localLDE is weighted average of LDEs of contig A and B
+			lde1, _ = r.contigEnrichments[at]
+			lde2, _ = r.contigEnrichments[bt]
+			// Solve: lde1^L1 * lde2^L2 = x^(L1+L2)
+			localLDE = math.Exp((float64(L1)*math.Log(lde1) + float64(L2)*math.Log(lde2)) / float64(L1+L2))
+			cp = &ContigPair{L1: L1, L2: L2, lde1: lde1, lde2: lde2, localLDE: localLDE}
+			contigPairs[pair] = cp
+		}
+		r.FindDistanceBetweenLinks(cp, line)
+	}
+
+	// f, _ := os.Create(outfile)
+	// w := bufio.NewWriter(f)
+	for _, contigPair := range contigPairs {
+		if contigPair.mleDistance < EffLinkDist {
+			fmt.Println(*contigPair.line)
+			fmt.Println(contigPair)
+		}
 	}
 }
 
 // FindDistanceBetweenLinks calculates the most likely inter-contig distance
 // Method credit to LACHESIS src code:
 // https://github.com/shendurelab/LACHESIS/blob/master/src/LinkSizeDistribution.cc
-func (r *Distribution) FindDistanceBetweenLinks(L1, L2 int, LDE float64, links []int) {
+func (r *Distribution) FindDistanceBetweenLinks(cp *ContigPair, line *CLMLine) {
+	L1, L2 := cp.L1, cp.L2
+	LDE := cp.localLDE
+	links := line.links
+
 	if L1 > L2 {
 		L1, L2 = L2, L1
 	}
 
 	bestLogLikelihood := math.Inf(-1)
 	bestD := MaxLinkDist
-	for _, D := range r.binStarts[:r.nBins-1] {
+	for i := 8; i < r.nBins; i += 16 {
+		D := r.binStarts[i]
 		logLikelihood := r.LogLikelihoodD(D, L1, L2, LDE, links)
-		// fmt.Println(D, logLikelihood)
 		if logLikelihood > bestLogLikelihood {
 			bestLogLikelihood = logLikelihood
 			bestD = D
 		}
 	}
-	fmt.Printf("Expected: %.1f, Observed: %d, bestD: %d, bestLogLikelihood: %.4g\n",
-		sumf(r.FindExpectedInterContigLinks(0, L1, L2, LDE)), len(links), bestD, bestLogLikelihood)
+
+	// fmt.Printf("Expected: %.1f, Observed: %d, bestD: %d, bestLogLikelihood: %.4g\n",
+	// 	sumf(r.FindExpectedInterContigLinks(0, L1, L2, LDE)), len(links), bestD, bestLogLikelihood)
+	if cp.logLikelihood == 0 || cp.logLikelihood < bestLogLikelihood {
+		cp.mleDistance, cp.logLikelihood = bestD, bestLogLikelihood
+		cp.line = line
+		cp.nExpectedLinks = sumf(r.FindExpectedInterContigLinks(0, L1, L2, LDE))
+		cp.nObservedLinks = len(links)
+	}
 }
 
 // LogLikelihoodD calculates the log-likelihood given the distance between contigs D
