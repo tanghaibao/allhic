@@ -287,8 +287,8 @@ func (r *Distribution) FindDistanceBetweenContigs(outfile string) {
 			localLDE = math.Exp((float64(L1)*math.Log(lde1) + float64(L2)*math.Log(lde2)) / float64(L1+L2))
 			cp = &ContigPair{L1: L1, L2: L2, lde1: lde1, lde2: lde2, localLDE: localLDE}
 			contigPairs[pair] = cp
+			r.FindDistanceBetweenLinks(cp, line)
 		}
-		r.FindDistanceBetweenLinks(cp, line)
 	}
 
 	// f, _ := os.Create(outfile)
@@ -315,7 +315,7 @@ func (r *Distribution) FindDistanceBetweenLinks(cp *ContigPair, line *CLMLine) {
 
 	bestLogLikelihood := math.Inf(-1)
 	bestD := MaxLinkDist
-	for i := 8; i < r.nBins; i += 16 {
+	for i := 0; i < r.nBins; i += 4 {
 		D := r.binStarts[i]
 		logLikelihood := r.LogLikelihoodD(D, L1, L2, LDE, links)
 		if logLikelihood > bestLogLikelihood {
@@ -324,8 +324,6 @@ func (r *Distribution) FindDistanceBetweenLinks(cp *ContigPair, line *CLMLine) {
 		}
 	}
 
-	// fmt.Printf("Expected: %.1f, Observed: %d, bestD: %d, bestLogLikelihood: %.4g\n",
-	// 	sumf(r.FindExpectedInterContigLinks(0, L1, L2, LDE)), len(links), bestD, bestLogLikelihood)
 	if cp.logLikelihood == 0 || cp.logLikelihood < bestLogLikelihood {
 		cp.mleDistance, cp.logLikelihood = bestD, bestLogLikelihood
 		cp.line = line
@@ -339,32 +337,33 @@ func (r *Distribution) FindDistanceBetweenLinks(cp *ContigPair, line *CLMLine) {
 func (r *Distribution) LogLikelihoodD(D, L1, L2 int, LDE float64, links []int) float64 {
 	// Find expected number of links per bin
 	nExpectedLinks := r.FindExpectedInterContigLinks(D, L1, L2, LDE)
-	nObservedLinks := make([]int, r.nBins)
-
-	// Find actual number of links falling into each bin
-	for _, link := range links {
-		bin := r.LinkBin(link + D)
-		if bin < 0 || bin >= r.nBins {
-			continue
-		}
-		nObservedLinks[bin]++
-	}
-	// fmt.Println(nExpectedLinks)
-	// fmt.Println(nObservedLinks)
+	// nObservedLinks := make([]int, r.nBins)
+	// // Find actual number of links falling into each bin
+	// for _, link := range links {
+	// 	bin := r.LinkBin(link + D)
+	// 	if bin < 0 || bin >= r.nBins {
+	// 		continue
+	// 	}
+	// 	nObservedLinks[bin]++
+	// }
 
 	// Calculate the log likelihood of the observed link distribution
 	// The log likelihood of the data is sum of log likelihood of all bins where
 	// logLL = -m + k ln m - ln(k!)
-	logLikelihood := 0.0
-	for i := 0; i < r.nBins; i++ {
-		m := nExpectedLinks[i]
-		k := nObservedLinks[i]
+	// logLikelihood := 0.0
+	// for i := 0; i < r.nBins; i++ {
+	// 	m := nExpectedLinks[i]
+	// 	k := nObservedLinks[i]
 
-		if m == 0 { // empty bin
-			continue
-		}
-		logLikelihood += -m + float64(k)*math.Log(float64(m)) - r.logFactorials[k]
-	}
+	// 	if m == 0 { // empty bin
+	// 		continue
+	// 	}
+	// 	logLikelihood += -m + float64(k)*math.Log(float64(m)) - r.logFactorials[k]
+	// }
+	m := sumf(nExpectedLinks)
+	k := len(links)
+	logLikelihood := -m + float64(k)*math.Log(float64(m)) - r.logFactorials[k]
+	// fmt.Println(D, sumf(nExpectedLinks), sum(nObservedLinks), len(links), logLikelihood)
 
 	return logLikelihood
 }
