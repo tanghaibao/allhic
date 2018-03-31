@@ -296,11 +296,11 @@ func (r *Distribution) FindDistanceBetweenContigs(outfile string) {
 	w := bufio.NewWriter(f)
 	defer f.Close()
 	fmt.Fprintf(w, "#Contig1\tContig2\tLength1\tLength2\tLDE1\tLDE2\tLDE"+
-		"\tObservedLinks\tExpectedLinksIfAdjacent\tMLEdistance\tLogLikelihood\n")
+		"\tObservedLinks\tExpectedLinksIfAdjacent\tMLEdistance\n")
 	for _, c := range contigPairs {
-		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%.4f\t%.4f\t%.4f\t%d\t%.1f\t%d\t%.4g\n",
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%.4f\t%.4f\t%.4f\t%d\t%.1f\t%d\n",
 			c.at, c.bt, c.L1, c.L2, c.lde1, c.lde2, c.localLDE,
-			c.nObservedLinks, c.nExpectedLinks, c.mleDistance, c.logLikelihood)
+			c.nObservedLinks, c.nExpectedLinks, c.mleDistance)
 	}
 	w.Flush()
 	log.Noticef("Contig pair analyses written to `%s`", outfile)
@@ -320,7 +320,7 @@ func (r *Distribution) FindDistanceBetweenLinks(cp *ContigPair, line *CLMLine) {
 
 	bestLogLikelihood := math.Inf(-1)
 	bestD := MaxLinkDist
-	for i := 0; i < r.nBins; i += 4 {
+	for i := 0; i < r.nBins; i++ {
 		D := r.binStarts[i]
 		logLikelihood := r.LogLikelihoodD(D, L1, L2, LDE, links)
 		if logLikelihood > bestLogLikelihood {
@@ -568,6 +568,9 @@ func (r *Distribution) ExtractInterContigLinks() {
 			}
 			linksWithDir = unique(linksWithDir)
 			nLinks := len(linksWithDir)
+			if nLinks < MinInterLinks {
+				continue
+			}
 			if nLinks > maxLinks {
 				maxLinks = nLinks
 			}
