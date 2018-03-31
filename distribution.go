@@ -252,7 +252,8 @@ func (r *Distribution) FindEnrichmentOnContigs(outfile string) {
 
 // ContigPair stores results calculated from FindDistanceBetweenContigs
 type ContigPair struct {
-	line           *CLMLine
+	at             string
+	bt             string
 	L1             int
 	L2             int
 	lde1           float64
@@ -285,20 +286,24 @@ func (r *Distribution) FindDistanceBetweenContigs(outfile string) {
 			lde2, _ = r.contigEnrichments[bt]
 			// Solve: lde1^L1 * lde2^L2 = x^(L1+L2)
 			localLDE = math.Exp((float64(L1)*math.Log(lde1) + float64(L2)*math.Log(lde2)) / float64(L1+L2))
-			cp = &ContigPair{L1: L1, L2: L2, lde1: lde1, lde2: lde2, localLDE: localLDE}
+			cp = &ContigPair{at: at, bt: bt, L1: L1, L2: L2, lde1: lde1, lde2: lde2, localLDE: localLDE}
 			contigPairs[pair] = cp
 			r.FindDistanceBetweenLinks(cp, line)
 		}
 	}
 
-	// f, _ := os.Create(outfile)
-	// w := bufio.NewWriter(f)
-	for _, contigPair := range contigPairs {
-		if contigPair.mleDistance < EffLinkDist {
-			fmt.Println(*contigPair.line)
-			fmt.Println(contigPair)
-		}
+	f, _ := os.Create(outfile)
+	w := bufio.NewWriter(f)
+	defer f.Close()
+	fmt.Fprintf(w, "#Contig1\tContig2\tLength1\tLength2\tLDE1\tLDE2\tLDE"+
+		"\tObservedLinks\tExpectedLinksIfAdjacent\tMLEdistance\tLogLikelihood\n")
+	for _, c := range contigPairs {
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%.4f\t%.4f\t%.4f\t%d\t%.1f\t%d\t%.4g\n",
+			c.at, c.bt, c.L1, c.L2, c.lde1, c.lde2, c.localLDE,
+			c.nObservedLinks, c.nExpectedLinks, c.mleDistance, c.logLikelihood)
 	}
+	w.Flush()
+	log.Noticef("Contig pair analyses written to `%s`", outfile)
 }
 
 // FindDistanceBetweenLinks calculates the most likely inter-contig distance
@@ -326,7 +331,6 @@ func (r *Distribution) FindDistanceBetweenLinks(cp *ContigPair, line *CLMLine) {
 
 	if cp.logLikelihood == 0 || cp.logLikelihood < bestLogLikelihood {
 		cp.mleDistance, cp.logLikelihood = bestD, bestLogLikelihood
-		cp.line = line
 		cp.nExpectedLinks = sumf(r.FindExpectedInterContigLinks(0, L1, L2, LDE))
 		cp.nObservedLinks = len(links)
 	}
@@ -363,7 +367,6 @@ func (r *Distribution) LogLikelihoodD(D, L1, L2 int, LDE float64, links []int) f
 	m := sumf(nExpectedLinks)
 	k := len(links)
 	logLikelihood := -m + float64(k)*math.Log(float64(m)) - r.logFactorials[k]
-	// fmt.Println(D, sumf(nExpectedLinks), sum(nObservedLinks), len(links), logLikelihood)
 
 	return logLikelihood
 }
