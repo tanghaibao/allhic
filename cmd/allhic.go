@@ -78,22 +78,23 @@ links, then it is possible to reconstruct allele-separated assemblies.
 			Name:  "partition",
 			Usage: "Separate bamfile into k groups",
 			UsageText: `
-	allhic optimize <bamfile> [options]
+	allhic optimize <distfile> [options]
 
 Partition function:
 Given a target k, number of partitions, the goal of the partitioning is to
 separate all the contigs into separate clusters. As with all clustering
 algorithm, there is an optimization goal here. The LACHESIS algorithm is
-a hierarchical clustering algorithm using average links.
+a hierarchical clustering algorithm using average links. The distfile can be
+generated with the "distribution" sub-command.
 `,
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) < 1 {
 					cli.ShowSubcommandHelp(c)
-					return cli.NewExitError("Must specify bamfile", 1)
+					return cli.NewExitError("Must specify distfile", 1)
 				}
 
-				bamfile := c.Args().Get(0)
-				p := allhic.Partitioner{Bamfile: bamfile}
+				distfile := c.Args().Get(0)
+				p := allhic.Partitioner{Distfile: distfile}
 				p.Run()
 				return nil
 			},

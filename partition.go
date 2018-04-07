@@ -10,63 +10,86 @@
 package allhic
 
 import (
-	"fmt"
+	"bufio"
+	"encoding/csv"
 	"io"
 	"os"
-
-	"github.com/biogo/hts/bam"
+	"strconv"
 )
 
 // Partitioner converts the bamfile into a matrix of link counts
 type Partitioner struct {
-	Bamfile string
+	Distfile string
 }
 
 // Run is the main function body of partition
 func (r *Partitioner) Run() {
-	r.CountLinks()
-	// fmt.Println(counts)
+	r.ParseDist()
 	log.Notice("Success")
 }
 
-// CountLinks provides the method to count the links
-func (r *Partitioner) CountLinks() [][]int {
-	fh, _ := os.Open(r.Bamfile)
-	log.Noticef("Parse bamfile `%s`", r.Bamfile)
-	br, _ := bam.NewReader(fh, 0)
-	defer br.Close()
+// ParseDist imports the edges of the contig linkage graph
+func (r *Partitioner) ParseDist() {
+	edges := ParseDistLines(r.Distfile)
+	goodEdges := FilterEdges(edges)
+	// fmt.Println(goodEdges)
+	log.Noticef("Edge filtering keeps %s edges",
+		Percentage(len(goodEdges), len(edges)))
+}
 
-	tigToIdx := make(map[string]int)
-	refs := br.Header().Refs()
-	for i, ref := range refs {
-		tigToIdx[ref.Name()] = i
+// FilterEdges implements rules to keep edges between close contigs and remove distant or weak contig pairs
+func FilterEdges(edges []ContigPair) []ContigPair {
+	var goodEdges []ContigPair
+
+	for _, e := range edges {
+		if e.mleDistance >= EffLinkDist {
+			continue
+		}
+		goodEdges = append(goodEdges, e)
 	}
 
-	N := len(tigToIdx)
-	C := Make2DSlice(N, N)
-	log.Noticef("Initiating matrix of size %d x %d", N, N)
-	// Collect all links in a 2D matrix
+	return goodEdges
+}
+
+// ParseDistLines imports the edges of the contig into a slice of DistLine
+// DistLine stores the data structure of the Dist file
+// #Contig1        Contig2 Length1 Length2 LDE1    LDE2    LDE     ObservedLinks   ExpectedLinksIfAdjacent MLEdistance
+// jpcChr1.ctg199  jpcChr1.ctg257  124567  274565  0.3195  2.0838  1.1607  2       27.4    1617125
+// idcChr1.ctg353  idcChr1.ctg382  143105  270892  2.1577  1.0544  1.3505  2       34.2    2190000
+func ParseDistLines(distfile string) []ContigPair {
+	var edges []ContigPair
+
+	fh, _ := os.Open(distfile)
+	defer fh.Close()
+	r := csv.NewReader(bufio.NewReader(fh))
+	r.Comma = '\t'
 	for {
-		rec, err := br.Read()
-		if err != nil {
-			if err != io.EOF {
-				log.Error(err)
-			}
+		rec, err := r.Read()
+		if err == io.EOF {
 			break
 		}
-		ai := tigToIdx[rec.Ref.Name()]
-		bi := tigToIdx[rec.MateRef.Name()]
-		C[ai][bi]++
-		C[bi][ai]++
+		if err != nil {
+			log.Fatal(err)
+		}
+		at, bt := rec[0], rec[1]
+		L1, _ := strconv.Atoi(rec[2])
+		L2, _ := strconv.Atoi(rec[3])
+		lde1, _ := strconv.ParseFloat(rec[4], 64)
+		lde2, _ := strconv.ParseFloat(rec[5], 64)
+		localLDE, _ := strconv.ParseFloat(rec[6], 64)
+		nObservedLinks, _ := strconv.Atoi(rec[7])
+		nExpectedLinks, _ := strconv.ParseFloat(rec[8], 64)
+		mleDistance, _ := strconv.Atoi(rec[9])
+
+		cp := ContigPair{
+			at: at, bt: bt,
+			L1: L1, L2: L2,
+			lde1: lde1, lde2: lde2, localLDE: localLDE,
+			nObservedLinks: nObservedLinks, nExpectedLinks: nExpectedLinks,
+			mleDistance: mleDistance}
+
+		edges = append(edges, cp)
 	}
 
-	// Write the edge list
-	for i := 0; i < N; i++ {
-		for j := i + 1; j < N; j++ {
-			if C[i][j] != 0 {
-				fmt.Printf("%s\t%s\t%d\n", refs[i].Name(), refs[j].Name(), C[i][j])
-			}
-		}
-	}
-	return C
+	return edges
 }

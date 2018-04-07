@@ -42,7 +42,7 @@ type CLM struct {
 	orientedContacts map[OrientedPair]GArray // (tigA, tigB, oriA, oriB) => golden array i.e. exponential histogram
 }
 
-// CLMLine stores the data structure
+// CLMLine stores the data structure of the CLM file
 type CLMLine struct {
 	at    string
 	bt    string

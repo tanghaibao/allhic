@@ -263,3 +263,8 @@ func Make3DSlice(m, n, o int) [][][]int {
 	}
 	return P
 }
+
+// Percentage prints a human readable message of the percentage
+func Percentage(a, b int) string {
+	return fmt.Sprintf("%d of %d (%.1f %%)", a, b, float64(a)*100./float64(b))
+}
