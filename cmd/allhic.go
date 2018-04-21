@@ -31,14 +31,15 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:  "distribution",
+			Name:  "extract",
 			Usage: "Extract Hi-C link size distribution",
 			UsageText: `
-	allhic distribution <distfile> <bamfile> [options]
+	allhic distribution <bamfile> [options]
 
-Distribution function:
-Given a bamfile, the goal of the distribution step is to calculate an empirical
-distribution of Hi-C link size based on intra-contig links.
+Extract function:
+Given a bamfile, the goal of the extract step is to calculate an empirical
+distribution of Hi-C link size based on intra-contig links. The Extract function
+also prepares for the latter steps of ALLHIC.
 `,
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) < 1 {
@@ -47,7 +48,7 @@ distribution of Hi-C link size based on intra-contig links.
 				}
 
 				bamfile := c.Args().Get(0)
-				p := allhic.Distribution{Bamfile: bamfile}
+				p := allhic.Extracter{Bamfile: bamfile}
 				p.Run()
 				return nil
 			},
