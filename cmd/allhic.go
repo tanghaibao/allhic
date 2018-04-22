@@ -34,7 +34,7 @@ func main() {
 			Name:  "extract",
 			Usage: "Extract Hi-C link size distribution",
 			UsageText: `
-	allhic distribution <bamfile> [options]
+	allhic extract <bamfile> [options]
 
 Extract function:
 Given a bamfile, the goal of the extract step is to calculate an empirical
@@ -79,7 +79,7 @@ links, then it is possible to reconstruct allele-separated assemblies.
 			Name:  "partition",
 			Usage: "Separate bamfile into k groups",
 			UsageText: `
-	allhic optimize <distfile> [options]
+	allhic optimize <contigsfile> <distfile> [options]
 
 Partition function:
 Given a target k, number of partitions, the goal of the partitioning is to
@@ -89,13 +89,14 @@ a hierarchical clustering algorithm using average links. The distfile can be
 generated with the "distribution" sub-command.
 `,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 1 {
+				if len(c.Args()) < 2 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify distfile", 1)
 				}
 
-				distfile := c.Args().Get(0)
-				p := allhic.Partitioner{Distfile: distfile}
+				contigsfile := c.Args().Get(0)
+				distfile := c.Args().Get(1)
+				p := allhic.Partitioner{Contigsfile: contigsfile, Distfile: distfile}
 				p.Run()
 				return nil
 			},

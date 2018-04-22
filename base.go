@@ -10,7 +10,10 @@
 package allhic
 
 import (
+	"bufio"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path"
@@ -62,6 +65,11 @@ const (
 	// EPS is that Q must be larger than this value, used in cluster.go
 	EPS = 1e-5
 )
+
+// HasCSVHeader can return a string of header
+type HasCSVHeader interface {
+	Header() string
+}
 
 // GArray contains golden array of size BB
 type GArray [BB]int
@@ -278,4 +286,32 @@ func Make3DSlice(m, n, o int) [][][]int {
 // Percentage prints a human readable message of the percentage
 func Percentage(a, b int) string {
 	return fmt.Sprintf("%d of %d (%.1f %%)", a, b, float64(a)*100./float64(b))
+}
+
+// ReadCSVLines parses all the csv lines into 2D array of tokens
+func ReadCSVLines(filename string) [][]string {
+	log.Noticef("Parse csvfile `%s`", filename)
+
+	fh, _ := os.Open(filename)
+	defer fh.Close()
+
+	var data [][]string
+
+	r := csv.NewReader(bufio.NewReader(fh))
+	r.Comma = '\t'
+	for i := 0; ; i++ {
+		rec, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		if i == 0 {
+			continue // Skip header
+		}
+		data = append(data, rec)
+	}
+
+	return data
 }

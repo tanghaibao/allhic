@@ -10,26 +10,30 @@
 package allhic
 
 import (
-	"bufio"
-	"encoding/csv"
-	"io"
-	"os"
 	"strconv"
 )
 
 // Partitioner converts the bamfile into a matrix of link counts
 type Partitioner struct {
-	Distfile string
-	Matrix   [][]float64
+	Contigsfile string
+	Distfile    string
+	contigs     []ContigInfo
+	matrix      [][]float64
 }
 
 // Run is the main function body of partition
 func (r *Partitioner) Run() {
+	r.contigs = ParseContigLines(r.Contigsfile)
 	r.ParseDist()
-	// r.Matrix = Make2DSliceFloat64()
+	r.matrix = Make2DSliceFloat64(len(r.contigs), len(r.contigs))
 	// r.Cluster(goodPairs)
 
 	log.Notice("Success")
+}
+
+// MakeMatrix creates an adjacency matrix containing normalized score
+func (r *Partitioner) MakeMatrix() {
+	// M := Make2DSliceFloat64()
 }
 
 // ParseDist imports the edges of the contig linkage graph
@@ -54,29 +58,43 @@ func FilterEdges(edges []ContigPair) []ContigPair {
 	return goodEdges
 }
 
+// ParseContigLines imports the contig infor into a slice of ContigInfo
+// ContigInfo stores the data struct of the contigfile
+// #Contig Length  Expected        Observed        LDE
+// jpcChr1.ctg249  25205   2.3     4       1.7391
+// jpcChr1.ctg344  82275   15.4    17      1.1068
+func ParseContigLines(contigfile string) []ContigInfo {
+	var contigs []ContigInfo
+
+	recs := ReadCSVLines(contigfile)
+	for _, rec := range recs {
+		name := rec[0]
+		length, _ := strconv.Atoi(rec[1])
+		nExpectedLinks, _ := strconv.ParseFloat(rec[2], 64)
+		nObservedLinks, _ := strconv.Atoi(rec[3])
+		lde, _ := strconv.ParseFloat(rec[4], 64)
+
+		ci := ContigInfo{
+			name: name, length: length,
+			nExpectedLinks: nExpectedLinks, nObservedLinks: nObservedLinks,
+			lde: lde,
+		}
+		contigs = append(contigs, ci)
+	}
+
+	return contigs
+}
+
 // ParseDistLines imports the edges of the contig into a slice of DistLine
-// DistLine stores the data structure of the Dist file
+// DistLine stores the data structure of the distfile
 // #Contig1        Contig2 Length1 Length2 LDE1    LDE2    LDE     ObservedLinks   ExpectedLinksIfAdjacent MLEdistance
 // jpcChr1.ctg199  jpcChr1.ctg257  124567  274565  0.3195  2.0838  1.1607  2       27.4    1617125
 // idcChr1.ctg353  idcChr1.ctg382  143105  270892  2.1577  1.0544  1.3505  2       34.2    2190000
 func ParseDistLines(distfile string) []ContigPair {
 	var edges []ContigPair
+	recs := ReadCSVLines(distfile)
 
-	fh, _ := os.Open(distfile)
-	defer fh.Close()
-	r := csv.NewReader(bufio.NewReader(fh))
-	r.Comma = '\t'
-	for i := 0; ; i++ {
-		rec, err := r.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-		if i == 0 {
-			continue // Skip header
-		}
+	for _, rec := range recs {
 		at, bt := rec[0], rec[1]
 		L1, _ := strconv.Atoi(rec[2])
 		L2, _ := strconv.Atoi(rec[3])
@@ -86,13 +104,15 @@ func ParseDistLines(distfile string) []ContigPair {
 		nObservedLinks, _ := strconv.Atoi(rec[7])
 		nExpectedLinks, _ := strconv.ParseFloat(rec[8], 64)
 		mleDistance, _ := strconv.Atoi(rec[9])
+		score, _ := strconv.ParseFloat(rec[10], 64)
 
 		cp := ContigPair{
 			at: at, bt: bt,
 			L1: L1, L2: L2,
 			lde1: lde1, lde2: lde2, localLDE: localLDE,
 			nObservedLinks: nObservedLinks, nExpectedLinks: nExpectedLinks,
-			mleDistance: mleDistance}
+			mleDistance: mleDistance, score: score,
+		}
 
 		edges = append(edges, cp)
 	}

@@ -216,6 +216,21 @@ func (r *Extracter) WriteExtracter(outfile string) {
 	log.Noticef("Link size distribution written to `%s`", outfile)
 }
 
+// ContigInfo stores results calculated from FindEnrichmentOnContigs
+type ContigInfo struct {
+	name           string
+	length         int
+	nExpectedLinks float64
+	nObservedLinks int
+	lde            float64
+}
+
+// String() outputs the string representation of ContigInfo
+func (r ContigInfo) String() string {
+	return fmt.Sprintf("%s\t%d\t%.1f\t%d\t%.4f",
+		r.name, r.length, r.nExpectedLinks, r.nObservedLinks, r.lde)
+}
+
 // FindEnrichmentOnContigs determine the local enrichment of links on this contig.
 func (r *Extracter) FindEnrichmentOnContigs(outfile string) {
 	r.contigEnrichments = make(map[string]float64)
@@ -241,8 +256,9 @@ func (r *Extracter) FindEnrichmentOnContigs(outfile string) {
 		} else if LDE > 5.0 {
 			LDE = 5.0
 		}
-		fmt.Fprintf(w, "%s\t%d\t%.1f\t%d\t%.4f\n",
-			contig, L, sumf(nExpectedLinks), nObservedLinks, LDE)
+		ci := ContigInfo{name: contig, length: L, nExpectedLinks: sumf(nExpectedLinks),
+			nObservedLinks: nObservedLinks, lde: LDE}
+		fmt.Fprintln(w, ci)
 
 		r.contigEnrichments[contig] = LDE
 	}
@@ -264,6 +280,13 @@ type ContigPair struct {
 	mleDistance    int
 	logLikelihood  float64
 	score          float64
+}
+
+// String() outputs the string representation of ContigInfo
+func (r ContigPair) String() string {
+	return fmt.Sprintf("%s\t%s\t%d\t%d\t%.4f\t%.4f\t%.4f\t%d\t%.1f\t%d\t%.1f",
+		r.at, r.bt, r.L1, r.L2, r.lde1, r.lde2, r.localLDE,
+		r.nObservedLinks, r.nExpectedLinks, r.mleDistance, r.score)
 }
 
 // FindDistanceBetweenContigs calculates the MLE of distance between all contigs
@@ -308,9 +331,7 @@ func (r *Extracter) FindDistanceBetweenContigs(outfile string) {
 		"\tObservedLinks\tExpectedLinksIfAdjacent\tMLEdistance\tNormalizedScore\n")
 	for _, c := range contigPairs {
 		c.score = float64(c.nObservedLinks) * longestContigSizeSquared / (float64(c.L1) * float64(c.L2))
-		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%.4f\t%.4f\t%.4f\t%d\t%.1f\t%d\t%.1f\n",
-			c.at, c.bt, c.L1, c.L2, c.lde1, c.lde2, c.localLDE,
-			c.nObservedLinks, c.nExpectedLinks, c.mleDistance, c.score)
+		fmt.Fprintln(w, c)
 	}
 	w.Flush()
 	log.Noticef("Contig pair analyses written to `%s`", outfile)
