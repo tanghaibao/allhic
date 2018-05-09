@@ -66,11 +66,6 @@ const (
 	EPS = 1e-5
 )
 
-// HasCSVHeader can return a string of header
-type HasCSVHeader interface {
-	Header() string
-}
-
 // GArray contains golden array of size BB
 type GArray [BB]int
 

@@ -34,7 +34,7 @@ func main() {
 			Name:  "extract",
 			Usage: "Extract Hi-C link size distribution",
 			UsageText: `
-	allhic extract <bamfile> [options]
+	allhic extract bamfile [options]
 
 Extract function:
 Given a bamfile, the goal of the extract step is to calculate an empirical
@@ -57,7 +57,7 @@ also prepares for the latter steps of ALLHIC.
 			Name:  "prune",
 			Usage: "Prune bamfile to remove weak links",
 			UsageText: `
-	allhic prune <bamfile> [options]
+	allhic prune bamfile [options]
 
 Prune function:
 Given a bamfile, the goal of the pruning step is to remove all inter-allelic
@@ -79,14 +79,14 @@ links, then it is possible to reconstruct allele-separated assemblies.
 			Name:  "partition",
 			Usage: "Separate bamfile into k groups",
 			UsageText: `
-	allhic optimize <contigsfile> <distfile> [options]
+	allhic partition enrichment.txt distance.txt [options]
 
 Partition function:
 Given a target k, number of partitions, the goal of the partitioning is to
 separate all the contigs into separate clusters. As with all clustering
 algorithm, there is an optimization goal here. The LACHESIS algorithm is
 a hierarchical clustering algorithm using average links. The distfile can be
-generated with the "distribution" sub-command.
+generated with the "extract" sub-command.
 `,
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) < 2 {
@@ -105,7 +105,7 @@ generated with the "distribution" sub-command.
 			Name:  "optimize",
 			Usage: "Order-and-orient tigs in a group",
 			UsageText: `
-	allhic optimize <clmfile> [options]
+	allhic optimize clmfile [options]
 
 Optimize function:
 Given a set of Hi-C contacts between contigs, as specified in the
@@ -147,7 +147,7 @@ for these contigs.
 			Name:  "build",
 			Usage: "Build genome release",
 			UsageText: `
-	allhic build <tourfile> <contigs.fasta> [options]
+	allhic build tourfile contigs.fasta [options]
 
 Build function:
 Convert the tourfile into the standard AGP file, which is then converted
