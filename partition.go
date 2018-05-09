@@ -15,33 +15,57 @@ import (
 
 // Partitioner converts the bamfile into a matrix of link counts
 type Partitioner struct {
-	Contigsfile string
-	Distfile    string
-	contigs     []ContigInfo
-	matrix      [][]float64
+	Contigsfile   string
+	Distfile      string
+	contigs       []ContigInfo
+	contigToIdx   map[string]int
+	matrix        [][]float64
+	longestLength int
 }
 
 // Run is the main function body of partition
 func (r *Partitioner) Run() {
-	r.contigs = ParseContigLines(r.Contigsfile)
-	r.ParseDist()
-	r.matrix = Make2DSliceFloat64(len(r.contigs), len(r.contigs))
+	r.ParseContigLines()
+	r.contigToIdx = make(map[string]int)
+	for i, ci := range r.contigs {
+		r.contigToIdx[ci.name] = i
+	}
+	dists := r.ParseDist()
+	r.matrix = r.MakeMatrix(dists)
 	// r.Cluster(goodPairs)
 
 	log.Notice("Success")
 }
 
 // MakeMatrix creates an adjacency matrix containing normalized score
-func (r *Partitioner) MakeMatrix() {
-	// M := Make2DSliceFloat64()
+func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]float64 {
+	M := Make2DSliceFloat64(len(r.contigs), len(r.contigs))
+	longestSquared := float64(r.longestLength) * float64(r.longestLength)
+
+	// Load up all the contig pairs
+	for _, e := range edges {
+		a, _ := r.contigToIdx[e.at]
+		b, _ := r.contigToIdx[e.bt]
+		if a == b {
+			continue
+		}
+
+		w := float64(e.nObservedLinks) * longestSquared / (float64(e.L1) * float64(e.L2))
+		// fmt.Printf("%s %s %d %.6f\n", e.at, e.bt, e.nObservedLinks, w)
+		M[a][b] = w
+		M[b][a] = w
+	}
+
+	return M
 }
 
 // ParseDist imports the edges of the contig linkage graph
-func (r *Partitioner) ParseDist() {
+func (r *Partitioner) ParseDist() []ContigPair {
 	pairs := ParseDistLines(r.Distfile)
 	goodPairs := FilterEdges(pairs)
 	log.Noticef("Edge filtering keeps %s edges",
 		Percentage(len(goodPairs), len(pairs)))
+	return pairs
 }
 
 // FilterEdges implements rules to keep edges between close contigs and remove distant or weak contig pairs
@@ -63,13 +87,14 @@ func FilterEdges(edges []ContigPair) []ContigPair {
 // #Contig Length  Expected        Observed        LDE
 // jpcChr1.ctg249  25205   2.3     4       1.7391
 // jpcChr1.ctg344  82275   15.4    17      1.1068
-func ParseContigLines(contigfile string) []ContigInfo {
-	var contigs []ContigInfo
-
-	recs := ReadCSVLines(contigfile)
+func (r *Partitioner) ParseContigLines() {
+	recs := ReadCSVLines(r.Contigsfile)
 	for _, rec := range recs {
 		name := rec[0]
 		length, _ := strconv.Atoi(rec[1])
+		if length > r.longestLength {
+			r.longestLength = length
+		}
 		nExpectedLinks, _ := strconv.ParseFloat(rec[2], 64)
 		nObservedLinks, _ := strconv.Atoi(rec[3])
 		lde, _ := strconv.ParseFloat(rec[4], 64)
@@ -79,10 +104,8 @@ func ParseContigLines(contigfile string) []ContigInfo {
 			nExpectedLinks: nExpectedLinks, nObservedLinks: nObservedLinks,
 			lde: lde,
 		}
-		contigs = append(contigs, ci)
+		r.contigs = append(r.contigs, ci)
 	}
-
-	return contigs
 }
 
 // ParseDistLines imports the edges of the contig into a slice of DistLine
