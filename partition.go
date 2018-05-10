@@ -17,6 +17,7 @@ import (
 type Partitioner struct {
 	Contigsfile   string
 	Distfile      string
+	K             int
 	contigs       []ContigInfo
 	contigToIdx   map[string]int
 	matrix        [][]float64
@@ -31,8 +32,8 @@ func (r *Partitioner) Run() {
 		r.contigToIdx[ci.name] = i
 	}
 	dists := r.ParseDist()
-	r.matrix = r.MakeMatrix(dists)
-	// r.Cluster(goodPairs)
+	M := r.MakeMatrix(dists)
+	Cluster(M, r.K)
 
 	log.Notice("Success")
 }

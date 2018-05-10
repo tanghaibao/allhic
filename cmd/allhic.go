@@ -11,6 +11,7 @@ package main
 
 import (
 	"os"
+	"strconv"
 	"time"
 
 	".."
@@ -79,7 +80,7 @@ links, then it is possible to reconstruct allele-separated assemblies.
 			Name:  "partition",
 			Usage: "Separate bamfile into k groups",
 			UsageText: `
-	allhic partition enrichment.txt distance.txt [options]
+	allhic partition enrichment.txt distance.txt k [options]
 
 Partition function:
 Given a target k, number of partitions, the goal of the partitioning is to
@@ -89,14 +90,15 @@ a hierarchical clustering algorithm using average links. The distfile can be
 generated with the "extract" sub-command.
 `,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 2 {
+				if len(c.Args()) < 3 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify distfile", 1)
 				}
 
 				contigsfile := c.Args().Get(0)
 				distfile := c.Args().Get(1)
-				p := allhic.Partitioner{Contigsfile: contigsfile, Distfile: distfile}
+				k, _ := strconv.Atoi(c.Args().Get(2))
+				p := allhic.Partitioner{Contigsfile: contigsfile, Distfile: distfile, K: k}
 				p.Run()
 				return nil
 			},
