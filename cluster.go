@@ -16,8 +16,8 @@ import (
 
 // Item is a generic type that stores the merges
 type Item struct {
-	at       int
-	bt       int
+	a        int
+	b        int
 	priority float64
 	index    int
 }
@@ -34,13 +34,13 @@ func Cluster(G [][]float64, nclusters int) {
 		N, nclusters)
 
 	// Auxiliary data structures to facilitate cluster merging
-	contigToClusterID := make([]int, 2*N)
+	clusterID := make([]int, 2*N)
 	clusterSize := make([]int, 2*N)
 	clusterActive := make([]bool, 2*N)
 
 	// Initially all contigs in their own cluster
 	for i := 0; i < N; i++ {
-		contigToClusterID[i] = i
+		clusterID[i] = i
 		clusterSize[i] = 1
 		clusterActive[i] = true
 	}
@@ -51,9 +51,10 @@ func Cluster(G [][]float64, nclusters int) {
 		for j := i + 1; j < N; j++ {
 			if G[i][j] > 0 {
 				pq = append(pq, &Item{
-					at:       i,
-					bt:       j,
+					a:        i,
+					b:        j,
 					priority: G[i][j],
+					index:    pq.Len(),
 				})
 			}
 		}
@@ -73,8 +74,36 @@ func Cluster(G [][]float64, nclusters int) {
 		}
 		if pq.Len() == 0 {
 			log.Notice("No more merges to do since the queue is empty")
+			break
 		}
 		fmt.Println(item, item.priority)
+
+		// Step 2. Merge the contig pair
+		newClusterID := N + nMerges
+		clusterActive[item.a] = false
+		clusterActive[item.b] = false
+		clusterActive[newClusterID] = true
+		clusterSize[newClusterID] = clusterSize[item.a] + clusterSize[item.b]
+
+		var newCluster []int
+		for i := 0; i < N; i++ {
+			if clusterID[i] == item.a || clusterID[i] == item.b {
+				clusterID[i] = newClusterID
+				newCluster = append(newCluster, i)
+			}
+		}
+
+		// Step 3. Calculate new score entries for the new cluster
+		totalLinkageByCluster := make([]float64, 2*N)
+		for i := 0; i < N; i++ {
+			cID := clusterID[i]
+			if cID == newClusterID { // No need to calculate linkages within cluster
+				continue
+			}
+			for _, j := range newCluster {
+				totalLinkageByCluster[cID] += G[i][j]
+			}
+		}
 		nMerges++
 	}
 }

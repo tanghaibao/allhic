@@ -9,6 +9,8 @@
 
 package allhic
 
+import "container/heap"
+
 // A PriorityQueue implements heap.Interface and holds Items.
 type PriorityQueue []*Item
 
@@ -44,4 +46,10 @@ func (pq *PriorityQueue) Pop() interface{} {
 	item.index = -1 // for safety
 	*pq = old[0 : n-1]
 	return item
+}
+
+// Update modifies the priority and value of an Item in the queue.
+func (pq *PriorityQueue) Update(item *Item, priority float64) {
+	item.priority = priority
+	heap.Fix(pq, item.index)
 }
