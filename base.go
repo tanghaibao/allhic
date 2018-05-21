@@ -64,6 +64,8 @@ const (
 	BinNorm = 1000000.0
 	// EPS is that Q must be larger than this value, used in cluster.go
 	EPS = 1e-5
+	// MinAvgLinkage is the minimum cutoff for merging clusters
+	MinAvgLinkage = 0
 )
 
 // GArray contains golden array of size BB

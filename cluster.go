@@ -10,16 +10,15 @@
 package allhic
 
 import (
-	"container/heap"
+	"container/list"
 	"fmt"
 )
 
 // Item is a generic type that stores the merges
 type Item struct {
-	a        int
-	b        int
-	priority float64
-	index    int
+	a     int
+	b     int
+	score float64
 }
 
 // Cluster performs the hierarchical clustering
@@ -46,54 +45,72 @@ func Cluster(G [][]float64, nclusters int) {
 	}
 
 	// mergeScores has all possible pairwise merge scores
-	var pq PriorityQueue
+	// We keep a doubly-linked list containing all potential merges
+	// The original LACHESIS implementation used a C++ multimap with its use similar
+	// to a priority queue, however, the performance benefit is not obvious since we
+	// need to perform updates to all merges (remove old merges and insert new merges)
+	merges := list.New()
+
 	for i := 0; i < N; i++ {
 		for j := i + 1; j < N; j++ {
 			if G[i][j] > 0 {
-				pq = append(pq, &Item{
-					a:        i,
-					b:        j,
-					priority: G[i][j],
-					index:    pq.Len(),
+				merges.PushBack(&Item{
+					a:     i,
+					b:     j,
+					score: G[i][j],
 				})
 			}
 		}
 	}
 
-	heap.Init(&pq)
-	log.Noticef("Queue contains %d candidate merges", pq.Len())
+	log.Noticef("Queue contains %d candidate merges", merges.Len())
 
-	var item *Item
+	var bestMerge *Item
 	nMerges := 0
 	// The core hierarchical clustering
 	for nMerges < nclusters {
-		fmt.Println(pq.Len())
-		// Step 1. Find the pairs of the clusters with the highest merge score
-		if pq.Len() > 0 {
-			item = heap.Pop(&pq).(*Item)
-		}
-		if pq.Len() == 0 {
+		fmt.Println(merges.Len())
+		if merges.Len() == 0 {
 			log.Notice("No more merges to do since the queue is empty")
 			break
 		}
-		fmt.Println(item, item.priority)
+		// Step 1. Find the pairs of the clusters with the highest merge score
+		bestMerge = merges.Front().Value.(*Item)
+		for e := merges.Front(); e != nil; e = e.Next() {
+			if e.Value.(*Item).score > bestMerge.score {
+				bestMerge = e.Value.(*Item)
+			}
+		}
+		fmt.Println(bestMerge)
 
 		// Step 2. Merge the contig pair
 		newClusterID := N + nMerges
-		clusterActive[item.a] = false
-		clusterActive[item.b] = false
+		clusterActive[bestMerge.a] = false
+		clusterActive[bestMerge.b] = false
 		clusterActive[newClusterID] = true
-		clusterSize[newClusterID] = clusterSize[item.a] + clusterSize[item.b]
+		clusterSize[newClusterID] = clusterSize[bestMerge.a] + clusterSize[bestMerge.b]
 
 		var newCluster []int
 		for i := 0; i < N; i++ {
-			if clusterID[i] == item.a || clusterID[i] == item.b {
+			if clusterID[i] == bestMerge.a || clusterID[i] == bestMerge.b {
 				clusterID[i] = newClusterID
 				newCluster = append(newCluster, i)
 			}
 		}
 
+		nMerges++
+
 		// Step 3. Calculate new score entries for the new cluster
+		// Remove all used clusters
+		newMerges := list.New()
+		for e := merges.Front(); e != nil; e = e.Next() {
+			p := e.Value.(*Item)
+			if clusterActive[p.a] && clusterActive[p.b] {
+				newMerges.PushBack(p)
+			}
+		}
+
+		// Add all merges with the new cluster
 		totalLinkageByCluster := make([]float64, 2*N)
 		for i := 0; i < N; i++ {
 			cID := clusterID[i]
@@ -104,6 +121,28 @@ func Cluster(G [][]float64, nclusters int) {
 				totalLinkageByCluster[cID] += G[i][j]
 			}
 		}
-		nMerges++
+
+		for i := 0; i < 2*N; i++ {
+			if totalLinkageByCluster[i] <= 0 {
+				continue
+			}
+			if !clusterActive[i] {
+				log.Errorf("Cluster {} does not exist")
+			}
+			avgLinkage := totalLinkageByCluster[i] / float64(clusterSize[i]) /
+				float64(clusterSize[newClusterID])
+
+			if avgLinkage < MinAvgLinkage {
+				continue
+			}
+
+			newMerges.PushBack(&Item{
+				a:     min(i, newClusterID),
+				b:     max(i, newClusterID),
+				score: avgLinkage,
+			})
+		}
+
+		merges = newMerges
 	}
 }
