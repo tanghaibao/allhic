@@ -36,6 +36,7 @@ func Cluster(G [][]float64, nclusters int) {
 	clusterID := make([]int, 2*N)
 	clusterSize := make([]int, 2*N)
 	clusterActive := make([]bool, 2*N)
+	nonSingletonClusters := 0
 
 	// Initially all contigs in their own cluster
 	for i := 0; i < N; i++ {
@@ -53,7 +54,7 @@ func Cluster(G [][]float64, nclusters int) {
 
 	for i := 0; i < N; i++ {
 		for j := i + 1; j < N; j++ {
-			if G[i][j] > 0 {
+			if G[i][j] > MinAvgLinkage {
 				merges.PushBack(&Item{
 					a:     i,
 					b:     j,
@@ -63,12 +64,10 @@ func Cluster(G [][]float64, nclusters int) {
 		}
 	}
 
-	log.Noticef("Queue contains %d candidate merges", merges.Len())
-
 	var bestMerge *Item
 	nMerges := 0
 	// The core hierarchical clustering
-	for nMerges < nclusters {
+	for {
 		fmt.Println(merges.Len())
 		if merges.Len() == 0 {
 			log.Notice("No more merges to do since the queue is empty")
@@ -85,10 +84,18 @@ func Cluster(G [][]float64, nclusters int) {
 
 		// Step 2. Merge the contig pair
 		newClusterID := N + nMerges
+
 		clusterActive[bestMerge.a] = false
 		clusterActive[bestMerge.b] = false
 		clusterActive[newClusterID] = true
 		clusterSize[newClusterID] = clusterSize[bestMerge.a] + clusterSize[bestMerge.b]
+		if bestMerge.a < N {
+			nonSingletonClusters++
+		}
+		if bestMerge.b < N {
+			nonSingletonClusters++
+		}
+		nonSingletonClusters--
 
 		var newCluster []int
 		for i := 0; i < N; i++ {
@@ -127,7 +134,7 @@ func Cluster(G [][]float64, nclusters int) {
 				continue
 			}
 			if !clusterActive[i] {
-				log.Errorf("Cluster {} does not exist")
+				log.Errorf("Cluster %d does not exist", i)
 			}
 			avgLinkage := totalLinkageByCluster[i] / float64(clusterSize[i]) /
 				float64(clusterSize[newClusterID])
@@ -143,6 +150,21 @@ func Cluster(G [][]float64, nclusters int) {
 			})
 		}
 
+		// Analyze the current clusters if enough merges occurred
+		if nMerges > N/2 && nonSingletonClusters <= nclusters {
+			if nonSingletonClusters == nclusters {
+				log.Noticef("%d merges made so far; this leaves %d clusters, and so we'r done!",
+					nMerges, nonSingletonClusters)
+				break
+			}
+		}
+		log.Noticef("Merge #%d: Clusters %d + %d -> %d, Linkage = %.3f",
+			nMerges, bestMerge.a, bestMerge.b, newClusterID, bestMerge.score)
+
 		merges = newMerges
 	}
+
+	fmt.Println(clusterID)
+	fmt.Println(clusterActive)
+	fmt.Println(clusterSize)
 }
