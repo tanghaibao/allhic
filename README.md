@@ -1,3 +1,10 @@
+         _       _____     _____     ____  ____  _____   ______
+        / \     |_   _|   |_   _|   |_   ||   _||_   _|.' ___  |
+       / _ \      | |       | |       | |__| |    | | / .'   \_|
+      / ___ \     | |   _   | |   _   |  __  |    | | | |
+    _/ /   \ \_  _| |__/ | _| |__/ | _| |  | |_  _| |_\ `.___.'\
+    |____| |____||________||________||____||____||_____|`.____ .'
+
 # ALLHIC: Genome scaffolding based on HiC data
 
 [![Travis-CI](https://travis-ci.org/tanghaibao/allhic.svg?branch=master)](https://travis-ci.org/tanghaibao/allhic)
