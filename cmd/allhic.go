@@ -19,6 +19,21 @@ import (
 	"github.com/urfave/cli"
 )
 
+// init customizes how cli layout the command interface
+// Logo banner (Varsity style):
+// http://patorjk.com/software/taag/#p=testall&f=3D-ASCII&t=ALLHIC
+func init() {
+	cli.AppHelpTemplate = `
+     _       _____     _____     ____  ____  _____   ______
+    / \     |_   _|   |_   _|   |_   ||   _||_   _|.' ___  |
+   / _ \      | |       | |       | |__| |    | | / .'   \_|
+  / ___ \     | |   _   | |   _   |  __  |    | | | |
+_/ /   \ \_  _| |__/ | _| |__/ | _| |  | |_  _| |_\ ` + "`" + `.___.'\
+|____| |____||________||________||____||____||_____|` + "`" + `.____ .'
+
+` + cli.AppHelpTemplate
+}
+
 // main is the entrypoint for the entire program, routes to commands
 func main() {
 	logging.SetBackend(allhic.BackendFormatter)
