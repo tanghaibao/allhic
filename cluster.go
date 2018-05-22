@@ -23,7 +23,7 @@ type Item struct {
 
 // Cluster performs the hierarchical clustering
 // This function is a re-implementation of the AHClustering() function in LACHESIS
-func Cluster(G [][]float64, nclusters int) {
+func Cluster(G [][]float64, nclusters int) map[int][]int {
 
 	// TODO: Skip contigs that are too small or irrelevant
 	// LACHESIS also skips contigs that are thought to be centromeric
@@ -33,7 +33,7 @@ func Cluster(G [][]float64, nclusters int) {
 		N, nclusters)
 
 	// Auxiliary data structures to facilitate cluster merging
-	clusterID := make([]int, 2*N)
+	clusterID := make([]int, N)
 	clusterSize := make([]int, 2*N)
 	clusterActive := make([]bool, 2*N)
 	nonSingletonClusters := 0
@@ -164,7 +164,21 @@ func Cluster(G [][]float64, nclusters int) {
 		merges = newMerges
 	}
 
-	fmt.Println(clusterID)
-	fmt.Println(clusterActive)
-	fmt.Println(clusterSize)
+	// fmt.Println(clusterID)
+	// fmt.Println(clusterActive)
+	// fmt.Println(clusterSize)
+
+	return SetClusters(clusterID)
+}
+
+// SetClusters assigns contigs into clusters per clusterID
+func SetClusters(clusterID []int) map[int][]int {
+	clusters := make(map[int][]int)
+	for i, cID := range clusterID {
+		if i == cID { // Singletons
+			continue
+		}
+		clusters[cID] = append(clusters[cID], i)
+	}
+	return clusters
 }
