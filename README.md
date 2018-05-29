@@ -64,3 +64,9 @@ allhic optimize tests/test.clm
 ### Build
 
 Build genome release. WIP.
+
+
+## WIP features
+
+- [ ] Add restriction enzyme for better normalization of contig lengths
+- [ ] Add test suites
