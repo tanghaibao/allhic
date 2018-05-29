@@ -36,14 +36,13 @@ func (r *Partitioner) Run() {
 	dists := r.ParseDist()
 	M := r.MakeMatrix(dists)
 	clusters := Cluster(M, r.K)
-	fmt.Println(clusters)
 
 	for _, ids := range clusters {
 		names := make([]string, len(ids))
 		for i, id := range ids {
 			names[i] = r.contigs[id].name
 		}
-		fmt.Println(strings.Join(names, ","))
+		fmt.Println(len(names), strings.Join(names, ","))
 	}
 
 	log.Notice("Success")
@@ -77,7 +76,7 @@ func (r *Partitioner) ParseDist() []ContigPair {
 	goodPairs := FilterEdges(pairs)
 	log.Noticef("Edge filtering keeps %s edges",
 		Percentage(len(goodPairs), len(pairs)))
-	return pairs
+	return goodPairs
 }
 
 // FilterEdges implements rules to keep edges between close contigs and remove distant or weak contig pairs

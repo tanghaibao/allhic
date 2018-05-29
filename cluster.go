@@ -11,7 +11,6 @@ package allhic
 
 import (
 	"container/list"
-	"fmt"
 )
 
 // Item is a generic type that stores the merges
@@ -68,7 +67,6 @@ func Cluster(G [][]float64, nclusters int) map[int][]int {
 	nMerges := 0
 	// The core hierarchical clustering
 	for {
-		fmt.Println(merges.Len())
 		if merges.Len() == 0 {
 			log.Notice("No more merges to do since the queue is empty")
 			break
@@ -80,7 +78,6 @@ func Cluster(G [][]float64, nclusters int) map[int][]int {
 				bestMerge = e.Value.(*Item)
 			}
 		}
-		fmt.Println(bestMerge)
 
 		// Step 2. Merge the contig pair
 		newClusterID := N + nMerges
@@ -136,6 +133,7 @@ func Cluster(G [][]float64, nclusters int) map[int][]int {
 			if !clusterActive[i] {
 				log.Errorf("Cluster %d does not exist", i)
 			}
+			// Average linkage
 			avgLinkage := totalLinkageByCluster[i] / float64(clusterSize[i]) /
 				float64(clusterSize[newClusterID])
 
