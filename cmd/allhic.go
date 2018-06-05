@@ -92,6 +92,29 @@ links, then it is possible to reconstruct allele-separated assemblies.
 			},
 		},
 		{
+			Name:  "anchor",
+			Usage: "Anchor contigs based on an iterative merging method",
+			UsageText: `
+	allhic anchor bamfile [options]
+
+Anchor function:
+Given a bamfile, we anchor contigs based on an iterative merging method similar
+to the method used in 3D-DNA. The method is based on maximum weight matching
+of the contig linkage graph.
+`,
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) < 1 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify bamfile", 1)
+				}
+
+				bamfile := c.Args().Get(0)
+				p := allhic.Anchorer{Bamfile: bamfile}
+				p.Run()
+				return nil
+			},
+		},
+		{
 			Name:  "partition",
 			Usage: "Separate bamfile into k groups",
 			UsageText: `
