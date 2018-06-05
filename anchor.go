@@ -43,6 +43,7 @@ type Link struct {
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
 	r.ExtractInterContigLinks()
+	r.MakeGraph()
 	log.Notice("Success")
 }
 
@@ -119,9 +120,9 @@ func (r *Anchorer) ExtractInterContigLinks() {
 		})
 	}
 
-	for i, links := range r.links {
-		fmt.Println(i, ":", links)
-	}
+	// for i, links := range r.links {
+	// 	fmt.Println(i, ":", links)
+	// }
 
 	// Write intra-links to .dis file
 	for contig, links := range intraLinks {
@@ -132,4 +133,66 @@ func (r *Anchorer) ExtractInterContigLinks() {
 	wdis.Flush()
 	log.Noticef("Extracted %d intra-contig link groups to `%s` (total = %d)",
 		len(intraLinks), disfile, total)
+}
+
+// Path is a collection of ordered contigs
+type Path struct {
+	contigs      []int // List of contigs
+	orientations []int // 0 => +, 1 => -
+	length       int   // Cumulative length of all contigs
+}
+
+// Node is the scaffold ends, Left or Right (5` or 3`)
+type Node struct {
+	path  *Path // List of contigs
+	end   int   // 0 => L, 1 => R
+	links []Link
+}
+
+// Graph is an adjacency list
+type Graph map[*Node]map[*Node]float64
+
+// LiftOver takes as input contig ID and position, returns the nodeID
+func (r *Anchorer) LiftOver() {
+
+}
+
+// MakeGraph makes a contig linkage graph
+func (r *Anchorer) MakeGraph() {
+	// Initially make every contig a single Path object
+	paths := make([]Path, len(r.contigs))
+	nodes := make([]Node, 2*len(r.contigs))
+	nEdges := 0
+	for i, contig := range r.contigs {
+		path := Path{
+			contigs:      []int{i},
+			orientations: []int{0},
+			length:       contig.length,
+		}
+		paths[i] = path
+		bLinks, eLinks := bisect(contig.length/2, r.links[i])
+		// B node
+		nodes[2*i] = Node{
+			path:  &path,
+			end:   0,
+			links: bLinks,
+		}
+		// E node
+		nodes[2*i+1] = Node{
+			path:  &path,
+			end:   1,
+			links: eLinks,
+		}
+	}
+	// Go through the links for each node and compile edges
+	log.Noticef("Graph contains %d nodes and %d edges", len(nodes), nEdges)
+}
+
+func bisect(mid int, links []Link) ([]Link, []Link) {
+	// When links are sorted, we simply perform a binary search
+	// to find the midpoint
+	midID := sort.Search(len(links), func(i int) bool {
+		return links[i].apos > mid
+	})
+	return links[:midID], links[midID:]
 }
