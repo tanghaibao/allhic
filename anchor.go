@@ -22,9 +22,8 @@ import (
 // Anchorer runs the merging algorithm
 type Anchorer struct {
 	Bamfile      string
-	contigs      []Contig
-	nameToContig map[string]int
-	links        [][]Link
+	contigs      []*Contig
+	nameToContig map[string]*Contig
 }
 
 // Contig stores the name and length of each contig
@@ -32,12 +31,13 @@ type Contig struct {
 	id     int
 	name   string
 	length int
+	links  []Link
 }
 
 // Link contains a specific inter-contig link
 type Link struct {
-	a, b       int // Contig ids
-	apos, bpos int // Positions
+	a, b       *Contig // Contig ids
+	apos, bpos int     // Positions
 }
 
 // Run kicks off the merging algorithm
@@ -63,7 +63,7 @@ func (r *Anchorer) ExtractInterContigLinks() {
 	fids, _ := os.Create(idsfile)
 	wids := bufio.NewWriter(fids)
 
-	r.nameToContig = make(map[string]int)
+	r.nameToContig = make(map[string]*Contig)
 	refs := br.Header().Refs()
 	for _, ref := range refs {
 		contig := Contig{
@@ -71,8 +71,8 @@ func (r *Anchorer) ExtractInterContigLinks() {
 			name:   ref.Name(),
 			length: ref.Len(),
 		}
-		r.contigs = append(r.contigs, contig)
-		r.nameToContig[contig.name] = contig.id
+		r.contigs = append(r.contigs, &contig)
+		r.nameToContig[contig.name] = &contig
 		fmt.Fprintf(wids, "%s\t%d\n", ref.Name(), ref.Len())
 	}
 	wids.Flush()
@@ -81,7 +81,6 @@ func (r *Anchorer) ExtractInterContigLinks() {
 	// Import links into pairs of contigs
 	total := 0
 	intraLinks := make(map[string][]int)
-	r.links = make([][]Link, len(r.contigs))
 	for {
 		rec, err := br.Read()
 		if err != nil {
@@ -108,15 +107,14 @@ func (r *Anchorer) ExtractInterContigLinks() {
 		//     ==============================         ====================================
 		//             C1 (length L1)       |----D----|         C2 (length L2)
 		// An inter-contig link
-
-		r.links[a] = append(r.links[a], Link{
+		a.links = append(a.links, Link{
 			a: a, b: b, apos: apos, bpos: bpos,
 		})
 	}
 
-	for _, links := range r.links {
-		sort.Slice(links, func(i, j int) bool {
-			return links[i].apos < links[j].apos
+	for _, contig := range r.contigs {
+		sort.Slice(contig.links, func(i, j int) bool {
+			return contig.links[i].apos < contig.links[j].apos
 		})
 	}
 
@@ -137,9 +135,9 @@ func (r *Anchorer) ExtractInterContigLinks() {
 
 // Path is a collection of ordered contigs
 type Path struct {
-	contigs      []int // List of contigs
-	orientations []int // 0 => +, 1 => -
-	length       int   // Cumulative length of all contigs
+	contigs      []*Contig // List of contigs
+	orientations []int     // 0 => +, 1 => -
+	length       int       // Cumulative length of all contigs
 }
 
 // Node is the scaffold ends, Left or Right (5` or 3`)
@@ -149,8 +147,20 @@ type Node struct {
 	links []Link
 }
 
+// Range tracks contig:start-end
+type Range struct {
+	contig int
+	start  int
+	end    int
+	node   *Node
+}
+
 // Graph is an adjacency list
 type Graph map[*Node]map[*Node]float64
+
+// Registry contains mapping from contig ID to node ID
+// We iterate through 1 or 2 ranges per contig ID
+type Registry map[int]Range
 
 // LiftOver takes as input contig ID and position, returns the nodeID
 func (r *Anchorer) LiftOver() {
@@ -162,37 +172,65 @@ func (r *Anchorer) MakeGraph() {
 	// Initially make every contig a single Path object
 	paths := make([]Path, len(r.contigs))
 	nodes := make([]Node, 2*len(r.contigs))
+	registry := make(Registry)
 	nEdges := 0
 	for i, contig := range r.contigs {
 		path := Path{
-			contigs:      []int{i},
+			contigs:      []*Contig{contig},
 			orientations: []int{0},
-			length:       contig.length,
 		}
 		paths[i] = path
-		bLinks, eLinks := bisect(contig.length/2, r.links[i])
-		// B node
-		nodes[2*i] = Node{
-			path:  &path,
-			end:   0,
-			links: bLinks,
-		}
-		// E node
-		nodes[2*i+1] = Node{
-			path:  &path,
-			end:   1,
-			links: eLinks,
-		}
+		path.bisect(registry, &nodes[2*i], &nodes[2*i+1])
 	}
 	// Go through the links for each node and compile edges
 	log.Noticef("Graph contains %d nodes and %d edges", len(nodes), nEdges)
 }
 
-func bisect(mid int, links []Link) ([]Link, []Link) {
+// Length returns the cumulative length of all contigs
+func (r *Path) Length() int {
+	r.length = 0
+	for _, contig := range r.contigs {
+		r.length += contig.length
+	}
+	return r.length
+}
+
+// findMidPoint find the center of the a path of contigs
+func (r *Path) findMidPoint() (*Contig, int) {
+	midpos := r.Length() / 2
+	cumsize := 0
+	var contig *Contig
+	for _, contig = range r.contigs {
+		// midpos must be within this contig
+		if cumsize+contig.length > midpos {
+			break
+		}
+		cumsize += contig.length
+	}
+	contigpos := midpos - cumsize
+	return contig, contigpos
+}
+
+// bisect cuts the Path into two parts
+func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
+	contig, contigpos := r.findMidPoint()
+
 	// When links are sorted, we simply perform a binary search
-	// to find the midpoint
-	midID := sort.Search(len(links), func(i int) bool {
-		return links[i].apos > mid
+	midID := sort.Search(len(contig.links), func(i int) bool {
+		return contig.links[i].apos > contigpos
 	})
-	return links[:midID], links[midID:]
+	Llinks, Rlinks := contig.links[:midID], contig.links[midID:]
+
+	// L node
+	*LNode = Node{
+		path:  r,
+		end:   0,
+		links: Llinks,
+	}
+	// R node
+	*RNode = Node{
+		path:  r,
+		end:   1,
+		links: Rlinks,
+	}
 }
