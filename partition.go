@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -42,6 +43,7 @@ func (r *Partitioner) Run() {
 		for i, id := range ids {
 			names[i] = r.contigs[id].name
 		}
+		sort.Strings(names)
 		fmt.Println(len(names), strings.Join(names, ","))
 	}
 
