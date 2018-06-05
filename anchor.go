@@ -28,7 +28,6 @@ type Anchorer struct {
 
 // Contig stores the name and length of each contig
 type Contig struct {
-	id     int
 	name   string
 	length int
 	links  []Link
@@ -67,7 +66,6 @@ func (r *Anchorer) ExtractInterContigLinks() {
 	refs := br.Header().Refs()
 	for _, ref := range refs {
 		contig := Contig{
-			id:     len(r.contigs),
 			name:   ref.Name(),
 			length: ref.Len(),
 		}
@@ -142,14 +140,13 @@ type Path struct {
 
 // Node is the scaffold ends, Left or Right (5` or 3`)
 type Node struct {
-	path  *Path // List of contigs
-	end   int   // 0 => L, 1 => R
-	links []Link
+	path *Path // List of contigs
+	end  int   // 0 => L, 1 => R
 }
 
 // Range tracks contig:start-end
 type Range struct {
-	contig int
+	contig *Contig
 	start  int
 	end    int
 	node   *Node
@@ -160,7 +157,7 @@ type Graph map[*Node]map[*Node]float64
 
 // Registry contains mapping from contig ID to node ID
 // We iterate through 1 or 2 ranges per contig ID
-type Registry map[int]Range
+type Registry map[*Contig][]Range
 
 // LiftOver takes as input contig ID and position, returns the nodeID
 func (r *Anchorer) LiftOver() {
@@ -196,11 +193,12 @@ func (r *Path) Length() int {
 }
 
 // findMidPoint find the center of the a path of contigs
-func (r *Path) findMidPoint() (*Contig, int) {
+func (r *Path) findMidPoint() (int, int) {
 	midpos := r.Length() / 2
 	cumsize := 0
+	i := 0
 	var contig *Contig
-	for _, contig = range r.contigs {
+	for i, contig = range r.contigs {
 		// midpos must be within this contig
 		if cumsize+contig.length > midpos {
 			break
@@ -208,29 +206,40 @@ func (r *Path) findMidPoint() (*Contig, int) {
 		cumsize += contig.length
 	}
 	contigpos := midpos - cumsize
-	return contig, contigpos
+	return i, contigpos
 }
 
 // bisect cuts the Path into two parts
 func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
-	contig, contigpos := r.findMidPoint()
-
-	// When links are sorted, we simply perform a binary search
-	midID := sort.Search(len(contig.links), func(i int) bool {
-		return contig.links[i].apos > contigpos
-	})
-	Llinks, Rlinks := contig.links[:midID], contig.links[midID:]
-
+	var contig *Contig
+	i, contigpos := r.findMidPoint()
+	contig = r.contigs[i]
 	// L node
 	*LNode = Node{
-		path:  r,
-		end:   0,
-		links: Llinks,
+		path: r,
+		end:  0,
 	}
 	// R node
 	*RNode = Node{
-		path:  r,
-		end:   1,
-		links: Rlinks,
+		path: r,
+		end:  1,
+	}
+
+	// Update the registry that is used for liftOver
+	for k := 0; k < i; k++ {
+		contig = r.contigs[k]
+		registry[contig] = []Range{
+			Range{contig, 0, contig.length, LNode},
+		}
+	}
+	registry[contig] = []Range{
+		Range{contig, 0, contigpos, LNode},
+		Range{contig, contigpos, contig.length, RNode},
+	}
+	for k := i + 1; k < len(r.contigs); k++ {
+		contig = r.contigs[k]
+		registry[contig] = []Range{
+			Range{contig, 0, contig.length, RNode},
+		}
 	}
 }
