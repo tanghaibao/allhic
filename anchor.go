@@ -24,13 +24,14 @@ type Anchorer struct {
 	Bamfile      string
 	contigs      []*Contig
 	nameToContig map[string]*Contig
+	registry     Registry
 }
 
 // Contig stores the name and length of each contig
 type Contig struct {
 	name   string
 	length int
-	links  []Link
+	links  []*Link
 }
 
 // Link contains a specific inter-contig link
@@ -105,7 +106,7 @@ func (r *Anchorer) ExtractInterContigLinks() {
 		//     ==============================         ====================================
 		//             C1 (length L1)       |----D----|         C2 (length L2)
 		// An inter-contig link
-		a.links = append(a.links, Link{
+		a.links = append(a.links, &Link{
 			a: a, b: b, apos: apos, bpos: bpos,
 		})
 	}
@@ -146,10 +147,9 @@ type Node struct {
 
 // Range tracks contig:start-end
 type Range struct {
-	contig *Contig
-	start  int
-	end    int
-	node   *Node
+	start int
+	end   int
+	node  *Node
 }
 
 // Graph is an adjacency list
@@ -159,9 +159,21 @@ type Graph map[*Node]map[*Node]float64
 // We iterate through 1 or 2 ranges per contig ID
 type Registry map[*Contig][]Range
 
-// LiftOver takes as input contig ID and position, returns the nodeID
-func (r *Anchorer) LiftOver() {
+// contigToNode takes as input contig and position, returns the nodeID
+func (r *Anchorer) contigToNode(contig *Contig, pos int) *Node {
+	for _, rr := range r.registry[contig] {
+		if pos < rr.end {
+			return rr.node
+		}
+	}
+	return nil
+}
 
+// linkToNodes takes as input link, returns two nodeIDs
+func (r *Anchorer) linkToNodes(link *Link) (*Node, *Node) {
+	a := r.contigToNode(link.a, link.apos)
+	b := r.contigToNode(link.b, link.bpos)
+	return a, b
 }
 
 // MakeGraph makes a contig linkage graph
@@ -169,7 +181,7 @@ func (r *Anchorer) MakeGraph() {
 	// Initially make every contig a single Path object
 	paths := make([]Path, len(r.contigs))
 	nodes := make([]Node, 2*len(r.contigs))
-	registry := make(Registry)
+	r.registry = make(Registry)
 	nEdges := 0
 	for i, contig := range r.contigs {
 		path := Path{
@@ -177,9 +189,17 @@ func (r *Anchorer) MakeGraph() {
 			orientations: []int{0},
 		}
 		paths[i] = path
-		path.bisect(registry, &nodes[2*i], &nodes[2*i+1])
+		path.bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
 	}
+
 	// Go through the links for each node and compile edges
+	for _, contig := range r.contigs {
+		for _, link := range contig.links {
+			a, b := r.linkToNodes(link)
+			fmt.Println(link, a, b)
+		}
+		break
+	}
 	log.Noticef("Graph contains %d nodes and %d edges", len(nodes), nEdges)
 }
 
@@ -229,17 +249,17 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 	for k := 0; k < i; k++ {
 		contig = r.contigs[k]
 		registry[contig] = []Range{
-			Range{contig, 0, contig.length, LNode},
+			Range{0, contig.length, LNode},
 		}
 	}
 	registry[contig] = []Range{
-		Range{contig, 0, contigpos, LNode},
-		Range{contig, contigpos, contig.length, RNode},
+		Range{0, contigpos, LNode},
+		Range{contigpos, contig.length, RNode},
 	}
 	for k := i + 1; k < len(r.contigs); k++ {
 		contig = r.contigs[k]
 		registry[contig] = []Range{
-			Range{contig, 0, contig.length, RNode},
+			Range{0, contig.length, RNode},
 		}
 	}
 }
