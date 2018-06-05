@@ -101,10 +101,6 @@ func (r *Anchorer) ExtractInterContigLinks() {
 			continue
 		}
 
-		//         read1                                               read2
-		//     ---a-- X|----- dist = a2 ----|         |--- dist = b ---|X ------ b2 ------
-		//     ==============================         ====================================
-		//             C1 (length L1)       |----D----|         C2 (length L2)
 		// An inter-contig link
 		a.links = append(a.links, &Link{
 			a: a, b: b, apos: apos, bpos: bpos,
@@ -116,11 +112,6 @@ func (r *Anchorer) ExtractInterContigLinks() {
 			return contig.links[i].apos < contig.links[j].apos
 		})
 	}
-
-	// for i, links := range r.links {
-	// 	fmt.Println(i, ":", links)
-	// }
-
 	// Write intra-links to .dis file
 	for contig, links := range intraLinks {
 		links = unique(links)
@@ -162,7 +153,7 @@ type Registry map[*Contig][]Range
 // contigToNode takes as input contig and position, returns the nodeID
 func (r *Anchorer) contigToNode(contig *Contig, pos int) *Node {
 	for _, rr := range r.registry[contig] {
-		if pos < rr.end {
+		if pos >= rr.start && pos < rr.end {
 			return rr.node
 		}
 	}
@@ -226,6 +217,12 @@ func (r *Path) findMidPoint() (int, int) {
 		cumsize += contig.length
 	}
 	contigpos := midpos - cumsize
+
+	// --> ----> <-------- ------->
+	//              | mid point here
+	if r.orientations[i] == 0 {
+		contigpos = contig.length - contigpos
+	}
 	return i, contigpos
 }
 
@@ -252,9 +249,18 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 			Range{0, contig.length, LNode},
 		}
 	}
+
+	var leftRange, rightRange Range
+	if r.orientations[i] == 0 {
+		leftRange = Range{0, contigpos, LNode}
+		rightRange = Range{contigpos, contig.length, RNode}
+	} else { // Reverse orientation
+		leftRange = Range{0, contigpos, RNode}
+		rightRange = Range{contigpos, contig.length, LNode}
+	}
+
 	registry[contig] = []Range{
-		Range{0, contigpos, LNode},
-		Range{contigpos, contig.length, RNode},
+		leftRange, rightRange,
 	}
 	for k := i + 1; k < len(r.contigs); k++ {
 		contig = r.contigs[k]
