@@ -43,7 +43,8 @@ type Link struct {
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
 	r.ExtractInterContigLinks()
-	r.MakeGraph()
+	G := r.MakeGraph()
+	r.calculateEdges(G)
 	log.Notice("Success")
 }
 
@@ -78,7 +79,7 @@ func (r *Anchorer) ExtractInterContigLinks() {
 	log.Noticef("Extracted %d contigs to `%s`", len(r.contigs), idsfile)
 
 	// Import links into pairs of contigs
-	total := 0
+	intraTotal, interTotal := 0, 0
 	intraLinks := make(map[string][]int)
 	for {
 		rec, err := br.Read()
@@ -98,6 +99,7 @@ func (r *Anchorer) ExtractInterContigLinks() {
 			if link := abs(apos - bpos); link >= MinLinkDist {
 				intraLinks[at] = append(intraLinks[at], link)
 			}
+			intraTotal++
 			continue
 		}
 
@@ -105,6 +107,7 @@ func (r *Anchorer) ExtractInterContigLinks() {
 		a.links = append(a.links, &Link{
 			a: a, b: b, apos: apos, bpos: bpos,
 		})
+		interTotal++
 	}
 
 	for _, contig := range r.contigs {
@@ -115,12 +118,11 @@ func (r *Anchorer) ExtractInterContigLinks() {
 	// Write intra-links to .dis file
 	for contig, links := range intraLinks {
 		links = unique(links)
-		total += len(links)
 		fmt.Fprintf(wdis, "%s\t%s\n", contig, arrayToString(links, ","))
 	}
 	wdis.Flush()
-	log.Noticef("Extracted %d intra-contig link groups to `%s` (total = %d)",
-		len(intraLinks), disfile, total)
+	log.Noticef("Extracted %d intra-contig and %d inter-contig links",
+		intraTotal, interTotal)
 }
 
 // Path is a collection of ordered contigs
@@ -165,38 +167,6 @@ func (r *Anchorer) linkToNodes(link *Link) (*Node, *Node) {
 	a := r.contigToNode(link.a, link.apos)
 	b := r.contigToNode(link.b, link.bpos)
 	return a, b
-}
-
-// MakeGraph makes a contig linkage graph
-func (r *Anchorer) MakeGraph() Graph {
-	// Initially make every contig a single Path object
-	paths := make([]Path, len(r.contigs))
-	nodes := make([]Node, 2*len(r.contigs))
-	r.registry = make(Registry)
-	for i, contig := range r.contigs {
-		path := Path{
-			contigs:      []*Contig{contig},
-			orientations: []int{0},
-		}
-		paths[i] = path
-		path.bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
-	}
-
-	G := make(Graph)
-	// Go through the links for each node and compile edges
-	for _, contig := range r.contigs {
-		for _, link := range contig.links {
-			a, b := r.linkToNodes(link)
-			r.insertEdge(G, a, b)
-		}
-	}
-	nEdges := 0
-	for _, node := range G {
-		nEdges += len(node)
-	}
-	log.Noticef("Graph contains %d nodes and %d edges", len(G), nEdges)
-	fmt.Println(G)
-	return G
 }
 
 // insertEdge adds just one link to the graph
