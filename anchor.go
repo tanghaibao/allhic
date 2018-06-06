@@ -168,12 +168,11 @@ func (r *Anchorer) linkToNodes(link *Link) (*Node, *Node) {
 }
 
 // MakeGraph makes a contig linkage graph
-func (r *Anchorer) MakeGraph() {
+func (r *Anchorer) MakeGraph() Graph {
 	// Initially make every contig a single Path object
 	paths := make([]Path, len(r.contigs))
 	nodes := make([]Node, 2*len(r.contigs))
 	r.registry = make(Registry)
-	nEdges := 0
 	for i, contig := range r.contigs {
 		path := Path{
 			contigs:      []*Contig{contig},
@@ -183,15 +182,30 @@ func (r *Anchorer) MakeGraph() {
 		path.bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
 	}
 
+	G := make(Graph)
 	// Go through the links for each node and compile edges
 	for _, contig := range r.contigs {
 		for _, link := range contig.links {
 			a, b := r.linkToNodes(link)
-			fmt.Println(link, a, b)
+			r.insertEdge(G, a, b)
 		}
-		break
 	}
-	log.Noticef("Graph contains %d nodes and %d edges", len(nodes), nEdges)
+	nEdges := 0
+	for _, node := range G {
+		nEdges += len(node)
+	}
+	log.Noticef("Graph contains %d nodes and %d edges", len(G), nEdges)
+	fmt.Println(G)
+	return G
+}
+
+// insertEdge adds just one link to the graph
+func (r *Anchorer) insertEdge(G Graph, a, b *Node) {
+	if _, aok := G[a]; aok {
+		G[a][b]++
+	} else {
+		G[a] = map[*Node]float64{b: 1}
+	}
 }
 
 // Length returns the cumulative length of all contigs
@@ -242,14 +256,15 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 		end:  1,
 	}
 
-	// Update the registry that is used for liftOver
-	for k := 0; k < i; k++ {
+	// Update the registry to convert contig:start-end range to nodes
+	for k := 0; k < i; k++ { // Left contigs
 		contig = r.contigs[k]
 		registry[contig] = []Range{
 			Range{0, contig.length, LNode},
 		}
 	}
 
+	// Handles the middle contig as a special case
 	var leftRange, rightRange Range
 	if r.orientations[i] == 0 {
 		leftRange = Range{0, contigpos, LNode}
@@ -258,11 +273,11 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 		leftRange = Range{0, contigpos, RNode}
 		rightRange = Range{contigpos, contig.length, LNode}
 	}
-
 	registry[contig] = []Range{
 		leftRange, rightRange,
 	}
-	for k := i + 1; k < len(r.contigs); k++ {
+
+	for k := i + 1; k < len(r.contigs); k++ { // Right contigs
 		contig = r.contigs[k]
 		registry[contig] = []Range{
 			Range{0, contig.length, RNode},
