@@ -15,7 +15,7 @@ import (
 )
 
 // MakeGraph makes a contig linkage graph
-func (r *Anchorer) MakeGraph() Graph {
+func (r *Anchorer) makeGraph() Graph {
 	// Initially make every contig a single Path object
 	paths := make([]Path, len(r.contigs))
 	nodes := make([]Node, 2*len(r.contigs))
@@ -51,8 +51,9 @@ func (r *Anchorer) MakeGraph() Graph {
 // Steps are:
 // 1 - calculate the link density as links divided by the product of two contigs
 // 2 - calculate the confidence as the weight divided by the second largest edge
-func (r *Anchorer) calculateEdges(G Graph) {
+func (r *Anchorer) makeConfidenceGraph(G Graph) Graph {
 	twoLargest := map[*Node][]float64{}
+
 	for a, nb := range G {
 		first, second := 0.0, 0.0
 		for b, score := range nb {
@@ -66,16 +67,24 @@ func (r *Anchorer) calculateEdges(G Graph) {
 		}
 		twoLargest[a] = []float64{first, second}
 	}
+
+	confidenceGraph := make(Graph)
 	// Now a second pass to compute confidence
 	for a, nb := range G {
 		for b := range nb {
 			secondLargest := getSecondLargest(twoLargest[a], twoLargest[b])
-			if G[a][b]/secondLargest > 1 {
-				fmt.Println(a, b, G[a][b]/secondLargest, twoLargest[a], twoLargest[b])
-			}
 			G[a][b] /= secondLargest
+			if G[a][b] > 1 {
+				if _, aok := confidenceGraph[a]; aok {
+					confidenceGraph[a][b] = G[a][b]
+				} else {
+					confidenceGraph[a] = map[*Node]float64{b: G[a][b]}
+				}
+			}
 		}
 	}
+	fmt.Println(confidenceGraph)
+	return confidenceGraph
 }
 
 // Get the second largest number without sorting

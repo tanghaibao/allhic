@@ -43,8 +43,8 @@ type Link struct {
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
 	r.ExtractInterContigLinks()
-	G := r.MakeGraph()
-	r.calculateEdges(G)
+	G := r.makeGraph()
+	G = r.makeConfidenceGraph(G)
 	log.Notice("Success")
 }
 
