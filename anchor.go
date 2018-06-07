@@ -134,8 +134,9 @@ type Path struct {
 
 // Node is the scaffold ends, Left or Right (5` or 3`)
 type Node struct {
-	path *Path // List of contigs
-	end  int   // 0 => L, 1 => R
+	path   *Path // List of contigs
+	end    int   // 0 => L, 1 => R
+	sister *Node // Node of the other end
 }
 
 // Range tracks contig:start-end
@@ -225,6 +226,8 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 		path: r,
 		end:  1,
 	}
+	LNode.sister = RNode
+	RNode.sister = LNode
 
 	// Update the registry to convert contig:start-end range to nodes
 	for k := 0; k < i; k++ { // Left contigs

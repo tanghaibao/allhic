@@ -9,6 +9,11 @@
 
 package allhic
 
+import (
+	"fmt"
+	"sort"
+)
+
 // MakeGraph makes a contig linkage graph
 func (r *Anchorer) MakeGraph() Graph {
 	// Initially make every contig a single Path object
@@ -47,10 +52,42 @@ func (r *Anchorer) MakeGraph() Graph {
 // 1 - calculate the link density as links divided by the product of two contigs
 // 2 - calculate the confidence as the weight divided by the second largest edge
 func (r *Anchorer) calculateEdges(G Graph) {
+	twoLargest := map[*Node][]float64{}
+	for a, nb := range G {
+		first, second := 0.0, 0.0
+		for b, score := range nb {
+			score /= float64(a.path.length) * float64(b.path.length)
+			if score > first {
+				first, second = score, first
+			} else if score <= first && score > second {
+				second = score
+			}
+			G[a][b] = score
+		}
+		twoLargest[a] = []float64{first, second}
+	}
+	// Now a second pass to compute confidence
 	for a, nb := range G {
 		for b := range nb {
-			G[a][b] /= float64(a.path.length) * float64(b.path.length)
+			secondLargest := getSecondLargest(twoLargest[a], twoLargest[b])
+			if G[a][b]/secondLargest > 1 {
+				fmt.Println(a, b, G[a][b]/secondLargest, twoLargest[a], twoLargest[b])
+			}
+			G[a][b] /= secondLargest
 		}
 	}
-	// secondLargest := make(map[*Node]float64)
+}
+
+// Get the second largest number without sorting
+// a, b are both 2-item arrays
+func getSecondLargest(a, b []float64) float64 {
+	A := append(a, b...)
+	sort.Float64s(A)
+	largest, secondLargest := A[3], A[2]
+	// Some edge will appear twice in this list so need to remove it
+	if largest == secondLargest && A[1] > 0 { // Is precision an issue here?
+		secondLargest = A[1]
+	}
+
+	return secondLargest
 }
