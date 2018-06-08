@@ -14,6 +14,12 @@ import (
 	"sort"
 )
 
+// Edge is between two nodes in a graph
+type Edge struct {
+	a, b   *Node
+	weight float64
+}
+
 // MakeGraph makes a contig linkage graph
 func (r *Anchorer) makeGraph() Graph {
 	// Initially make every contig a single Path object
@@ -105,39 +111,51 @@ func getSecondLargest(a, b []float64) float64 {
 func (r *Anchorer) generatePathAndCycle(G Graph) {
 	fmt.Println(G)
 	visited := map[*Node]bool{}
+	var isCycle bool
 	// paths := [][]*Node{}
 	for a := range G {
 		if _, ok := visited[a]; ok {
 			continue
 		}
-		sisterPath := []*Node{}
-		sisterPath = dfs(G, a, sisterPath, visited, true)
+		sisterPath := []Edge{}
+		sisterPath, isCycle = dfs(G, a, sisterPath, visited, true)
+		if isCycle {
+			fmt.Println(sisterPath)
+			continue
+		}
 		delete(visited, a)
-		nonSisterPath := []*Node{}
-		nonSisterPath = dfs(G, a, nonSisterPath, visited, false)
-		fmt.Println(sisterPath)
-		fmt.Println(nonSisterPath)
+		nonSisterPath := []Edge{}
+		nonSisterPath, _ = dfs(G, a, nonSisterPath, visited, false)
+		// fmt.Println(sisterPath)
+		// fmt.Println(nonSisterPath)
 	}
 }
 
 // dfs visits the nodes in DFS order
-func dfs(G Graph, a *Node, path []*Node, visited map[*Node]bool, visitSister bool) []*Node {
-	path = append(path, a)
+// Return the path and if the path is a cycle
+func dfs(G Graph, a *Node, path []Edge, visited map[*Node]bool, visitSister bool) ([]Edge, bool) {
 	if _, ok := visited[a]; ok { // A cycle
-		return path
+		return path, true
 	}
 
 	visited[a] = true
 	// Alternating between sister and non-sister edges
 	if visitSister {
+		path = append(path, Edge{
+			a, a.sister, 0,
+		})
 		return dfs(G, a.sister, path, visited, false)
 	}
 	if nb, ok := G[a]; ok {
 		var b *Node
-		for b = range nb {
+		var weight float64
+		for b, weight = range nb {
 			break
 		}
+		path = append(path, Edge{
+			a, b, weight,
+		})
 		return dfs(G, b, path, visited, true)
 	}
-	return path
+	return path, false
 }
