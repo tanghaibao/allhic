@@ -83,7 +83,6 @@ func (r *Anchorer) makeConfidenceGraph(G Graph) Graph {
 			}
 		}
 	}
-	fmt.Println(confidenceGraph)
 	return confidenceGraph
 }
 
@@ -99,4 +98,46 @@ func getSecondLargest(a, b []float64) float64 {
 	}
 
 	return secondLargest
+}
+
+// generatePathAndCycle makes new paths by merging the unique extensions
+// in the graph
+func (r *Anchorer) generatePathAndCycle(G Graph) {
+	fmt.Println(G)
+	visited := map[*Node]bool{}
+	// paths := [][]*Node{}
+	for a := range G {
+		if _, ok := visited[a]; ok {
+			continue
+		}
+		sisterPath := []*Node{}
+		sisterPath = dfs(G, a, sisterPath, visited, true)
+		delete(visited, a)
+		nonSisterPath := []*Node{}
+		nonSisterPath = dfs(G, a, nonSisterPath, visited, false)
+		fmt.Println(sisterPath)
+		fmt.Println(nonSisterPath)
+	}
+}
+
+// dfs visits the nodes in DFS order
+func dfs(G Graph, a *Node, path []*Node, visited map[*Node]bool, visitSister bool) []*Node {
+	path = append(path, a)
+	if _, ok := visited[a]; ok { // A cycle
+		return path
+	}
+
+	visited[a] = true
+	// Alternating between sister and non-sister edges
+	if visitSister {
+		return dfs(G, a.sister, path, visited, false)
+	}
+	if nb, ok := G[a]; ok {
+		var b *Node
+		for b = range nb {
+			break
+		}
+		return dfs(G, b, path, visited, true)
+	}
+	return path
 }

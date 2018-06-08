@@ -45,6 +45,7 @@ func (r *Anchorer) Run() {
 	r.ExtractInterContigLinks()
 	G := r.makeGraph()
 	G = r.makeConfidenceGraph(G)
+	r.generatePathAndCycle(G)
 	log.Notice("Success")
 }
 
