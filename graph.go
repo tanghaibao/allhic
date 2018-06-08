@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"fmt"
+	"math"
 	"sort"
 )
 
@@ -117,19 +118,60 @@ func (r *Anchorer) generatePathAndCycle(G Graph) {
 		if _, ok := visited[a]; ok {
 			continue
 		}
-		sisterPath := []Edge{}
-		sisterPath, isCycle = dfs(G, a, sisterPath, visited, true)
+		path1, path2 := []Edge{}, []Edge{}
+		path1, isCycle = dfs(G, a, path1, visited, true)
 		if isCycle {
-			fmt.Println(sisterPath)
+			path1 = breakCycle(path1)
+			printPath(path1)
 			continue
 		}
 		delete(visited, a)
-		nonSisterPath := []Edge{}
-		nonSisterPath, _ = dfs(G, a, nonSisterPath, visited, false)
-		// fmt.Println(sisterPath)
-		// fmt.Println(nonSisterPath)
+		path2, _ = dfs(G, a, path2, visited, false)
+
+		// fmt.Println(path1)
+		// fmt.Println(path2)
+		path1 = append(reversePath(path1), path2...)
+		printPath(path1)
 	}
 }
+
+// printPath converts a single edge path into a node path
+func printPath(path []Edge) {
+	p := []string{}
+	for _, edge := range path {
+		if edge.weight == 0 { // Sister edge
+			for _, contig := range edge.a.path.contigs {
+				p = append(p, contig.name)
+			}
+		}
+	}
+	fmt.Println(path)
+	fmt.Println(p)
+}
+
+// reversePath reverses a single edge path into its reverse direction
+func reversePath(path []Edge) []Edge {
+	ans := []Edge{}
+	for i := len(path) - 1; i >= 0; i-- {
+		ans = append(ans, Edge{
+			path[i].b, path[i].a, path[i].weight,
+		})
+	}
+	return ans
+}
+
+// breakCycle breaks a single edge path into two edge paths
+func breakCycle(path []Edge) []Edge {
+	minI, minWeight := 0, math.MaxFloat64
+	for i, edge := range path {
+		if edge.weight > 1 && edge.weight < minWeight {
+			minI, minWeight = i, edge.weight
+		}
+	}
+	return append(path[minI+1:], path[:minI]...)
+}
+
+// mergePath combines two edge paths
 
 // dfs visits the nodes in DFS order
 // Return the path and if the path is a cycle

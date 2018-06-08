@@ -53,7 +53,7 @@ const (
 	// GeometricBinSize is the max/min ratio for each bin
 	GeometricBinSize = 1.0442737824274138403219664787399
 	// MinInterLinks is the minimum number of links between two contigs to consider
-	MinInterLinks = 2
+	MinInterLinks = 1
 	// MinLinkDist is the minimum link distance we care about
 	MinLinkDist = 1 << 11
 	// MaxLinkDist is the maximum link distance we care about
