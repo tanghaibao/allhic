@@ -64,6 +64,7 @@ func (r *Anchorer) makeConfidenceGraph(G Graph) Graph {
 	for a, nb := range G {
 		first, second := 0.0, 0.0
 		for b, score := range nb {
+			// TODO: Limit > 1 links here
 			score /= float64(a.path.length) * float64(b.path.length)
 			if score > first {
 				first, second = score, first
@@ -138,10 +139,16 @@ func (r *Anchorer) generatePathAndCycle(G Graph) {
 // printPath converts a single edge path into a node path
 func printPath(path []Edge) {
 	p := []string{}
+	tag := ""
 	for _, edge := range path {
 		if edge.weight == 0 { // Sister edge
+			if edge.a.end == 1 {
+				tag = "-"
+			} else {
+				tag = ""
+			}
 			for _, contig := range edge.a.path.contigs {
-				p = append(p, contig.name)
+				p = append(p, tag+contig.name)
 			}
 		}
 	}
@@ -170,8 +177,6 @@ func breakCycle(path []Edge) []Edge {
 	}
 	return append(path[minI+1:], path[:minI]...)
 }
-
-// mergePath combines two edge paths
 
 // dfs visits the nodes in DFS order
 // Return the path and if the path is a cycle

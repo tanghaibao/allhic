@@ -42,14 +42,6 @@ const (
 	OUTLIERTHRESHOLD = 3.5
 	// MINSIZE is the minimum size cutoff for tig to be considered
 	MINSIZE = 10000
-	// MaxUint is the maximum possible value for uint type
-	MaxUint = ^uint(0)
-	// MinUint is the minimum possible value for uint type
-	MinUint = 0
-	// MaxInt is the maximum possible value for int type
-	MaxInt = int(MaxUint >> 1)
-	// MinInt is the minimum possible value for int type
-	MinInt = -MaxInt - 1
 	// GeometricBinSize is the max/min ratio for each bin
 	GeometricBinSize = 1.0442737824274138403219664787399
 	// MinInterLinks is the minimum number of links between two contigs to consider

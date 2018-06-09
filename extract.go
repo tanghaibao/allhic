@@ -130,7 +130,7 @@ func (r *Extracter) Makebins() {
 	nBins := int(math.Ceil(linkRange * 16))
 	r.nBins = nBins
 
-	r.maxLinkDist = MinInt
+	r.maxLinkDist = math.MinInt32
 	for _, link := range r.links {
 		if link > r.maxLinkDist {
 			r.maxLinkDist = link
