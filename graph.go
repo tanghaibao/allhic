@@ -21,36 +21,8 @@ type Edge struct {
 	weight float64
 }
 
-// MakeGraph makes a contig linkage graph
-func (r *Anchorer) makeGraph() Graph {
-	// Initially make every contig a single Path object
-	paths := make([]Path, len(r.contigs))
-	nodes := make([]Node, 2*len(r.contigs))
-	r.registry = make(Registry)
-	for i, contig := range r.contigs {
-		path := Path{
-			contigs:      []*Contig{contig},
-			orientations: []int{0},
-		}
-		paths[i] = path
-		path.bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
-	}
-
-	G := make(Graph)
-	// Go through the links for each node and compile edges
-	for _, contig := range r.contigs {
-		for _, link := range contig.links {
-			a, b := r.linkToNodes(link)
-			r.insertEdge(G, a, b)
-			r.insertEdge(G, b, a)
-		}
-	}
-	nEdges := 0
-	for _, node := range G {
-		nEdges += len(node)
-	}
-	log.Noticef("Graph contains %d nodes and %d edges", len(G), nEdges)
-	// fmt.Println(G)
+// updateGraph takes input a list of paths and fuse the nodes
+func (r *Anchorer) updateGraph(G Graph) Graph {
 	return G
 }
 
@@ -114,7 +86,7 @@ func (r *Anchorer) generatePathAndCycle(G Graph) {
 	fmt.Println(G)
 	visited := map[*Node]bool{}
 	var isCycle bool
-	// paths := [][]*Node{}
+	nodeToPath := make(map[*Node]*Path)
 	for a := range G {
 		if _, ok := visited[a]; ok {
 			continue
@@ -123,23 +95,23 @@ func (r *Anchorer) generatePathAndCycle(G Graph) {
 		path1, isCycle = dfs(G, a, path1, visited, true)
 		if isCycle {
 			path1 = breakCycle(path1)
-			printPath(path1)
+			printPath(path1, nodeToPath)
 			continue
 		}
 		delete(visited, a)
 		path2, _ = dfs(G, a, path2, visited, false)
 
-		// fmt.Println(path1)
-		// fmt.Println(path2)
 		path1 = append(reversePath(path1), path2...)
-		printPath(path1)
+		printPath(path1, nodeToPath)
 	}
 }
 
 // printPath converts a single edge path into a node path
-func printPath(path []Edge) {
+func printPath(path []Edge, nodeToPath map[*Node]*Path) {
 	p := []string{}
 	tag := ""
+	// s := Path{}
+	// orientation := 0
 	for _, edge := range path {
 		if edge.weight == 0 { // Sister edge
 			if edge.a.end == 1 {
@@ -147,6 +119,7 @@ func printPath(path []Edge) {
 			} else {
 				tag = ""
 			}
+			// Special care needed for reverse orientation
 			for _, contig := range edge.a.path.contigs {
 				p = append(p, tag+contig.name)
 			}

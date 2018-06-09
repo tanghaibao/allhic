@@ -129,7 +129,7 @@ func (r *Anchorer) ExtractInterContigLinks() {
 // Path is a collection of ordered contigs
 type Path struct {
 	contigs      []*Contig // List of contigs
-	orientations []int     // 0 => +, 1 => -
+	orientations []int     // 1 => +, -1 => -
 	length       int       // Cumulative length of all contigs
 }
 
@@ -153,6 +153,39 @@ type Graph map[*Node]map[*Node]float64
 // Registry contains mapping from contig ID to node ID
 // We iterate through 1 or 2 ranges per contig ID
 type Registry map[*Contig][]Range
+
+// makeGraph makes a contig linkage graph
+func (r *Anchorer) makeGraph() Graph {
+	// Initially make every contig a single Path object
+	paths := make([]Path, len(r.contigs))
+	nodes := make([]Node, 2*len(r.contigs))
+	r.registry = make(Registry)
+	for i, contig := range r.contigs {
+		path := Path{
+			contigs:      []*Contig{contig},
+			orientations: []int{1},
+		}
+		paths[i] = path
+		path.bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
+	}
+
+	G := make(Graph)
+	// Go through the links for each node and compile edges
+	for _, contig := range r.contigs {
+		for _, link := range contig.links {
+			a, b := r.linkToNodes(link)
+			r.insertEdge(G, a, b)
+			r.insertEdge(G, b, a)
+		}
+	}
+	nEdges := 0
+	for _, node := range G {
+		nEdges += len(node)
+	}
+	log.Noticef("Graph contains %d nodes and %d edges", len(G), nEdges)
+	// fmt.Println(G)
+	return G
+}
 
 // contigToNode takes as input contig and position, returns the nodeID
 func (r *Anchorer) contigToNode(contig *Contig, pos int) *Node {
@@ -206,7 +239,7 @@ func (r *Path) findMidPoint() (int, int) {
 
 	// --> ----> <-------- ------->
 	//              | mid point here
-	if r.orientations[i] == 0 {
+	if r.orientations[i] == -1 {
 		contigpos = contig.length - contigpos
 	}
 	return i, contigpos
@@ -240,7 +273,7 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 
 	// Handles the middle contig as a special case
 	var leftRange, rightRange Range
-	if r.orientations[i] == 0 {
+	if r.orientations[i] > 0 { // Forward orientation
 		leftRange = Range{0, contigpos, LNode}
 		rightRange = Range{contigpos, contig.length, RNode}
 	} else { // Reverse orientation
