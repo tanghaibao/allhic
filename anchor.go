@@ -133,6 +133,21 @@ type Path struct {
 	length       int       // Cumulative length of all contigs
 }
 
+// flipOrientations reverses the orientations of all components
+func (r *Path) reverse() {
+	c := r.contigs
+	for i, j := 0, len(c)-1; i < j; i, j = i+1, j-1 {
+		c[i], c[j] = c[j], c[i]
+	}
+	o := r.orientations
+	for i, j := 0, len(o)-1; i < j; i, j = i+1, j-1 {
+		o[i], o[j] = o[j], o[i]
+	}
+	for i := range o {
+		o[i] = -o[i]
+	}
+}
+
 // Node is the scaffold ends, Left or Right (5` or 3`)
 type Node struct {
 	path   *Path // List of contigs

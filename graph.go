@@ -21,6 +21,16 @@ type Edge struct {
 	weight float64
 }
 
+// isReverse returns the orientation of an edge
+func (r *Edge) isReverse() bool {
+	return r.a.end == 1
+}
+
+// isSister returns if the edge is internal to a contig
+func (r *Edge) isSister() bool {
+	return r.weight == 0
+}
+
 // updateGraph takes input a list of paths and fuse the nodes
 func (r *Anchorer) updateGraph(G Graph) Graph {
 	return G
@@ -95,37 +105,46 @@ func (r *Anchorer) generatePathAndCycle(G Graph) {
 		path1, isCycle = dfs(G, a, path1, visited, true)
 		if isCycle {
 			path1 = breakCycle(path1)
-			printPath(path1, nodeToPath)
+			mergePath(path1, nodeToPath)
 			continue
 		}
 		delete(visited, a)
 		path2, _ = dfs(G, a, path2, visited, false)
 
 		path1 = append(reversePath(path1), path2...)
-		printPath(path1, nodeToPath)
+		mergePath(path1, nodeToPath)
 	}
+	log.Noticef("A total of %d nodes mapped to new path", len(nodeToPath))
 }
 
-// printPath converts a single edge path into a node path
-func printPath(path []Edge, nodeToPath map[*Node]*Path) {
+// mergePath converts a single edge path into a node path
+func mergePath(path []Edge, nodeToPath map[*Node]*Path) {
 	p := []string{}
-	tag := ""
-	// s := Path{}
-	// orientation := 0
+	s := &Path{}
 	for _, edge := range path {
-		if edge.weight == 0 { // Sister edge
-			if edge.a.end == 1 {
-				tag = "-"
-			} else {
-				tag = ""
-			}
-			// Special care needed for reverse orientation
-			for _, contig := range edge.a.path.contigs {
-				p = append(p, tag+contig.name)
-			}
+		if !edge.isSister() {
+			continue
+		}
+		ep := edge.a.path
+		tag := ""
+		if edge.isReverse() {
+			tag = "-"
+			ep.reverse()
+		}
+		// TODO: take orientations into account
+		s.contigs = append(s.contigs, ep.contigs...)
+		s.orientations = append(s.orientations, ep.orientations...)
+		nodeToPath[edge.a] = s
+		nodeToPath[edge.b] = s
+
+		// Special care needed for reverse orientation
+		for _, contig := range edge.a.path.contigs {
+			p = append(p, tag+contig.name)
 		}
 	}
+	s.Length()
 	fmt.Println(path)
+	fmt.Println(s)
 	fmt.Println(p)
 }
 

@@ -84,6 +84,13 @@ func RemoveExt(filename string) string {
 	return strings.TrimSuffix(filename, path.Ext(filename))
 }
 
+// Reverse returns a slice in place
+func Reverse(s []int) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
 // IsNewerFile checks if file a is newer than file b
 func IsNewerFile(a, b string) bool {
 	af, aerr := os.Stat(a)
