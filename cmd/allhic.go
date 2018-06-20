@@ -206,6 +206,28 @@ into a FASTA genome release.
 				return nil
 			},
 		},
+		{
+			Name:  "assess",
+			Usage: "Assess the orientations of contigs",
+			UsageText: `
+	allhic assess bamfile
+
+Assess function:
+Compute the posterior probability of contig orientations after scaffolding
+as a quality assessment step.
+`,
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) < 1 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify bamfile", 1)
+				}
+
+				bamfile := c.Args().Get(0)
+				p := allhic.Assesser{Bamfile: bamfile}
+				p.Run()
+				return nil
+			},
+		},
 	}
 
 	app.Run(os.Args)
