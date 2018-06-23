@@ -10,8 +10,12 @@
 package allhic
 
 import (
+	"bufio"
 	"io"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/biogo/hts/bam"
 )
@@ -27,16 +31,61 @@ import (
 //         of equal prior probability for each contig
 type Assesser struct {
 	Bamfile     string
+	Bedfile     string
+	Seqid       string
+	contigs     []BedLine
 	contigLens  []int
 	contigLinks map[string][]int
 	contigSizes map[string]int
 }
 
+// BedLine stores the information from each line in the bedfile
+type BedLine struct {
+	seqid string
+	start int
+	end   int
+	name  string
+}
+
 // Run calls the Assessor
 func (r *Assesser) Run() {
+	r.ReadBed()
 	r.ExtractContigLinks()
 	r.ComputeLikelihood()
 	r.ComputePosteriorProb()
+}
+
+// ReadBed parses the bedfile to extract the start and stop for all the contigs
+func (r *Assesser) ReadBed() {
+	fh, _ := os.Open(r.Bedfile)
+	log.Noticef("Parse bedfile `%s`", r.Bedfile)
+	reader := bufio.NewReader(fh)
+
+	for {
+		row, err := reader.ReadString('\n')
+		row = strings.TrimSpace(row)
+		if row == "" && err == io.EOF {
+			break
+		}
+		words := strings.Split(row, "\t")
+		seqid := words[0]
+		if seqid != r.Seqid {
+			continue
+		}
+		start, _ := strconv.Atoi(words[1])
+		end, _ := strconv.Atoi(words[2])
+		r.contigs = append(r.contigs, BedLine{
+			seqid: seqid,
+			start: start,
+			end:   end,
+			name:  words[3],
+		})
+	}
+
+	sort.Slice(r.contigs, func(i, j int) bool {
+		return r.contigs[i].start < r.contigs[j].start
+	})
+	log.Noticef("A total of %d contigs imported", len(r.contigs))
 }
 
 // ExtractContigLinks builds the probability distribution of link sizes

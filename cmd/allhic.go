@@ -210,20 +210,22 @@ into a FASTA genome release.
 			Name:  "assess",
 			Usage: "Assess the orientations of contigs",
 			UsageText: `
-	allhic assess bamfile
+	allhic assess bamfile bedfile chr1
 
 Assess function:
 Compute the posterior probability of contig orientations after scaffolding
 as a quality assessment step.
 `,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 1 {
+				if len(c.Args()) < 3 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify bamfile", 1)
 				}
 
 				bamfile := c.Args().Get(0)
-				p := allhic.Assesser{Bamfile: bamfile}
+				bedfile := c.Args().Get(1)
+				seqid := c.Args().Get(2)
+				p := allhic.Assesser{Bamfile: bamfile, Bedfile: bedfile, Seqid: seqid}
 				p.Run()
 				return nil
 			},
