@@ -121,7 +121,7 @@ func (r *Assesser) ExtractContigLinks() {
 			r.Seqsize = ref.Len()
 		}
 	}
-	log.Noticef("SeqId has size %d", r.Seqsize)
+	log.Noticef("Seq `%s` has size %d", r.Seqid, r.Seqsize)
 
 	// Import links into pairs of contigs
 	r.interLinksFwd = make([][]int, len(r.contigs))
@@ -337,10 +337,28 @@ func computeLikelihood(links []int, logP []float64) float64 {
 	return sumLogP
 }
 
+// posterioProbability calculates the posterior probability given two likelihood
+func posterioProbability(L1, L2 float64) float64 {
+	base := L1 // smaller of the two
+	if L1 > L2 {
+		base = L2
+	}
+	if L1-base > 100 {
+		return 1.0
+	}
+	if L2-base > 100 {
+		return 0.0
+	}
+	p1 := math.Exp(L1 - base)
+	p2 := math.Exp(L2 - base)
+	return p1 / (p1 + p2)
+}
+
 // ComputePosteriorProb computes the posterior probability of the orientations
 func (r *Assesser) ComputePosteriorProb() {
 	nFwdBetter := 0
 	nRevBetter := 0
+	nHighConf := 0
 	for i, contig := range r.contigs {
 		// if i > 100 {
 		// 	break
@@ -348,15 +366,20 @@ func (r *Assesser) ComputePosteriorProb() {
 		fmt.Println(contig)
 		fwdLogP := computeLikelihood(r.interLinksFwd[i], r.logP)
 		revLogP := computeLikelihood(r.interLinksRev[i], r.logP)
-		// fmt.Println(r.interLinksFwd[i])
-		// fmt.Println(r.interLinksRev[i])
-		fmt.Println(fwdLogP, revLogP)
+		fwdProb := posterioProbability(fwdLogP, revLogP)
+		fmt.Println(fwdLogP, revLogP, fwdProb)
+
 		if fwdLogP > revLogP {
 			nFwdBetter++
+			if fwdProb > .95 {
+				nHighConf++
+			}
 		} else {
 			nRevBetter++
 		}
 	}
 	log.Noticef("Same direction better: %d; Opposite direction better: %d",
 		nFwdBetter, nRevBetter)
+	log.Noticef("High confidence: %d out of %d (%.1f%%)",
+		nHighConf, len(r.contigs), float64(nHighConf)*100./float64(len(r.contigs)))
 }
