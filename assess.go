@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"sort"
@@ -30,13 +31,13 @@ import (
 // Step 3. Normalize the likelihood to get the posterior probability (implicit assumption)
 //         of equal prior probability for each contig
 type Assesser struct {
-	Bamfile     string
-	Bedfile     string
-	Seqid       string
-	contigs     []BedLine
-	contigLens  []int
-	contigLinks map[string][]int
-	contigSizes map[string]int
+	Bamfile             string
+	Bedfile             string
+	Seqid               string
+	contigs             []BedLine
+	contigIntraLinks    []int   // Contig link sizes for all intra-contig links
+	contigInterLinksFwd [][]int // Contig link sizes assuming same dir
+	contigInterLinksRev [][]int // Contig link sizes assuming other dir
 }
 
 // BedLine stores the information from each line in the bedfile
@@ -76,7 +77,7 @@ func (r *Assesser) ReadBed() {
 		end, _ := strconv.Atoi(words[2])
 		r.contigs = append(r.contigs, BedLine{
 			seqid: seqid,
-			start: start,
+			start: start - 1,
 			end:   end,
 			name:  words[3],
 		})
@@ -88,6 +89,11 @@ func (r *Assesser) ReadBed() {
 	log.Noticef("A total of %d contigs imported", len(r.contigs))
 }
 
+// checkInRange checks if a point position is within range
+func checkInRange(pos, start, end int) bool {
+	return start <= pos && pos < end
+}
+
 // ExtractContigLinks builds the probability distribution of link sizes
 func (r *Assesser) ExtractContigLinks() {
 	fh, _ := os.Open(r.Bamfile)
@@ -95,18 +101,13 @@ func (r *Assesser) ExtractContigLinks() {
 	br, _ := bam.NewReader(fh, 0)
 	defer br.Close()
 
-	r.contigSizes = make(map[string]int)
-	refs := br.Header().Refs()
-	for _, ref := range refs {
-		r.contigLens = append(r.contigLens, ref.Len())
-		r.contigSizes[ref.Name()] = ref.Len()
-	}
-
 	// Import links into pairs of contigs
-	r.contigLinks = make(map[string][]int)
+	r.contigInterLinksFwd = make([][]int, len(r.contigs))
+	r.contigInterLinksRev = make([][]int, len(r.contigs))
 	var a, b int
 	nIntraLinks := 0
 	nInterLinks := 0
+	ci := 0 // Use this to index into r.contigs, the current contig under consideration
 	for {
 		rec, err := br.Read()
 		if err != nil {
@@ -115,37 +116,50 @@ func (r *Assesser) ExtractContigLinks() {
 			}
 			break
 		}
+
+		// Restrict the links to be within the current chromosome
 		at, bt := rec.Ref.Name(), rec.MateRef.Name()
+		if at != r.Seqid || bt != r.Seqid {
+			continue
+		}
 
 		//         read1                                               read2
 		//     ---a-- X|----- dist = a2 ----|         |--- dist = b ---|X ------ b2 ------
 		//     ==============================         ====================================
 		//             C1 (length L1)       |----D----|         C2 (length L2)
 		a, b = rec.Pos, rec.MatePos
-
-		// For intra-contig link it's easy, just store the distance between two ends
-		// For inter-contig link this is a bit tricky:
-		// - for the same direction as in the AGP/BED, the distance is the real distance
-		// - for the opposite direction as in the AGP/BED, we need to flip the contig,
-		//   which means, 2 * contig_start + contig_size - link_start
-		//   To check this is correct, link_start = contig_start ==> contig_start + contig_size
-		//                        and, link_start = contig_start + contig_size => contig_start
-		// An intra-contig link
-		if at == bt {
-			if link := abs(a - b); link >= MinLinkDist {
-				nIntraLinks++
-				r.contigLinks[at] = append(r.contigLinks[at], link)
-			}
+		if a < r.contigs[ci].start {
 			continue
 		}
 
+		// Now we need to check if this pair of positions is a intra-contig or inter-contig link
+		// If the intervals are disjoint and the mapping lies between the intervals, then this could
+		// lead to a problem
+		for a > r.contigs[ci].end {
+			ci++
+			fmt.Println(r.contigs[ci], a, nIntraLinks, nInterLinks)
+		}
+
+		link := abs(a - b)
+		// For intra-contig link it's easy, just store the distance between two ends
+		// An intra-contig link
+		if checkInRange(b, r.contigs[ci].start, r.contigs[ci].end) {
+			r.contigIntraLinks = append(r.contigIntraLinks, link)
+			nIntraLinks++
+			continue
+		}
+
+		// For inter-contig link this is a bit tricky:
+		// - for the same direction as in the AGP/BED, the distance is the real distance
+		// - for the opposite direction as in the AGP/BED, we need to flip the contig,
+		//   which means, contig_start + contig_end - link_start
+		//   To check this is correct, link_start = contig_start ==> contig_end
+		//                        and, link_start = contig_end => contig_start
 		// An inter-contig link
-		// if at > bt {
-		// 	at, bt = bt, at
-		// 	a, b = b, a
-		// }
-		// L1, _ := r.contigSizes[at]
-		// L2, _ := r.contigSizes[bt]
+		r.contigInterLinksFwd[ci] = append(r.contigInterLinksFwd[ci], link)
+		// Assuming flipped orientation
+		link = abs(r.contigs[ci].start + r.contigs[ci].end - a - b)
+		r.contigInterLinksRev[ci] = append(r.contigInterLinksRev[ci], link)
 		nInterLinks++
 	}
 	log.Noticef("A total of %d intra-contig links and %d inter-contig links imported",
