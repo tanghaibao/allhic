@@ -164,9 +164,9 @@ func (r *Assesser) ExtractContigLinks() {
 		}
 
 		// TODO: remove this
-		if ci > 100 {
-			break
-		}
+		// if ci > 100 {
+		// 	break
+		// }
 
 		link := abs(a - b)
 		if link < MinLinkDist {
@@ -207,6 +207,11 @@ func linkBin(dist int) int {
 	log2i := uintLog2(uint(distOverMin))
 	log2f := uintLog2Frac(float64(dist) / float64(int(MinLinkDist)<<log2i))
 	return int(16*log2i + log2f)
+}
+
+// BinSize returns the size of each bin
+func (r *Assesser) BinSize(i int) int {
+	return r.binStarts[i+1] - r.binStarts[i]
 }
 
 // Makebins makes geometric bins and count links that fall in each bin
@@ -290,9 +295,11 @@ func (r *Assesser) Makebins() {
 
 // MakeProbDist calculates the expected number of links in each bin, which is then
 // normalized to make a probability distribution
+//
+// TODO: check if we need to build prob dist for each contig
 func (r *Assesser) MakeProbDist() {
 	nBins := len(r.linkDensity)
-	expectedLinks := make([]float64, nBins)
+	expectedLinks := make([]float64, nBins) // expected number of links for each bin
 	sum := 0.0
 	minLink := math.MaxFloat64
 	for i := 0; i < nBins; i++ {
@@ -310,8 +317,9 @@ func (r *Assesser) MakeProbDist() {
 	r.logP = make([]float64, nBins)
 	// Normalize so that they add to 1
 	for i := 0; i < nBins; i++ {
-		r.logP[i] = math.Log(expectedLinks[i] / sum)
+		r.logP[i] = math.Log(expectedLinks[i] / sum / float64(r.BinSize(i)))
 	}
+	fmt.Println(expectedLinks)
 	fmt.Println(r.logP)
 }
 
@@ -331,10 +339,24 @@ func computeLikelihood(links []int, logP []float64) float64 {
 
 // ComputePosteriorProb computes the posterior probability of the orientations
 func (r *Assesser) ComputePosteriorProb() {
+	nFwdBetter := 0
+	nRevBetter := 0
 	for i, contig := range r.contigs {
+		// if i > 100 {
+		// 	break
+		// }
 		fmt.Println(contig)
 		fwdLogP := computeLikelihood(r.interLinksFwd[i], r.logP)
 		revLogP := computeLikelihood(r.interLinksRev[i], r.logP)
+		// fmt.Println(r.interLinksFwd[i])
+		// fmt.Println(r.interLinksRev[i])
 		fmt.Println(fwdLogP, revLogP)
+		if fwdLogP > revLogP {
+			nFwdBetter++
+		} else {
+			nRevBetter++
+		}
 	}
+	log.Noticef("Same direction better: %d; Opposite direction better: %d",
+		nFwdBetter, nRevBetter)
 }
