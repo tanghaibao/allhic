@@ -35,8 +35,10 @@ type Assesser struct {
 	Bamfile       string
 	Bedfile       string
 	Seqid         string
+	Seqsize       int
 	linkDensity   []float64
 	binStarts     []int
+	logP          []float64
 	contigs       []BedLine
 	intraLinks    []int   // Contig link sizes for all intra-contig links
 	interLinksFwd [][]int // Contig link sizes assuming same dir
@@ -58,13 +60,16 @@ func (r *Assesser) Run() {
 	r.ExtractContigLinks()
 	r.Makebins()
 	r.MakeProbDist()
-	r.ComputeLikelihood()
 	r.ComputePosteriorProb()
 }
 
 // ReadBed parses the bedfile to extract the start and stop for all the contigs
 func (r *Assesser) ReadBed() {
-	fh, _ := os.Open(r.Bedfile)
+	fh, err := os.Open(r.Bedfile)
+	if err != nil {
+		log.Errorf("bedfile `%s` does not exist", r.Bedfile)
+		os.Exit(1)
+	}
 	log.Noticef("Parse bedfile `%s`", r.Bedfile)
 	reader := bufio.NewReader(fh)
 
@@ -109,6 +114,15 @@ func (r *Assesser) ExtractContigLinks() {
 	br, _ := bam.NewReader(fh, 0)
 	defer br.Close()
 
+	// We need the size of the SeqId to compute expected number of links
+	refs := br.Header().Refs()
+	for _, ref := range refs {
+		if ref.Name() == r.Seqid {
+			r.Seqsize = ref.Len()
+		}
+	}
+	log.Noticef("SeqId has size %d", r.Seqsize)
+
 	// Import links into pairs of contigs
 	r.interLinksFwd = make([][]int, len(r.contigs))
 	r.interLinksRev = make([][]int, len(r.contigs))
@@ -146,11 +160,11 @@ func (r *Assesser) ExtractContigLinks() {
 		// lead to a problem
 		for a > r.contigs[ci].end {
 			ci++
-			fmt.Println(r.contigs[ci], a, nIntraLinks, nInterLinks)
+			// fmt.Println(r.contigs[ci], a, nIntraLinks, nInterLinks)
 		}
 
 		// TODO: remove this
-		if ci > 10 {
+		if ci > 100 {
 			break
 		}
 
@@ -184,8 +198,8 @@ func (r *Assesser) ExtractContigLinks() {
 		nIntraLinks, nInterLinks, nSkippedTooShort)
 }
 
-// LinkBin takes a link distance and convert to a binID
-func (r *Assesser) LinkBin(dist int) int {
+// linkBin takes a link distance and convert to a binID
+func linkBin(dist int) int {
 	if dist < MinLinkDist {
 		return -1
 	}
@@ -193,11 +207,6 @@ func (r *Assesser) LinkBin(dist int) int {
 	log2i := uintLog2(uint(distOverMin))
 	log2f := uintLog2Frac(float64(dist) / float64(int(MinLinkDist)<<log2i))
 	return int(16*log2i + log2f)
-}
-
-// BinSize returns the size of each bin
-func (r *Assesser) BinSize(i int) int {
-	return r.binStarts[i+1] - r.binStarts[i]
 }
 
 // Makebins makes geometric bins and count links that fall in each bin
@@ -244,7 +253,7 @@ func (r *Assesser) Makebins() {
 
 	// Step 3: loop through all links and tabulate the counts
 	for _, link := range r.intraLinks {
-		bin := r.LinkBin(link)
+		bin := linkBin(link)
 		if bin == -1 {
 			continue
 		}
@@ -254,7 +263,7 @@ func (r *Assesser) Makebins() {
 	// Step 4: normalize to calculate link density
 	r.linkDensity = make([]float64, nBins)
 	for i := 0; i < nIntraContigBins; i++ {
-		r.linkDensity[i] = float64(nLinks[i]) * BinNorm / float64(binNorms[i]) / float64(r.BinSize(i))
+		r.linkDensity[i] = float64(nLinks[i]) / float64(binNorms[i])
 	}
 
 	// Step 5: assume the distribution approximates 1/x for large x
@@ -267,14 +276,14 @@ func (r *Assesser) Makebins() {
 
 	avgLinkDensity := 0.0
 	for i := topBin; i < nIntraContigBins; i++ {
-		avgLinkDensity += r.linkDensity[i] * float64(r.BinSize(i))
+		avgLinkDensity += r.linkDensity[i]
 	}
 	avgLinkDensity /= float64(nIntraContigBins - topBin)
 
 	// Overwrite the values of last few bins, or a bin with na values
 	for i := 0; i < nBins; i++ {
 		if r.linkDensity[i] == 0 || i >= topBin {
-			r.linkDensity[i] = avgLinkDensity / float64(r.BinSize(i))
+			r.linkDensity[i] = avgLinkDensity
 		}
 	}
 }
@@ -282,16 +291,50 @@ func (r *Assesser) Makebins() {
 // MakeProbDist calculates the expected number of links in each bin, which is then
 // normalized to make a probability distribution
 func (r *Assesser) MakeProbDist() {
+	nBins := len(r.linkDensity)
+	expectedLinks := make([]float64, nBins)
+	sum := 0.0
+	minLink := math.MaxFloat64
+	for i := 0; i < nBins; i++ {
+		if r.Seqsize > r.binStarts[i] {
+			expectedLinks[i] = r.linkDensity[i] * float64(r.Seqsize-r.binStarts[i])
+			if expectedLinks[i] < minLink {
+				minLink = expectedLinks[i]
+			}
+		} else {
+			expectedLinks[i] = minLink
+		}
+		sum += expectedLinks[i]
+	}
 
+	r.logP = make([]float64, nBins)
+	// Normalize so that they add to 1
+	for i := 0; i < nBins; i++ {
+		r.logP[i] = math.Log(expectedLinks[i] / sum)
+	}
+	fmt.Println(r.logP)
 }
 
 // ComputeLikelihood computes the likelihood of link sizes assuming + orientation
 // and - orientation, respectively
-func (r *Assesser) ComputeLikelihood() {
-
+func computeLikelihood(links []int, logP []float64) float64 {
+	sumLogP := 0.0
+	for _, link := range links {
+		if link < MinLinkDist {
+			link = MinLinkDist
+		}
+		bin := linkBin(link)
+		sumLogP += logP[bin]
+	}
+	return sumLogP
 }
 
 // ComputePosteriorProb computes the posterior probability of the orientations
 func (r *Assesser) ComputePosteriorProb() {
-
+	for i, contig := range r.contigs {
+		fmt.Println(contig)
+		fwdLogP := computeLikelihood(r.interLinksFwd[i], r.logP)
+		revLogP := computeLikelihood(r.interLinksRev[i], r.logP)
+		fmt.Println(fwdLogP, revLogP)
+	}
 }
