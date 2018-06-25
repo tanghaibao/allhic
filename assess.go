@@ -22,6 +22,9 @@ import (
 	"github.com/biogo/hts/bam"
 )
 
+// probCutoff is the minimum level of prob required
+const probCutoff = .99
+
 // Assesser takes input of bamfile and bedfile and output per contig confidence
 // in the orientation
 //
@@ -36,6 +39,9 @@ type Assesser struct {
 	Bedfile       string
 	Seqid         string
 	Seqsize       int
+	nBins         int
+	nLinks        []int
+	binNorms      []int
 	linkDensity   []float64
 	binStarts     []int
 	logP          []float64
@@ -43,6 +49,7 @@ type Assesser struct {
 	intraLinks    []int   // Contig link sizes for all intra-contig links
 	interLinksFwd [][]int // Contig link sizes assuming same dir
 	interLinksRev [][]int // Contig link sizes assuming other dir
+	postprob      []float64
 }
 
 // BedLine stores the information from each line in the bedfile
@@ -59,8 +66,42 @@ func (r *Assesser) Run() {
 	r.ReadBed()
 	r.ExtractContigLinks()
 	r.Makebins()
+	r.WriteDistribution(r.Seqid + ".distribution.txt")
 	r.MakeProbDist()
 	r.ComputePosteriorProb()
+	r.WritePostProb(r.Seqid + ".postprob.txt")
+}
+
+// WriteDistribution writes the link size distribution to file
+func (r *Assesser) WriteDistribution(outfile string) {
+	f, _ := os.Create(outfile)
+	w := bufio.NewWriter(f)
+	defer f.Close()
+
+	fmt.Fprintf(w, "#Bin\tBinStart\tBinSize\tNumLinks\tTotalSize\tLinkDensity\n")
+	for i := 0; i < r.nBins; i++ {
+		fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%.4g\n",
+			i, r.binStarts[i], r.BinSize(i), r.nLinks[i], r.binNorms[i], r.linkDensity[i])
+	}
+
+	w.Flush()
+	log.Noticef("Link size distribution written to `%s`", outfile)
+}
+
+// WritePostProb writes the final posterior probability to file
+func (r *Assesser) WritePostProb(outfile string) {
+	f, _ := os.Create(outfile)
+	w := bufio.NewWriter(f)
+	defer f.Close()
+
+	fmt.Fprintf(w, "#SeqID\tStart\tEnd\tContig\tPostProb\n")
+	for i, contig := range r.contigs {
+		fmt.Fprintf(w, "%s\t%d\t%d\t%s\t%.4f\n",
+			contig.seqid, contig.start, contig.end, contig.name, r.postprob[i])
+	}
+
+	w.Flush()
+	log.Noticef("Posterior probability written to `%s`", outfile)
 }
 
 // ReadBed parses the bedfile to extract the start and stop for all the contigs
@@ -85,7 +126,7 @@ func (r *Assesser) ReadBed() {
 			continue
 		}
 		start, _ := strconv.Atoi(words[1])
-		start-- // To handle sometimes 1-based offset
+		// start-- // To handle sometimes 1-based offset
 		end, _ := strconv.Atoi(words[2])
 		r.contigs = append(r.contigs, BedLine{
 			seqid: seqid,
@@ -291,6 +332,11 @@ func (r *Assesser) Makebins() {
 			r.linkDensity[i] = avgLinkDensity
 		}
 	}
+
+	// Save up for exporting to file
+	r.nBins = nBins
+	r.binNorms = binNorms
+	r.nLinks = nLinks
 }
 
 // MakeProbDist calculates the expected number of links in each bin, which is then
@@ -319,8 +365,8 @@ func (r *Assesser) MakeProbDist() {
 	for i := 0; i < nBins; i++ {
 		r.logP[i] = math.Log(expectedLinks[i] / sum / float64(r.BinSize(i)))
 	}
-	fmt.Println(expectedLinks)
-	fmt.Println(r.logP)
+	// fmt.Println(expectedLinks)
+	// fmt.Println(r.logP)
 }
 
 // ComputeLikelihood computes the likelihood of link sizes assuming + orientation
@@ -359,19 +405,21 @@ func (r *Assesser) ComputePosteriorProb() {
 	nFwdBetter := 0
 	nRevBetter := 0
 	nHighConf := 0
-	for i, contig := range r.contigs {
+	r.postprob = make([]float64, len(r.contigs))
+	for i := range r.contigs {
 		// if i > 100 {
 		// 	break
 		// }
-		fmt.Println(contig)
+		// fmt.Println(contig)
 		fwdLogP := computeLikelihood(r.interLinksFwd[i], r.logP)
 		revLogP := computeLikelihood(r.interLinksRev[i], r.logP)
 		fwdProb := posterioProbability(fwdLogP, revLogP)
-		fmt.Println(fwdLogP, revLogP, fwdProb)
+		r.postprob[i] = fwdProb
+		// fmt.Println(fwdLogP, revLogP, fwdProb)
 
 		if fwdLogP > revLogP {
 			nFwdBetter++
-			if fwdProb > .95 {
+			if fwdProb > probCutoff {
 				nHighConf++
 			}
 		} else {
@@ -380,6 +428,6 @@ func (r *Assesser) ComputePosteriorProb() {
 	}
 	log.Noticef("Same direction better: %d; Opposite direction better: %d",
 		nFwdBetter, nRevBetter)
-	log.Noticef("High confidence: %d out of %d (%.1f%%)",
-		nHighConf, len(r.contigs), float64(nHighConf)*100./float64(len(r.contigs)))
+	log.Noticef("High confidence (threshold %d%%): %d out of %d (%.1f%%)",
+		int(probCutoff*100.), nHighConf, len(r.contigs), float64(nHighConf)*100./float64(len(r.contigs)))
 }
