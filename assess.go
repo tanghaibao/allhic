@@ -23,7 +23,7 @@ import (
 )
 
 // probCutoff is the minimum level of prob required
-const probCutoff = .99
+const probCutoff = .95
 
 // Assesser takes input of bamfile and bedfile and output per contig confidence
 // in the orientation
