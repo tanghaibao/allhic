@@ -10,7 +10,6 @@
 package allhic
 
 import (
-	"fmt"
 	"math"
 	"sort"
 )
@@ -31,8 +30,28 @@ func (r *Edge) isSister() bool {
 	return r.weight == 0
 }
 
-// updateGraph takes input a list of paths and fuse the nodes
-func (r *Anchorer) updateGraph(G Graph) Graph {
+// makeGraph makes a contig linkage graph
+func (r *Anchorer) makeGraph(paths []Path) Graph {
+	G := make(Graph)
+	r.registerPaths(paths)
+	// Go through the links for each node and compile edges
+	for _, contig := range r.contigs {
+		for _, link := range contig.links {
+			a, b := r.linkToNodes(link)
+			r.insertEdge(G, a, b)
+			r.insertEdge(G, b, a)
+			// 	if (link.a.name == "idcChr1.ctg433" && link.b.name == "idcChr1.ctg434") ||
+			// 		(link.a.name == "idcChr1.ctg434" && link.b.name == "idcChr1.ctg433") {
+			// 		fmt.Println("***", link.a.name, link.b.name, link.apos, link.bpos,
+			// 			a, b, G[a][b], G[b][a])
+			// 	}
+		}
+	}
+	nEdges := 0
+	for _, node := range G {
+		nEdges += len(node)
+	}
+	log.Noticef("Graph contains %d nodes and %d edges", len(G), nEdges)
 	return G
 }
 
@@ -92,11 +111,11 @@ func getSecondLargest(a, b []float64) float64 {
 
 // generatePathAndCycle makes new paths by merging the unique extensions
 // in the graph
-func (r *Anchorer) generatePathAndCycle(G Graph) {
-	fmt.Println(G)
+func (r *Anchorer) generatePathAndCycle(G Graph) []Path {
 	visited := map[*Node]bool{}
 	var isCycle bool
 	nodeToPath := make(map[*Node]*Path)
+	paths := []Path{}
 	for a := range G {
 		if _, ok := visited[a]; ok {
 			continue
@@ -105,22 +124,23 @@ func (r *Anchorer) generatePathAndCycle(G Graph) {
 		path1, isCycle = dfs(G, a, path1, visited, true)
 		if isCycle {
 			path1 = breakCycle(path1)
-			mergePath(path1, nodeToPath)
+			paths = append(paths, mergePath(path1, nodeToPath))
 			continue
 		}
 		delete(visited, a)
 		path2, _ = dfs(G, a, path2, visited, false)
 
 		path1 = append(reversePath(path1), path2...)
-		mergePath(path1, nodeToPath)
+		paths = append(paths, mergePath(path1, nodeToPath))
 	}
-	log.Noticef("A total of %d nodes mapped to new path", len(nodeToPath))
+	log.Noticef("A total of %d nodes mapped to %d paths", len(nodeToPath), len(paths))
+	return paths
 }
 
 // mergePath converts a single edge path into a node path
-func mergePath(path []Edge, nodeToPath map[*Node]*Path) {
+func mergePath(path []Edge, nodeToPath map[*Node]*Path) Path {
 	p := []string{}
-	s := &Path{}
+	s := Path{}
 	for _, edge := range path {
 		if !edge.isSister() {
 			continue
@@ -134,18 +154,19 @@ func mergePath(path []Edge, nodeToPath map[*Node]*Path) {
 		// TODO: take orientations into account
 		s.contigs = append(s.contigs, ep.contigs...)
 		s.orientations = append(s.orientations, ep.orientations...)
-		nodeToPath[edge.a] = s
-		nodeToPath[edge.b] = s
+		nodeToPath[edge.a] = &s
+		nodeToPath[edge.b] = &s
 
 		// Special care needed for reverse orientation
-		for _, contig := range edge.a.path.contigs {
+		for _, contig := range ep.contigs {
 			p = append(p, tag+contig.name)
 		}
 	}
 	s.Length()
-	fmt.Println(path)
-	fmt.Println(s)
-	fmt.Println(p)
+	// fmt.Println(path)
+	// fmt.Println(s)
+	// fmt.Println(p)
+	return s
 }
 
 // reversePath reverses a single edge path into its reverse direction

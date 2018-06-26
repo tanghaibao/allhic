@@ -40,13 +40,47 @@ type Link struct {
 	apos, bpos int     // Positions
 }
 
+// iterations controls how many merges are we doing
+const iterations = 2
+
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
+	var G Graph
 	r.ExtractInterContigLinks()
-	G := r.makeGraph()
-	G = r.makeConfidenceGraph(G)
-	r.generatePathAndCycle(G)
+	paths := r.makeInitialPath()
+	for i := 0; i < iterations; i++ {
+		log.Noticef("Starting iteration %d with %d paths", i, len(paths))
+		G = r.makeGraph(paths)
+		G = r.makeConfidenceGraph(G)
+		paths = r.generatePathAndCycle(G)
+		fmt.Println(paths)
+	}
+
 	log.Notice("Success")
+}
+
+// makeInitialPath starts the initial construction of Path object, with one
+// contig per Path (trivial Path)
+func (r *Anchorer) makeInitialPath() []Path {
+	// Initially make every contig a single Path object
+	paths := make([]Path, len(r.contigs))
+	r.registry = make(Registry)
+	for i, contig := range r.contigs {
+		paths[i] = Path{
+			contigs:      []*Contig{contig},
+			orientations: []int{1},
+		}
+	}
+
+	return paths
+}
+
+// registerPaths stores the mapping between contig to node
+func (r *Anchorer) registerPaths(paths []Path) {
+	nodes := make([]Node, 2*len(paths))
+	for i, path := range paths {
+		path.bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
+	}
 }
 
 // ExtractInterContigLinks extracts links from the Bamfile
@@ -115,7 +149,16 @@ func (r *Anchorer) ExtractInterContigLinks() {
 		sort.Slice(contig.links, func(i, j int) bool {
 			return contig.links[i].apos < contig.links[j].apos
 		})
+		// Sanity check - this produced inconsistent pairing
+		// if contig.name == "idcChr1.ctg434" {
+		// 	for _, link := range contig.links {
+		// 		if link.b.name == "idcChr1.ctg433" {
+		// 			fmt.Println(link.a.name, link.b.name, link.apos, link.bpos)
+		// 		}
+		// 	}
+		// }
 	}
+
 	// Write intra-links to .dis file
 	for contig, links := range intraLinks {
 		links = unique(links)
@@ -168,39 +211,6 @@ type Graph map[*Node]map[*Node]float64
 // Registry contains mapping from contig ID to node ID
 // We iterate through 1 or 2 ranges per contig ID
 type Registry map[*Contig][]Range
-
-// makeGraph makes a contig linkage graph
-func (r *Anchorer) makeGraph() Graph {
-	// Initially make every contig a single Path object
-	paths := make([]Path, len(r.contigs))
-	nodes := make([]Node, 2*len(r.contigs))
-	r.registry = make(Registry)
-	for i, contig := range r.contigs {
-		path := Path{
-			contigs:      []*Contig{contig},
-			orientations: []int{1},
-		}
-		paths[i] = path
-		path.bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
-	}
-
-	G := make(Graph)
-	// Go through the links for each node and compile edges
-	for _, contig := range r.contigs {
-		for _, link := range contig.links {
-			a, b := r.linkToNodes(link)
-			r.insertEdge(G, a, b)
-			r.insertEdge(G, b, a)
-		}
-	}
-	nEdges := 0
-	for _, node := range G {
-		nEdges += len(node)
-	}
-	log.Noticef("Graph contains %d nodes and %d edges", len(G), nEdges)
-	// fmt.Println(G)
-	return G
-}
 
 // contigToNode takes as input contig and position, returns the nodeID
 func (r *Anchorer) contigToNode(contig *Contig, pos int) *Node {
