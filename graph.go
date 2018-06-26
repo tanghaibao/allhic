@@ -46,17 +46,16 @@ func (r *Anchorer) makeGraph(paths []Path) Graph {
 	G := make(Graph)
 	r.registerPaths(paths)
 	nSkipped := 0
-	nTotal := 0
+	nUsed := 0
 	// Go through the links for each node and compile edges
 	for _, contig := range r.contigs {
 		for _, link := range contig.links {
-			nTotal++
 			a, b := r.linkToNodes(link)
-			fmt.Println(a, b, a.sister == b)
-			if a.sister == b {
+			if a == b || a.sister == b { // These links have now become intra, discard
 				nSkipped++
 				continue
 			}
+			nUsed++
 			r.insertEdge(G, a, b)
 			r.insertEdge(G, b, a)
 			// 	if (link.a.name == "idcChr1.ctg433" && link.b.name == "idcChr1.ctg434") ||
@@ -70,8 +69,9 @@ func (r *Anchorer) makeGraph(paths []Path) Graph {
 	for _, node := range G {
 		nEdges += len(node)
 	}
+	nEdges /= 2 // since each edge counted twice
 	log.Noticef("Graph contains %d nodes and %d edges (built from %d links, %d links skipped)",
-		len(G), nEdges, nTotal, nSkipped)
+		len(G), nEdges, nUsed, nSkipped)
 	return G
 }
 
