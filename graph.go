@@ -160,12 +160,15 @@ func (r *Anchorer) generatePathAndCycle(G Graph) []*Path {
 	nSingletons := 0
 	pathsSet := make(map[*Path]bool)
 	for _, path := range r.memberShip {
+		if _, ok := pathsSet[path]; ok {
+			continue
+		}
+		pathsSet[path] = true
 		if len(path.contigs) == 1 {
 			nSingletons++
 		} else {
 			nComplex++
 		}
-		pathsSet[path] = true
 	}
 
 	log.Noticef("A total of %d paths (nComplex=%d nSingletons=%d)",
