@@ -47,7 +47,7 @@ const iterations = 2
 func (r *Anchorer) Run() {
 	var G Graph
 	r.ExtractInterContigLinks()
-	paths := r.makeInitialPath()
+	paths := r.makeTrivialPaths(r.contigs)
 	for i := 0; i < iterations; i++ {
 		log.Noticef("Starting iteration %d with %d paths", i, len(paths))
 		G = r.makeGraph(paths)
@@ -59,13 +59,13 @@ func (r *Anchorer) Run() {
 	log.Notice("Success")
 }
 
-// makeInitialPath starts the initial construction of Path object, with one
+// makeTrivialPaths starts the initial construction of Path object, with one
 // contig per Path (trivial Path)
-func (r *Anchorer) makeInitialPath() []Path {
+func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []Path {
 	// Initially make every contig a single Path object
-	paths := make([]Path, len(r.contigs))
+	paths := make([]Path, len(contigs))
 	r.registry = make(Registry)
-	for i, contig := range r.contigs {
+	for i, contig := range contigs {
 		paths[i] = Path{
 			contigs:      []*Contig{contig},
 			orientations: []int{1},
