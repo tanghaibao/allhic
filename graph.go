@@ -45,10 +45,18 @@ func (r *Edge) isSister() bool {
 func (r *Anchorer) makeGraph(paths []Path) Graph {
 	G := make(Graph)
 	r.registerPaths(paths)
+	nSkipped := 0
+	nTotal := 0
 	// Go through the links for each node and compile edges
 	for _, contig := range r.contigs {
 		for _, link := range contig.links {
+			nTotal++
 			a, b := r.linkToNodes(link)
+			fmt.Println(a, b, a.sister == b)
+			if a.sister == b {
+				nSkipped++
+				continue
+			}
 			r.insertEdge(G, a, b)
 			r.insertEdge(G, b, a)
 			// 	if (link.a.name == "idcChr1.ctg433" && link.b.name == "idcChr1.ctg434") ||
@@ -62,7 +70,8 @@ func (r *Anchorer) makeGraph(paths []Path) Graph {
 	for _, node := range G {
 		nEdges += len(node)
 	}
-	log.Noticef("Graph contains %d nodes and %d edges", len(G), nEdges)
+	log.Noticef("Graph contains %d nodes and %d edges (built from %d links, %d links skipped)",
+		len(G), nEdges, nTotal, nSkipped)
 	return G
 }
 
@@ -146,13 +155,26 @@ func (r *Anchorer) generatePathAndCycle(G Graph) []Path {
 		}
 
 		path = mergePath(path1)
-		fmt.Println("path", path)
 		paths = append(paths, path)
 		for _, contig := range path.contigs {
 			contigsUsed[contig] = true
 		}
 	}
+
 	log.Noticef("A total of %d contigs mapped to %d paths", len(contigsUsed), len(paths))
+	// Add the singletons (trivial paths)
+	singletons := []*Contig{}
+	for _, contig := range r.contigs {
+		if _, ok := contigsUsed[contig]; ok {
+			continue
+		}
+		singletons = append(singletons, contig)
+	}
+	trivialPaths := r.makeTrivialPaths(singletons)
+	paths = append(paths, trivialPaths...)
+	log.Noticef("Recovering %d singleton contigs for a total of %d paths",
+		len(singletons), len(paths))
+
 	return paths
 }
 
@@ -179,9 +201,9 @@ func mergePath(path []Edge) Path {
 			p = append(p, tag+contig.name)
 		}
 	}
-	s.Length()
+	s.computeLength()
 	fmt.Println(path)
-	fmt.Println(s)
+	// fmt.Println(s)
 	fmt.Println(p)
 	return s
 }

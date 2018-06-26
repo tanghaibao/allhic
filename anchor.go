@@ -41,7 +41,7 @@ type Link struct {
 }
 
 // iterations controls how many merges are we doing
-const iterations = 2
+const iterations = 3
 
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
@@ -70,6 +70,7 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []Path {
 			contigs:      []*Contig{contig},
 			orientations: []int{1},
 		}
+		paths[i].computeLength()
 	}
 
 	return paths
@@ -77,10 +78,14 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []Path {
 
 // registerPaths stores the mapping between contig to node
 func (r *Anchorer) registerPaths(paths []Path) {
+	queued := 0
 	nodes := make([]Node, 2*len(paths))
 	for i := range paths {
 		paths[i].bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
+		queued += len(paths[i].contigs)
 	}
+	log.Noticef("Total %d contigs queued, %d contigs registered",
+		queued, len(r.registry))
 }
 
 // ExtractInterContigLinks extracts links from the Bamfile
@@ -176,7 +181,7 @@ type Path struct {
 	length       int       // Cumulative length of all contigs
 }
 
-// flipOrientations reverses the orientations of all components
+// reverse reverses the orientations of all components
 func (r *Path) reverse() {
 	c := r.contigs
 	for i, j := 0, len(c)-1; i < j; i, j = i+1, j-1 {
@@ -209,6 +214,7 @@ func (r *Anchorer) contigToNode(contig *Contig, pos int) *Node {
 			return rr.node
 		}
 	}
+	log.Errorf("%s:%d not found", contig.name, pos)
 	return nil
 }
 
@@ -228,8 +234,8 @@ func (r *Anchorer) insertEdge(G Graph, a, b *Node) {
 	}
 }
 
-// Length returns the cumulative length of all contigs
-func (r *Path) Length() int {
+// computeLength returns the cumulative length of all contigs
+func (r *Path) computeLength() int {
 	r.length = 0
 	for _, contig := range r.contigs {
 		r.length += contig.length
@@ -237,9 +243,9 @@ func (r *Path) Length() int {
 	return r.length
 }
 
-// findMidPoint find the center of the a path of bisect
+// findMidPoint find the center of a path for bisect
 func (r *Path) findMidPoint() (int, int) {
-	midpos := r.Length() / 2
+	midpos := r.computeLength() / 2
 	cumsize := 0
 	i := 0
 	var contig *Contig
@@ -288,6 +294,7 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 
 	// Handles the middle contig as a special case
 	var leftRange, rightRange Range
+	contig = r.contigs[i]
 	if r.orientations[i] > 0 { // Forward orientation
 		leftRange = Range{0, contigpos, LNode}
 		rightRange = Range{contigpos, contig.length, RNode}
