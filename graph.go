@@ -15,11 +15,21 @@ import (
 	"sort"
 )
 
+// Node is the scaffold ends, Left or Right (5` or 3`)
+type Node struct {
+	path   *Path // List of contigs
+	end    int   // 0 => L, 1 => R
+	sister *Node // Node of the other end
+}
+
 // Edge is between two nodes in a graph
 type Edge struct {
 	a, b   *Node
 	weight float64
 }
+
+// Graph is an adjacency list
+type Graph map[*Node]map[*Node]float64
 
 // isReverse returns the orientation of an edge
 func (r *Edge) isReverse() bool {

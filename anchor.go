@@ -53,7 +53,7 @@ func (r *Anchorer) Run() {
 		G = r.makeGraph(paths)
 		G = r.makeConfidenceGraph(G)
 		paths = r.generatePathAndCycle(G)
-		fmt.Println(paths)
+		// fmt.Println(paths)
 	}
 
 	log.Notice("Success")
@@ -78,8 +78,8 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []Path {
 // registerPaths stores the mapping between contig to node
 func (r *Anchorer) registerPaths(paths []Path) {
 	nodes := make([]Node, 2*len(paths))
-	for i, path := range paths {
-		path.bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
+	for i := range paths {
+		paths[i].bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
 	}
 }
 
@@ -191,13 +191,6 @@ func (r *Path) reverse() {
 	}
 }
 
-// Node is the scaffold ends, Left or Right (5` or 3`)
-type Node struct {
-	path   *Path // List of contigs
-	end    int   // 0 => L, 1 => R
-	sister *Node // Node of the other end
-}
-
 // Range tracks contig:start-end
 type Range struct {
 	start int
@@ -205,16 +198,13 @@ type Range struct {
 	node  *Node
 }
 
-// Graph is an adjacency list
-type Graph map[*Node]map[*Node]float64
-
 // Registry contains mapping from contig ID to node ID
 // We iterate through 1 or 2 ranges per contig ID
 type Registry map[*Contig][]Range
 
 // contigToNode takes as input contig and position, returns the nodeID
 func (r *Anchorer) contigToNode(contig *Contig, pos int) *Node {
-	for _, rr := range r.registry[contig] {
+	for _, rr := range r.registry[contig] { // multiple 'segments'
 		if pos >= rr.start && pos < rr.end {
 			return rr.node
 		}
@@ -247,7 +237,7 @@ func (r *Path) Length() int {
 	return r.length
 }
 
-// findMidPoint find the center of the a path of contigs
+// findMidPoint find the center of the a path of bisect
 func (r *Path) findMidPoint() (int, int) {
 	midpos := r.Length() / 2
 	cumsize := 0
