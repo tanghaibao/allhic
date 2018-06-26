@@ -42,7 +42,7 @@ func (r *Edge) isSister() bool {
 }
 
 // makeGraph makes a contig linkage graph
-func (r *Anchorer) makeGraph(paths []Path) Graph {
+func (r *Anchorer) makeGraph(paths []*Path) Graph {
 	G := make(Graph)
 	r.registerPaths(paths)
 	nSkipped := 0
@@ -132,13 +132,10 @@ func getSecondLargest(a, b []float64) float64 {
 // generatePathAndCycle makes new paths by merging the unique extensions
 // in the graph. This first extends upstream (including the sister edge)
 // and then walk downstream until it hits something seen before
-func (r *Anchorer) generatePathAndCycle(G Graph) []Path {
+func (r *Anchorer) generatePathAndCycle(G Graph) []*Path {
 	visited := map[*Node]bool{}
 	var isCycle bool
-	paths := []Path{}
-	contigsUsed := make(map[*Contig]bool)
-	var path Path
-
+	var path *Path
 	for a := range G {
 		if _, ok := visited[a]; ok {
 			continue
@@ -155,33 +152,39 @@ func (r *Anchorer) generatePathAndCycle(G Graph) []Path {
 		}
 
 		path = mergePath(path1)
-		paths = append(paths, path)
 		for _, contig := range path.contigs {
-			contigsUsed[contig] = true
+			r.memberShip[contig] = path
 		}
+	}
+	nComplex := 0
+	nSingletons := 0
+	pathsSet := make(map[*Path]bool)
+	for _, path := range r.memberShip {
+		if len(path.contigs) == 1 {
+			nSingletons++
+		} else {
+			nComplex++
+		}
+		pathsSet[path] = true
 	}
 
-	log.Noticef("A total of %d contigs mapped to %d paths", len(contigsUsed), len(paths))
-	// Add the singletons (trivial paths)
-	singletons := []*Contig{}
-	for _, contig := range r.contigs {
-		if _, ok := contigsUsed[contig]; ok {
-			continue
-		}
-		singletons = append(singletons, contig)
+	log.Noticef("A total of %d paths (nComplex=%d nSingletons=%d)",
+		nComplex+nSingletons, nComplex, nSingletons)
+
+	paths := make([]*Path, len(pathsSet))
+	i := 0
+	for path := range pathsSet {
+		paths[i] = path
+		i++
 	}
-	trivialPaths := r.makeTrivialPaths(singletons)
-	paths = append(paths, trivialPaths...)
-	log.Noticef("Recovering %d singleton contigs for a total of %d paths",
-		len(singletons), len(paths))
 
 	return paths
 }
 
 // mergePath converts a single edge path into a node path
-func mergePath(path []Edge) Path {
+func mergePath(path []Edge) *Path {
 	p := []string{}
-	s := Path{}
+	s := &Path{}
 	for _, edge := range path {
 		if !edge.isSister() {
 			continue

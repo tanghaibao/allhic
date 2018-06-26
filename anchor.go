@@ -24,7 +24,8 @@ type Anchorer struct {
 	Bamfile      string
 	contigs      []*Contig
 	nameToContig map[string]*Contig
-	registry     Registry
+	registry     Registry // contig => ranges
+	memberShip   map[*Contig]*Path
 }
 
 // Contig stores the name and length of each contig
@@ -46,6 +47,7 @@ const iterations = 3
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
 	var G Graph
+	r.memberShip = make(map[*Contig]*Path)
 	r.ExtractInterContigLinks()
 	paths := r.makeTrivialPaths(r.contigs)
 	for i := 0; i < iterations; i++ {
@@ -61,23 +63,24 @@ func (r *Anchorer) Run() {
 
 // makeTrivialPaths starts the initial construction of Path object, with one
 // contig per Path (trivial Path)
-func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []Path {
+func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []*Path {
 	// Initially make every contig a single Path object
-	paths := make([]Path, len(contigs))
+	paths := make([]*Path, len(contigs))
 	r.registry = make(Registry)
 	for i, contig := range contigs {
-		paths[i] = Path{
+		paths[i] = &Path{
 			contigs:      []*Contig{contig},
 			orientations: []int{1},
 		}
 		paths[i].computeLength()
+		r.memberShip[contig] = paths[i]
 	}
 
 	return paths
 }
 
 // registerPaths stores the mapping between contig to node
-func (r *Anchorer) registerPaths(paths []Path) {
+func (r *Anchorer) registerPaths(paths []*Path) {
 	queued := 0
 	nodes := make([]Node, 2*len(paths))
 	for i := range paths {
@@ -245,7 +248,7 @@ func (r *Path) computeLength() int {
 
 // findMidPoint find the center of a path for bisect
 func (r *Path) findMidPoint() (int, int) {
-	midpos := r.computeLength() / 2
+	midpos := r.length / 2
 	cumsize := 0
 	i := 0
 	var contig *Contig
