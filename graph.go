@@ -47,7 +47,10 @@ func (r *Anchorer) makeGraph(paths []*Path) Graph {
 	nSkipped := 0
 	nUsed := 0
 	// Go through the links for each node and compile edges
-	for contig := range r.memberShip {
+	for _, contig := range r.contigs {
+		if contig.path == nil {
+			continue
+		}
 		for _, link := range contig.links {
 			a, b := r.linkToNodes(link)
 			if a == b || a.sister == b { // These links have now become intra, discard
@@ -135,7 +138,11 @@ func (r *Anchorer) getUniquePaths() []*Path {
 	nComplexContigs := 0
 	nSingletons := 0
 	nComplex := 0
-	for _, path := range r.memberShip {
+	for _, contig := range r.contigs {
+		path := contig.path
+		if path == nil {
+			continue
+		}
 		if len(path.contigs) == 1 {
 			nSingletonContigs++
 		} else {
@@ -191,7 +198,7 @@ func (r *Anchorer) generatePathAndCycle(G Graph) []*Path {
 
 		path = mergePath(path1)
 		for _, contig := range path.contigs {
-			r.memberShip[contig] = path
+			contig.path = path
 		}
 	}
 	paths := r.getUniquePaths()

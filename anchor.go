@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -26,7 +27,6 @@ type Anchorer struct {
 	contigs      []*Contig
 	nameToContig map[string]*Contig
 	registry     Registry // contig => ranges
-	memberShip   map[*Contig]*Path
 }
 
 // Contig stores the name and length of each contig
@@ -34,6 +34,7 @@ type Contig struct {
 	name   string
 	length int
 	links  []*Link
+	path   *Path
 }
 
 // Link contains a specific inter-contig link
@@ -45,7 +46,6 @@ type Link struct {
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
 	var G Graph
-	r.memberShip = make(map[*Contig]*Path)
 	r.ExtractInterContigLinks()
 	paths := r.makeTrivialPaths(r.contigs)
 	prevPaths := len(paths)
@@ -56,18 +56,21 @@ func (r *Anchorer) Run() {
 		G = r.makeGraph(paths)
 		G = r.makeConfidenceGraph(G)
 		paths = r.generatePathAndCycle(G)
-		printPaths(paths)
+		// printPaths(paths)
 		if len(paths) == prevPaths {
 			paths = r.removeSmallestPath(paths)
 		}
 		prevPaths = len(paths)
 	}
 
+	// Test split the final path
+	resolution := 1000000
+	r.splitPath(paths[0], resolution)
 	log.Notice("Success")
 }
 
 // removeSmallestPath forces removal of the smallest path so that we can continue
-// with the mergin
+// with the merging
 func (r *Anchorer) removeSmallestPath(paths []*Path) []*Path {
 	smallestPath := paths[0]
 	for _, path := range paths {
@@ -76,7 +79,7 @@ func (r *Anchorer) removeSmallestPath(paths []*Path) []*Path {
 		}
 	}
 	for _, contig := range smallestPath.contigs {
-		delete(r.memberShip, contig)
+		contig.path = nil
 	}
 
 	return r.getUniquePaths()
@@ -101,7 +104,7 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []*Path {
 			orientations: []int{1},
 		}
 		paths[i].computeLength()
-		r.memberShip[contig] = paths[i]
+		contig.path = paths[i]
 	}
 
 	return paths
@@ -356,4 +359,70 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 			Range{0, contig.length, RNode},
 		}
 	}
+}
+
+// ContigStatsInPath stores the start location and orientation of a contig in path
+type ContigStatsInPath struct {
+	start       int
+	orientation int
+}
+
+// findBin returns the i-th bin along the path
+func findBin(contigStats map[*Contig]*ContigStatsInPath, contig *Contig, pos, resolution int) int {
+	cs := contigStats[contig]
+	offset := pos
+	if cs.orientation < 0 {
+		offset = contig.length - pos
+	}
+	return (cs.start + offset) / resolution
+}
+
+// splitPath takes a path and look at joins that are weak
+// Scans the path at certain resolution r
+func (r *Anchorer) splitPath(path *Path, res int) {
+	contigStats := map[*Contig]*ContigStatsInPath{}
+	pos := 0
+	for i, contig := range path.contigs {
+		contigStats[contig] = &ContigStatsInPath{
+			start:       pos,
+			orientation: path.orientations[i],
+		}
+		pos += contig.length
+	}
+
+	// Look at all intra-path links, then store the counts to a
+	// sparse matrix, indexed by i, j, C[i, j] = # of links between
+	// i-th locus and j-th locus
+	bins := int(math.Ceil(float64(path.length) / float64(res)))
+	log.Noticef("Contains %d bins at resolution %d bp", bins, res)
+	// Initialize the sparse matrix
+	C := make([]map[int]int, bins)
+	for i := 0; i < bins; i++ {
+		C[i] = map[int]int{}
+	}
+
+	for _, contig := range path.contigs {
+		for _, link := range contig.links {
+			if _, ok := contigStats[link.b]; !ok {
+				continue
+			}
+			a := findBin(contigStats, link.a, link.apos, res)
+			b := findBin(contigStats, link.b, link.bpos, res)
+			if a == b {
+				continue
+			}
+			if _, ok := C[a][b]; ok {
+				C[a][b]++
+			} else {
+				C[a][b] = 1
+			}
+
+			if _, ok := C[b][a]; ok {
+				C[b][a]++
+			} else {
+				C[b][a] = 1
+			}
+		}
+	}
+	fmt.Println(C)
 }
