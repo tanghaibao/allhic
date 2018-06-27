@@ -15,6 +15,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/biogo/hts/bam"
 )
@@ -55,10 +56,17 @@ func (r *Anchorer) Run() {
 		G = r.makeGraph(paths)
 		G = r.makeConfidenceGraph(G)
 		paths = r.generatePathAndCycle(G)
-		// fmt.Println(paths)
+		printPaths(paths)
 	}
 
 	log.Notice("Success")
+}
+
+// printPaths shows the current details of the clustering
+func printPaths(paths []*Path) {
+	for _, path := range paths {
+		fmt.Println(path)
+	}
 }
 
 // makeTrivialPaths starts the initial construction of Path object, with one
@@ -197,6 +205,19 @@ func (r *Path) reverse() {
 	for i := range o {
 		o[i] = -o[i]
 	}
+}
+
+// String prints the Path nicely
+func (r *Path) String() string {
+	tagContigs := make([]string, len(r.contigs))
+	for i, contig := range r.contigs {
+		tag := ""
+		if r.orientations[i] < 0 {
+			tag = "-"
+		}
+		tagContigs[i] = tag + contig.name
+	}
+	return strings.Join(tagContigs, " ")
 }
 
 // Range tracks contig:start-end

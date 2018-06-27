@@ -10,7 +10,6 @@
 package allhic
 
 import (
-	"fmt"
 	"math"
 	"sort"
 )
@@ -208,9 +207,9 @@ func mergePath(path []Edge) *Path {
 		}
 	}
 	s.computeLength()
-	fmt.Println(path)
+	// fmt.Println(path)
 	// fmt.Println(s)
-	fmt.Println(p)
+	// fmt.Println(p)
 	return s
 }
 
