@@ -42,24 +42,44 @@ type Link struct {
 	apos, bpos int     // Positions
 }
 
-// iterations controls how many merges are we doing
-const iterations = 10
-
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
 	var G Graph
 	r.memberShip = make(map[*Contig]*Path)
 	r.ExtractInterContigLinks()
 	paths := r.makeTrivialPaths(r.contigs)
-	for i := 0; i < iterations; i++ {
+	prevPaths := len(paths)
+	i := 0
+	for prevPaths > 1 {
+		i++
 		log.Noticef("Starting iteration %d with %d paths", i, len(paths))
 		G = r.makeGraph(paths)
 		G = r.makeConfidenceGraph(G)
 		paths = r.generatePathAndCycle(G)
 		printPaths(paths)
+		if len(paths) == prevPaths {
+			paths = r.removeSmallestPath(paths)
+		}
+		prevPaths = len(paths)
 	}
 
 	log.Notice("Success")
+}
+
+// removeSmallestPath forces removal of the smallest path so that we can continue
+// with the mergin
+func (r *Anchorer) removeSmallestPath(paths []*Path) []*Path {
+	smallestPath := paths[0]
+	for _, path := range paths {
+		if path.length < smallestPath.length {
+			smallestPath = path
+		}
+	}
+	for _, contig := range smallestPath.contigs {
+		delete(r.memberShip, contig)
+	}
+
+	return r.getUniquePaths()
 }
 
 // printPaths shows the current details of the clustering

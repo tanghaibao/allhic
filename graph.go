@@ -47,7 +47,7 @@ func (r *Anchorer) makeGraph(paths []*Path) Graph {
 	nSkipped := 0
 	nUsed := 0
 	// Go through the links for each node and compile edges
-	for _, contig := range r.contigs {
+	for contig := range r.memberShip {
 		for _, link := range contig.links {
 			a, b := r.linkToNodes(link)
 			if a == b || a.sister == b { // These links have now become intra, discard
@@ -130,11 +130,11 @@ func getSecondLargest(a, b []float64) float64 {
 
 // getUniquePaths returns all the paths that are curerntly active
 func (r *Anchorer) getUniquePaths() []*Path {
-	nComplex := 0
+	pathsSet := map[*Path]bool{}
+	nSingletonContigs := 0
 	nComplexContigs := 0
 	nSingletons := 0
-	nSingletonContigs := 0
-	pathsSet := make(map[*Path]bool)
+	nComplex := 0
 	for _, path := range r.memberShip {
 		if len(path.contigs) == 1 {
 			nSingletonContigs++
@@ -163,6 +163,7 @@ func (r *Anchorer) getUniquePaths() []*Path {
 		paths[i] = path
 		i++
 	}
+
 	return paths
 }
 
