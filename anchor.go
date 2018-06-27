@@ -43,7 +43,7 @@ type Link struct {
 }
 
 // iterations controls how many merges are we doing
-const iterations = 3
+const iterations = 10
 
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
@@ -95,7 +95,7 @@ func (r *Anchorer) registerPaths(paths []*Path) {
 		paths[i].bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
 		queued += len(paths[i].contigs)
 	}
-	log.Noticef("Total %d contigs queued, %d contigs registered",
+	log.Noticef("Total %d contigs queued, %d registered",
 		queued, len(r.registry))
 }
 

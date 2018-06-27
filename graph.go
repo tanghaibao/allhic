@@ -128,6 +128,44 @@ func getSecondLargest(a, b []float64) float64 {
 	return secondLargest
 }
 
+// getUniquePaths returns all the paths that are curerntly active
+func (r *Anchorer) getUniquePaths() []*Path {
+	nComplex := 0
+	nComplexContigs := 0
+	nSingletons := 0
+	nSingletonContigs := 0
+	pathsSet := make(map[*Path]bool)
+	for _, path := range r.memberShip {
+		if len(path.contigs) == 1 {
+			nSingletonContigs++
+		} else {
+			nComplexContigs++
+		}
+		if _, ok := pathsSet[path]; ok {
+			continue
+		}
+		pathsSet[path] = true
+		if len(path.contigs) == 1 {
+			nSingletons++
+		} else {
+			nComplex++
+		}
+	}
+
+	log.Noticef("A total of %d paths (nComplex=%d nSingletons=%d)",
+		nComplex+nSingletons, nComplex, nSingletons)
+	log.Noticef("A total of %d contigs (nComplexContigs=%d nSingletonContigs=%d)",
+		nComplexContigs+nSingletonContigs, nComplexContigs, nSingletonContigs)
+
+	paths := make([]*Path, len(pathsSet))
+	i := 0
+	for path := range pathsSet {
+		paths[i] = path
+		i++
+	}
+	return paths
+}
+
 // generatePathAndCycle makes new paths by merging the unique extensions
 // in the graph. This first extends upstream (including the sister edge)
 // and then walk downstream until it hits something seen before
@@ -155,30 +193,7 @@ func (r *Anchorer) generatePathAndCycle(G Graph) []*Path {
 			r.memberShip[contig] = path
 		}
 	}
-	nComplex := 0
-	nSingletons := 0
-	pathsSet := make(map[*Path]bool)
-	for _, path := range r.memberShip {
-		if _, ok := pathsSet[path]; ok {
-			continue
-		}
-		pathsSet[path] = true
-		if len(path.contigs) == 1 {
-			nSingletons++
-		} else {
-			nComplex++
-		}
-	}
-
-	log.Noticef("A total of %d paths (nComplex=%d nSingletons=%d)",
-		nComplex+nSingletons, nComplex, nSingletons)
-
-	paths := make([]*Path, len(pathsSet))
-	i := 0
-	for path := range pathsSet {
-		paths[i] = path
-		i++
-	}
+	paths := r.getUniquePaths()
 
 	return paths
 }
