@@ -82,15 +82,11 @@ func (r *Anchorer) Run() {
 		paths = r.generatePathAndCycle(CG)
 		if len(paths) == prevPaths {
 			paths = r.removeSmallestPath(paths, G)
-			graphRemake = true
+			graphRemake = true // Change this to false for speedup
 		} else {
 			graphRemake = true
 		}
 		prevPaths = len(paths)
-		// if prevPaths < 80 {
-		// 	printPaths(paths)
-		// 	break
-		// }
 	}
 
 	// Test split the final path
@@ -116,7 +112,7 @@ func (r *Anchorer) removeSmallestPath(paths PathSet, G Graph) PathSet {
 		}
 	}
 	// Inactivate the nodes
-	fmt.Println("Try inactivating path", smallestPath, smallestPath.LNode, smallestPath.RNode)
+	log.Noticef("Inactivate path %s (length=%d)", smallestPath, smallestPath.length)
 
 	// Un-assign the contigs
 	for _, contig := range smallestPath.contigs {

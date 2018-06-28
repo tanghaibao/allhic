@@ -121,13 +121,13 @@ func (r *Anchorer) makeConfidenceGraph(G Graph) Graph {
 func getSecondLargest(a, b []float64) float64 {
 	A := append(a, b...)
 	sort.Float64s(A)
-	largest, secondLargest := A[3], A[2]
 	// Some edge will appear twice in this list so need to remove it
-	if largest == secondLargest && A[1] > 0 { // Is precision an issue here?
-		secondLargest = A[1]
+	for i := 2; i >= 0; i-- { // Is precision an issue here?
+		if A[i] < A[3] {
+			return A[i]
+		}
 	}
-
-	return secondLargest
+	return A[0]
 }
 
 // getUniquePaths returns all the paths that are curerntly active
