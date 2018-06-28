@@ -220,9 +220,7 @@ func mergePath(path []Edge) *Path {
 			tag = "-"
 			ep.reverse()
 		}
-		// TODO: take orientations into account
 		s.contigs = append(s.contigs, ep.contigs...)
-		s.orientations = append(s.orientations, ep.orientations...)
 
 		// Special care needed for reverse orientation
 		for _, contig := range ep.contigs {

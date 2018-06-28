@@ -31,10 +31,11 @@ type Anchorer struct {
 
 // Contig stores the name and length of each contig
 type Contig struct {
-	name   string
-	length int
-	links  []*Link
-	path   *Path
+	name        string
+	length      int
+	links       []*Link
+	path        *Path
+	orientation int // 1 => +, -1 => -
 }
 
 // Link contains a specific inter-contig link
@@ -64,8 +65,8 @@ func (r *Anchorer) Run() {
 	}
 
 	// Test split the final path
-	resolution := 1000000
-	r.splitPath(paths[0], resolution)
+	res, d := 500000, 4
+	r.splitPath(paths[0], res, d)
 	log.Notice("Success")
 }
 
@@ -99,9 +100,9 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []*Path {
 	paths := make([]*Path, len(contigs))
 	r.registry = make(Registry)
 	for i, contig := range contigs {
+		contig.orientation = 1
 		paths[i] = &Path{
-			contigs:      []*Contig{contig},
-			orientations: []int{1},
+			contigs: []*Contig{contig},
 		}
 		paths[i].computeLength()
 		contig.path = paths[i]
@@ -221,12 +222,8 @@ func (r *Path) reverse() {
 	for i, j := 0, len(c)-1; i < j; i, j = i+1, j-1 {
 		c[i], c[j] = c[j], c[i]
 	}
-	o := r.orientations
-	for i, j := 0, len(o)-1; i < j; i, j = i+1, j-1 {
-		o[i], o[j] = o[j], o[i]
-	}
-	for i := range o {
-		o[i] = -o[i]
+	for _, contig := range c {
+		contig.orientation = -contig.orientation
 	}
 }
 
@@ -235,7 +232,7 @@ func (r *Path) String() string {
 	tagContigs := make([]string, len(r.contigs))
 	for i, contig := range r.contigs {
 		tag := ""
-		if r.orientations[i] < 0 {
+		if contig.orientation < 0 {
 			tag = "-"
 		}
 		tagContigs[i] = tag + contig.name
@@ -307,7 +304,7 @@ func (r *Path) findMidPoint() (int, int) {
 
 	// --> ----> <-------- ------->
 	//              | mid point here
-	if r.orientations[i] == -1 {
+	if contig.orientation == -1 {
 		contigpos = contig.length - contigpos
 	}
 	return i, contigpos
@@ -342,7 +339,7 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 	// Handles the middle contig as a special case
 	var leftRange, rightRange Range
 	contig = r.contigs[i]
-	if r.orientations[i] > 0 { // Forward orientation
+	if contig.orientation > 0 { // Forward orientation
 		leftRange = Range{0, contigpos, LNode}
 		rightRange = Range{contigpos, contig.length, RNode}
 	} else { // Reverse orientation
@@ -361,32 +358,26 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 	}
 }
 
-// ContigStatsInPath stores the start location and orientation of a contig in path
-type ContigStatsInPath struct {
-	start       int
-	orientation int
-}
+// SparseMatrix stores a big square matrix that is sparse
+type SparseMatrix []map[int]int
 
 // findBin returns the i-th bin along the path
-func findBin(contigStats map[*Contig]*ContigStatsInPath, contig *Contig, pos, resolution int) int {
-	cs := contigStats[contig]
+func findBin(contigStarts map[*Contig]int, contig *Contig, pos, resolution int) int {
+	start := contigStarts[contig]
 	offset := pos
-	if cs.orientation < 0 {
+	if contig.orientation < 0 {
 		offset = contig.length - pos
 	}
-	return (cs.start + offset) / resolution
+	return (start + offset) / resolution
 }
 
 // splitPath takes a path and look at joins that are weak
-// Scans the path at certain resolution r
-func (r *Anchorer) splitPath(path *Path, res int) {
-	contigStats := map[*Contig]*ContigStatsInPath{}
+// Scans the path at certain resolution r, and search radius is d
+func (r *Anchorer) splitPath(path *Path, res, d int) {
+	contigStarts := map[*Contig]int{}
 	pos := 0
-	for i, contig := range path.contigs {
-		contigStats[contig] = &ContigStatsInPath{
-			start:       pos,
-			orientation: path.orientations[i],
-		}
+	for _, contig := range path.contigs {
+		contigStarts[contig] = pos
 		pos += contig.length
 	}
 
@@ -396,21 +387,18 @@ func (r *Anchorer) splitPath(path *Path, res int) {
 	bins := int(math.Ceil(float64(path.length) / float64(res)))
 	log.Noticef("Contains %d bins at resolution %d bp", bins, res)
 	// Initialize the sparse matrix
-	C := make([]map[int]int, bins)
+	C := make(SparseMatrix, bins)
 	for i := 0; i < bins; i++ {
 		C[i] = map[int]int{}
 	}
 
 	for _, contig := range path.contigs {
 		for _, link := range contig.links {
-			if _, ok := contigStats[link.b]; !ok {
+			if _, ok := contigStarts[link.b]; !ok {
 				continue
 			}
-			a := findBin(contigStats, link.a, link.apos, res)
-			b := findBin(contigStats, link.b, link.bpos, res)
-			if a == b {
-				continue
-			}
+			a := findBin(contigStarts, link.a, link.apos, res)
+			b := findBin(contigStarts, link.b, link.bpos, res)
 			if _, ok := C[a][b]; ok {
 				C[a][b]++
 			} else {
@@ -424,5 +412,44 @@ func (r *Anchorer) splitPath(path *Path, res int) {
 			}
 		}
 	}
-	fmt.Println(C)
+	printSparseMatrix(C, d)
+}
+
+// printMatrix shows all the entries in the matrix C that are higher than a certain
+// cutoff, like 95-th percentile of all cells
+func printSparseMatrix(C SparseMatrix, d int) {
+	values := []int{}
+	for a := range C {
+		for _, val := range C[a] {
+			values = append(values, val)
+		}
+	}
+
+	sort.Ints(values)
+	cutoff := values[len(values)*95/100]
+	log.Noticef("Cutoff of cell value is at %d", cutoff)
+	for a := range C {
+		score := scoreTriangle(C, a, d, cutoff)
+		fmt.Println(a, score)
+	}
+}
+
+// scoreTriangle sums up all the cells in the 1st quadrant that are d-distance
+// away from the diagonal
+func scoreTriangle(C SparseMatrix, a, d, cutoff int) float64 {
+	expected := 0
+	score := 0
+	for i := a + 1; i < len(C); i++ {
+		for j := a - 1; j >= 0 && i-j <= d; j-- {
+			if _, ok := C[i][j]; ok {
+				score += min(C[i][j], cutoff)
+			}
+			expected += cutoff
+		}
+	}
+	fmt.Println(a, score, expected)
+
+	// We are interested in finding all the misjoins, misjoins are dips in the
+	// link coverage
+	return float64(score) / float64(expected)
 }
