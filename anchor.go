@@ -46,9 +46,9 @@ type Link struct {
 
 // Path is a collection of ordered contigs
 type Path struct {
-	contigs []*Contig // List of contigs
-	nodes   [2]*Node  // Two nodes at each end
-	length  int       // Cumulative length of all contigs
+	contigs      []*Contig // List of contigs
+	LNode, RNode *Node     // Two nodes at each end
+	length       int       // Cumulative length of all contigs
 }
 
 // Range tracks contig:start-end
@@ -107,12 +107,22 @@ func (r *Anchorer) removeSmallestPath(paths []*Path, G Graph) []*Path {
 		contig.path = nil
 	}
 	// Inactivate the nodes
-	// for _, node := range smallestPath.nodes {
-	// 	if nb, ok := G[node]; ok {
-	// 		delete(nb, node)
-	// 	}
-	// 	delete(G, node)
-	// }
+	fmt.Println("Try inactivating path", smallestPath, smallestPath.LNode, smallestPath.RNode)
+	for _, node := range []*Node{smallestPath.LNode, smallestPath.RNode} {
+		if nb, ok := G[node]; ok {
+			for b := range nb {
+				delete(G[b], node)
+			}
+			delete(G, node)
+			fmt.Println("Deleted node %s", node)
+		}
+	}
+	nEdges := 0
+	for _, node := range G {
+		nEdges += len(node)
+	}
+	nEdges /= 2 // since each edge counted twice
+	log.Noticef("Graph contains %d nodes and %d edges", len(G), nEdges)
 
 	return r.getUniquePaths()
 }
@@ -134,7 +144,7 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []*Path {
 		paths[i] = &Path{
 			contigs: []*Contig{contig},
 		}
-		paths[i].computeLength()
+		paths[i].bisect()
 		contig.path = paths[i]
 	}
 
@@ -207,14 +217,6 @@ func (r *Anchorer) ExtractInterContigLinks() {
 		sort.Slice(contig.links, func(i, j int) bool {
 			return contig.links[i].apos < contig.links[j].apos
 		})
-		// Sanity check - this produced inconsistent pairing
-		// if contig.name == "idcChr1.ctg434" {
-		// 	for _, link := range contig.links {
-		// 		if link.b.name == "idcChr1.ctg433" {
-		// 			fmt.Println(link.a.name, link.b.name, link.apos, link.bpos)
-		// 		}
-		// 	}
-		// }
 	}
 
 	// Write intra-links to .dis file
@@ -278,17 +280,13 @@ func (r *Anchorer) insertEdge(G Graph, a, b *Node) {
 	}
 }
 
-// computeLength returns the cumulative length of all contigs
-func (r *Path) computeLength() int {
+// findMidPoint find the center of a path for bisect
+func (r *Path) findMidPoint() (int, int) {
 	r.length = 0
 	for _, contig := range r.contigs {
 		r.length += contig.length
 	}
-	return r.length
-}
 
-// findMidPoint find the center of a path for bisect
-func (r *Path) findMidPoint() (int, int) {
 	midpos := r.length / 2
 	cumsize := 0
 	i := 0
@@ -316,20 +314,16 @@ func (r *Path) bisect() {
 	i, contigpos := r.findMidPoint()
 	contig = r.contigs[i]
 
-	// L node
 	LNode := &Node{
 		path: r,
-		end:  0,
 	}
-	// R node
 	RNode := &Node{
 		path: r,
-		end:  1,
 	}
-	r.nodes[0] = LNode
-	r.nodes[1] = RNode
 	LNode.sister = RNode
 	RNode.sister = LNode
+	r.LNode = LNode
+	r.RNode = RNode
 
 	// Update the registry to convert contig:start-end range to nodes
 	for k := 0; k < i; k++ { // Left contigs

@@ -17,7 +17,6 @@ import (
 // Node is the scaffold ends, Left or Right (5` or 3`)
 type Node struct {
 	path   *Path // List of contigs
-	end    int   // 0 => L, 1 => R
 	sister *Node // Node of the other end
 }
 
@@ -32,7 +31,7 @@ type Graph map[*Node]map[*Node]float64
 
 // isReverse returns the orientation of an edge
 func (r *Edge) isReverse() bool {
-	return r.a.end == 1
+	return r.a == r.a.path.RNode
 }
 
 // isSister returns if the edge is internal to a contig
@@ -211,29 +210,20 @@ func (r *Anchorer) generatePathAndCycle(G Graph) []*Path {
 
 // mergePath converts a single edge path into a node path
 func mergePath(path []Edge) *Path {
-	p := []string{}
 	s := &Path{}
 	for _, edge := range path {
 		if !edge.isSister() {
 			continue
 		}
 		ep := edge.a.path
-		tag := ""
 		if edge.isReverse() {
-			tag = "-"
 			ep.reverse()
 		}
 		s.contigs = append(s.contigs, ep.contigs...)
-
-		// Special care needed for reverse orientation
-		for _, contig := range ep.contigs {
-			p = append(p, tag+contig.name)
-		}
 	}
-	s.computeLength()
+	s.bisect()
 	// fmt.Println(path)
 	// fmt.Println(s)
-	// fmt.Println(p)
 	return s
 }
 
