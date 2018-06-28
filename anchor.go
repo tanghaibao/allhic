@@ -61,6 +61,9 @@ type Range struct {
 // SparseMatrix stores a big square matrix that is sparse
 type SparseMatrix []map[int]int
 
+// PathSet stores the set of paths
+type PathSet map[*Path]bool
+
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
 	var G Graph
@@ -92,17 +95,23 @@ func (r *Anchorer) Run() {
 
 	// Test split the final path
 	res, d := 500000, 4
-	r.splitPath(paths[0], res, d)
+	var largestPath *Path
+	for path := range paths {
+		if largestPath == nil || path.length > largestPath.length {
+			largestPath = path
+		}
+	}
+	r.splitPath(largestPath, res, d)
 	log.Notice("Success")
 }
 
 // removeSmallestPath forces removal of the smallest path so that we can continue
 // with the merging. This is also a small operation so we'll have to just modify
 // the graph only slightly
-func (r *Anchorer) removeSmallestPath(paths []*Path, G Graph) []*Path {
-	smallestPath := paths[0]
-	for _, path := range paths {
-		if path.length < smallestPath.length {
+func (r *Anchorer) removeSmallestPath(paths PathSet, G Graph) PathSet {
+	var smallestPath *Path
+	for path := range paths {
+		if smallestPath == nil || path.length < smallestPath.length {
 			smallestPath = path
 		}
 	}
@@ -113,6 +122,7 @@ func (r *Anchorer) removeSmallestPath(paths []*Path, G Graph) []*Path {
 	for _, contig := range smallestPath.contigs {
 		contig.path = nil
 	}
+
 	// for _, node := range []*Node{smallestPath.LNode, smallestPath.RNode} {
 	// 	if nb, ok := G[node]; ok {
 	// 		for b := range nb {
@@ -128,8 +138,8 @@ func (r *Anchorer) removeSmallestPath(paths []*Path, G Graph) []*Path {
 	// }
 	// nEdges /= 2 // since each edge counted twice
 	// log.Noticef("Graph contains %d nodes, %d edges and %d paths", len(G), nEdges, len(paths))
-
-	return r.getUniquePaths()
+	delete(paths, smallestPath)
+	return paths
 }
 
 // printPaths shows the current details of the clustering
@@ -141,16 +151,17 @@ func printPaths(paths []*Path) {
 
 // makeTrivialPaths starts the initial construction of Path object, with one
 // contig per Path (trivial Path)
-func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []*Path {
+func (r *Anchorer) makeTrivialPaths(contigs []*Contig) PathSet {
 	// Initially make every contig a single Path object
-	paths := make([]*Path, len(contigs))
-	for i, contig := range contigs {
+	paths := PathSet{}
+	for _, contig := range contigs {
 		contig.orientation = 1
-		paths[i] = &Path{
+		path := &Path{
 			contigs: []*Contig{contig},
 		}
-		paths[i].bisect()
-		contig.path = paths[i]
+		contig.path = path
+		path.bisect()
+		paths[path] = true
 	}
 
 	return paths

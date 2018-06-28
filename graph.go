@@ -40,12 +40,8 @@ func (r *Edge) isSister() bool {
 }
 
 // makeGraph makes a contig linkage graph
-func (r *Anchorer) makeGraph(paths []*Path) Graph {
-	G := make(Graph)
-	for _, path := range paths {
-		path.bisect()
-	}
-
+func (r *Anchorer) makeGraph(paths PathSet) Graph {
+	G := Graph{}
 	nSkipped := 0
 	nUsed := 0
 	// Go through the links for each node and compile edges
@@ -135,8 +131,8 @@ func getSecondLargest(a, b []float64) float64 {
 }
 
 // getUniquePaths returns all the paths that are curerntly active
-func (r *Anchorer) getUniquePaths() []*Path {
-	pathsSet := map[*Path]bool{}
+func (r *Anchorer) getUniquePaths() PathSet {
+	paths := map[*Path]bool{}
 	nSingletonContigs := 0
 	nComplexContigs := 0
 	nSingleton := 0
@@ -151,10 +147,10 @@ func (r *Anchorer) getUniquePaths() []*Path {
 		} else {
 			nComplexContigs++
 		}
-		if _, ok := pathsSet[path]; ok {
+		if _, ok := paths[path]; ok {
 			continue
 		}
-		pathsSet[path] = true
+		paths[path] = true
 		if len(path.contigs) == 1 {
 			nSingleton++
 		} else {
@@ -166,20 +162,13 @@ func (r *Anchorer) getUniquePaths() []*Path {
 		nComplex+nSingleton, nComplex, nSingleton,
 		nComplexContigs+nSingletonContigs, nComplexContigs, nSingletonContigs)
 
-	paths := make([]*Path, len(pathsSet))
-	i := 0
-	for path := range pathsSet {
-		paths[i] = path
-		i++
-	}
-
 	return paths
 }
 
 // generatePathAndCycle makes new paths by merging the unique extensions
 // in the graph. This first extends upstream (including the sister edge)
 // and then walk downstream until it hits something seen before
-func (r *Anchorer) generatePathAndCycle(G Graph) []*Path {
+func (r *Anchorer) generatePathAndCycle(G Graph) PathSet {
 	visited := map[*Node]bool{}
 	var isCycle bool
 	var path *Path
@@ -203,9 +192,7 @@ func (r *Anchorer) generatePathAndCycle(G Graph) []*Path {
 			contig.path = path
 		}
 	}
-	paths := r.getUniquePaths()
-
-	return paths
+	return r.getUniquePaths()
 }
 
 // mergePath converts a single edge path into a node path
