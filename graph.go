@@ -79,7 +79,7 @@ func (r *Anchorer) makeGraph(paths PathSet) Graph {
 	return G
 }
 
-// calculateEdges re-calibrates the edge weight
+// makeConfidenceGraph re-calibrates the edge weight
 // Steps are:
 // 1 - calculate the link density as links divided by the product of two contigs
 // 2 - calculate the confidence as the weight divided by the second largest edge

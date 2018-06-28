@@ -128,12 +128,6 @@ func (r *Anchorer) removeSmallestPath(paths PathSet, G Graph) PathSet {
 	// 		fmt.Println("Deleted node", node)
 	// 	}
 	// }
-	// nEdges := 0
-	// for _, node := range G {
-	// 	nEdges += len(node)
-	// }
-	// nEdges /= 2 // since each edge counted twice
-	// log.Noticef("Graph contains %d nodes, %d edges and %d paths", len(G), nEdges, len(paths))
 	delete(paths, smallestPath)
 	return paths
 }
@@ -418,12 +412,14 @@ func (r *Anchorer) splitPath(path *Path, res, d int) {
 			}
 		}
 	}
-	printSparseMatrix(C, d)
+
+	breakPoints := printSparseMatrix(C, d)
+	identifyGap(path, breakPoints, res)
 }
 
 // printMatrix shows all the entries in the matrix C that are higher than a certain
 // cutoff, like 95-th percentile of all cells
-func printSparseMatrix(C SparseMatrix, d int) {
+func printSparseMatrix(C SparseMatrix, d int) []int {
 	values := []int{}
 	for a := range C {
 		for _, val := range C[a] {
@@ -439,7 +435,42 @@ func printSparseMatrix(C SparseMatrix, d int) {
 		score := scoreTriangle(C, a, d, cutoff)
 		scores = append(scores, score)
 	}
-	fmt.Println(scores)
+
+	// Find the valley points
+	breakPoints := []int{}
+	for i := 0; i < len(scores)-2; i++ {
+		if scores[i+1] <= scores[i] && scores[i+1] <= scores[i+2] && scores[i+1] < .1 {
+			breakPoints = append(breakPoints, i+1)
+		}
+	}
+	fmt.Println(breakPoints)
+	log.Noticef("Found %d breakpoints", len(breakPoints))
+
+	return breakPoints
+}
+
+// identifyGap prints out all the gaps that lie within the bin
+func identifyGap(path *Path, breakPoints []int, res int) {
+	contigStart := 0
+	j := 0
+	for i, contig := range path.contigs {
+		if contigStart >= breakPoints[j]*res {
+			if contigStart >= (breakPoints[j]+1)*res {
+				for j < len(breakPoints) && contigStart >= (breakPoints[j]+1)*res {
+					j++
+				}
+				// Exhausted, terminate
+				if j == len(breakPoints) {
+					break
+				}
+			} else {
+				// We have a candidate
+				fmt.Println(breakPoints[j], res, i, contigStart, contig.name)
+				// fmt.Println(path.contigs[max(0, i-5):min(len(path.contigs)-1, i+5)])
+			}
+		}
+		contigStart += contig.length
+	}
 }
 
 // scoreTriangle sums up all the cells in the 1st quadrant that are d-distance
