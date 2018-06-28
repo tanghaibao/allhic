@@ -72,7 +72,7 @@ func (r *Anchorer) makeGraph(paths []*Path) Graph {
 		nEdges += len(node)
 	}
 	nEdges /= 2 // since each edge counted twice
-	log.Noticef("Graph contains %d nodes and %d edges (built from %d links, %d links skipped)",
+	log.Noticef("Graph contains %d nodes and %d edges (from %d links, %d links skipped)",
 		len(G), nEdges, nUsed, nSkipped)
 	return G
 }
@@ -159,9 +159,8 @@ func (r *Anchorer) getUniquePaths() []*Path {
 		}
 	}
 
-	log.Noticef("A total of %d paths (nComplex=%d nSingletons=%d)",
-		nComplex+nSingletons, nComplex, nSingletons)
-	log.Noticef("A total of %d contigs (nComplexContigs=%d nSingletonContigs=%d)",
+	log.Noticef("%d paths (nComplex=%d nSingletons=%d), %d contigs (nComplex=%d nSingleton=%d)",
+		nComplex+nSingletons, nComplex, nSingletons,
 		nComplexContigs+nSingletonContigs, nComplexContigs, nSingletonContigs)
 
 	paths := make([]*Path, len(pathsSet))

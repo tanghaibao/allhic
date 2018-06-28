@@ -113,14 +113,10 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []*Path {
 
 // registerPaths stores the mapping between contig to node
 func (r *Anchorer) registerPaths(paths []*Path) {
-	queued := 0
 	nodes := make([]Node, 2*len(paths))
 	for i := range paths {
 		paths[i].bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
-		queued += len(paths[i].contigs)
 	}
-	log.Noticef("Total %d contigs queued, %d registered",
-		queued, len(r.registry))
 }
 
 // ExtractInterContigLinks extracts links from the Bamfile
