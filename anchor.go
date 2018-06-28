@@ -26,7 +26,6 @@ type Anchorer struct {
 	Bamfile      string
 	contigs      []*Contig
 	nameToContig map[string]*Contig
-	registry     Registry // contig => ranges
 }
 
 // Contig stores the name and length of each contig
@@ -36,6 +35,7 @@ type Contig struct {
 	links       []*Link
 	path        *Path
 	orientation int // 1 => +, -1 => -
+	segments    []Range
 }
 
 // Link contains a specific inter-contig link
@@ -51,15 +51,19 @@ func (r *Anchorer) Run() {
 	paths := r.makeTrivialPaths(r.contigs)
 	prevPaths := len(paths)
 	i := 0
+	graphRemake := true
 	for prevPaths > 1 {
-		i++
-		log.Noticef("Starting iteration %d with %d paths", i, len(paths))
-		G = r.makeGraph(paths)
-		G = r.makeConfidenceGraph(G)
-		paths = r.generatePathAndCycle(G)
+		if graphRemake {
+			i++
+			log.Noticef("Starting iteration %d with %d paths", i, len(paths))
+			G = r.makeGraph(paths)
+		}
+		CG := r.makeConfidenceGraph(G)
+		paths = r.generatePathAndCycle(CG)
 		// printPaths(paths)
 		if len(paths) == prevPaths {
-			paths = r.removeSmallestPath(paths)
+			paths = r.removeSmallestPath(paths, G)
+			graphRemake = true
 		}
 		prevPaths = len(paths)
 	}
@@ -71,17 +75,27 @@ func (r *Anchorer) Run() {
 }
 
 // removeSmallestPath forces removal of the smallest path so that we can continue
-// with the merging
-func (r *Anchorer) removeSmallestPath(paths []*Path) []*Path {
+// with the merging. This is also a small operation so we'll have to just modify
+// the graph only slightly
+func (r *Anchorer) removeSmallestPath(paths []*Path, G Graph) []*Path {
 	smallestPath := paths[0]
 	for _, path := range paths {
 		if path.length < smallestPath.length {
 			smallestPath = path
 		}
 	}
+
+	// Un-assign the contigs
 	for _, contig := range smallestPath.contigs {
 		contig.path = nil
 	}
+	// // Inactivate the nodes
+	// for _, node := range smallestPath.nodes {
+	// 	if nb, ok := G[node]; ok {
+	// 		delete(nb, node)
+	// 	}
+	// 	delete(G, node)
+	// }
 
 	return r.getUniquePaths()
 }
@@ -98,7 +112,6 @@ func printPaths(paths []*Path) {
 func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []*Path {
 	// Initially make every contig a single Path object
 	paths := make([]*Path, len(contigs))
-	r.registry = make(Registry)
 	for i, contig := range contigs {
 		contig.orientation = 1
 		paths[i] = &Path{
@@ -109,14 +122,6 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig) []*Path {
 	}
 
 	return paths
-}
-
-// registerPaths stores the mapping between contig to node
-func (r *Anchorer) registerPaths(paths []*Path) {
-	nodes := make([]Node, 2*len(paths))
-	for i := range paths {
-		paths[i].bisect(r.registry, &nodes[2*i], &nodes[2*i+1])
-	}
 }
 
 // ExtractInterContigLinks extracts links from the Bamfile
@@ -207,9 +212,9 @@ func (r *Anchorer) ExtractInterContigLinks() {
 
 // Path is a collection of ordered contigs
 type Path struct {
-	contigs      []*Contig // List of contigs
-	orientations []int     // 1 => +, -1 => -
-	length       int       // Cumulative length of all contigs
+	contigs []*Contig // List of contigs
+	nodes   [2]*Node  // Two nodes at each end
+	length  int       // Cumulative length of all contigs
 }
 
 // reverse reverses the orientations of all components
@@ -248,8 +253,8 @@ type Range struct {
 type Registry map[*Contig][]Range
 
 // contigToNode takes as input contig and position, returns the nodeID
-func (r *Anchorer) contigToNode(contig *Contig, pos int) *Node {
-	for _, rr := range r.registry[contig] { // multiple 'segments'
+func contigToNode(contig *Contig, pos int) *Node {
+	for _, rr := range contig.segments { // multiple 'segments'
 		if pos >= rr.start && pos < rr.end {
 			return rr.node
 		}
@@ -260,8 +265,8 @@ func (r *Anchorer) contigToNode(contig *Contig, pos int) *Node {
 
 // linkToNodes takes as input link, returns two nodeIDs
 func (r *Anchorer) linkToNodes(link *Link) (*Node, *Node) {
-	a := r.contigToNode(link.a, link.apos)
-	b := r.contigToNode(link.b, link.bpos)
+	a := contigToNode(link.a, link.apos)
+	b := contigToNode(link.b, link.bpos)
 	return a, b
 }
 
@@ -307,27 +312,30 @@ func (r *Path) findMidPoint() (int, int) {
 }
 
 // bisect cuts the Path into two parts
-func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
+func (r *Path) bisect() {
 	var contig *Contig
 	i, contigpos := r.findMidPoint()
 	contig = r.contigs[i]
+
 	// L node
-	*LNode = Node{
+	LNode := &Node{
 		path: r,
 		end:  0,
 	}
 	// R node
-	*RNode = Node{
+	RNode := &Node{
 		path: r,
 		end:  1,
 	}
+	r.nodes[0] = LNode
+	r.nodes[1] = RNode
 	LNode.sister = RNode
 	RNode.sister = LNode
 
 	// Update the registry to convert contig:start-end range to nodes
 	for k := 0; k < i; k++ { // Left contigs
 		contig = r.contigs[k]
-		registry[contig] = []Range{
+		contig.segments = []Range{
 			Range{0, contig.length, LNode},
 		}
 	}
@@ -342,13 +350,13 @@ func (r *Path) bisect(registry Registry, LNode, RNode *Node) {
 		leftRange = Range{0, contigpos, RNode}
 		rightRange = Range{contigpos, contig.length, LNode}
 	}
-	registry[contig] = []Range{
+	contig.segments = []Range{
 		leftRange, rightRange,
 	}
 
 	for k := i + 1; k < len(r.contigs); k++ { // Right contigs
 		contig = r.contigs[k]
-		registry[contig] = []Range{
+		contig.segments = []Range{
 			Range{0, contig.length, RNode},
 		}
 	}
@@ -424,10 +432,12 @@ func printSparseMatrix(C SparseMatrix, d int) {
 	sort.Ints(values)
 	cutoff := values[len(values)*95/100]
 	log.Noticef("Cutoff of cell value is at %d", cutoff)
+	scores := []float64{}
 	for a := range C {
 		score := scoreTriangle(C, a, d, cutoff)
-		fmt.Println(a, score)
+		scores = append(scores, score)
 	}
+	fmt.Println(scores)
 }
 
 // scoreTriangle sums up all the cells in the 1st quadrant that are d-distance

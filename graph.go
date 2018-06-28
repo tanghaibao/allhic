@@ -43,7 +43,10 @@ func (r *Edge) isSister() bool {
 // makeGraph makes a contig linkage graph
 func (r *Anchorer) makeGraph(paths []*Path) Graph {
 	G := make(Graph)
-	r.registerPaths(paths)
+	for _, path := range paths {
+		path.bisect()
+	}
+
 	nSkipped := 0
 	nUsed := 0
 	// Go through the links for each node and compile edges
@@ -106,7 +109,7 @@ func (r *Anchorer) makeConfidenceGraph(G Graph) Graph {
 			secondLargest := getSecondLargest(twoLargest[a], twoLargest[b])
 			G[a][b] /= secondLargest
 			if G[a][b] > 1 {
-				if _, aok := confidenceGraph[a]; aok {
+				if _, ok := confidenceGraph[a]; ok {
 					confidenceGraph[a][b] = G[a][b]
 				} else {
 					confidenceGraph[a] = map[*Node]float64{b: G[a][b]}
