@@ -63,13 +63,17 @@ func (r *Anchorer) makeGraph(paths []*Path) Graph {
 			nUsed++
 			r.insertEdge(G, a, b)
 			r.insertEdge(G, b, a)
-			// 	if (link.a.name == "idcChr1.ctg433" && link.b.name == "idcChr1.ctg434") ||
-			// 		(link.a.name == "idcChr1.ctg434" && link.b.name == "idcChr1.ctg433") {
-			// 		fmt.Println("***", link.a.name, link.b.name, link.apos, link.bpos,
-			// 			a, b, G[a][b], G[b][a])
-			// 	}
 		}
 	}
+
+	// Normalize against the product of two paths
+	for a, nb := range G {
+		for b, score := range nb {
+			G[a][b] = score / (float64(a.path.length) * float64(b.path.length))
+		}
+	}
+
+	// Print graph stats
 	nEdges := 0
 	for _, node := range G {
 		nEdges += len(node)
@@ -89,15 +93,12 @@ func (r *Anchorer) makeConfidenceGraph(G Graph) Graph {
 
 	for a, nb := range G {
 		first, second := 0.0, 0.0
-		for b, score := range nb {
-			// TODO: Limit > 1 links here
-			score /= float64(a.path.length) * float64(b.path.length)
+		for _, score := range nb {
 			if score > first {
 				first, second = score, first
 			} else if score <= first && score > second {
 				second = score
 			}
-			G[a][b] = score
 		}
 		twoLargest[a] = []float64{first, second}
 	}

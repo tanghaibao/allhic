@@ -44,6 +44,23 @@ type Link struct {
 	apos, bpos int     // Positions
 }
 
+// Path is a collection of ordered contigs
+type Path struct {
+	contigs []*Contig // List of contigs
+	nodes   [2]*Node  // Two nodes at each end
+	length  int       // Cumulative length of all contigs
+}
+
+// Range tracks contig:start-end
+type Range struct {
+	start int
+	end   int
+	node  *Node
+}
+
+// SparseMatrix stores a big square matrix that is sparse
+type SparseMatrix []map[int]int
+
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
 	var G Graph
@@ -89,7 +106,7 @@ func (r *Anchorer) removeSmallestPath(paths []*Path, G Graph) []*Path {
 	for _, contig := range smallestPath.contigs {
 		contig.path = nil
 	}
-	// // Inactivate the nodes
+	// Inactivate the nodes
 	// for _, node := range smallestPath.nodes {
 	// 	if nb, ok := G[node]; ok {
 	// 		delete(nb, node)
@@ -210,13 +227,6 @@ func (r *Anchorer) ExtractInterContigLinks() {
 		intraTotal, interTotal)
 }
 
-// Path is a collection of ordered contigs
-type Path struct {
-	contigs []*Contig // List of contigs
-	nodes   [2]*Node  // Two nodes at each end
-	length  int       // Cumulative length of all contigs
-}
-
 // reverse reverses the orientations of all components
 func (r *Path) reverse() {
 	c := r.contigs
@@ -240,17 +250,6 @@ func (r *Path) String() string {
 	}
 	return strings.Join(tagContigs, " ")
 }
-
-// Range tracks contig:start-end
-type Range struct {
-	start int
-	end   int
-	node  *Node
-}
-
-// Registry contains mapping from contig ID to node ID
-// We iterate through 1 or 2 ranges per contig ID
-type Registry map[*Contig][]Range
 
 // contigToNode takes as input contig and position, returns the nodeID
 func contigToNode(contig *Contig, pos int) *Node {
@@ -361,9 +360,6 @@ func (r *Path) bisect() {
 		}
 	}
 }
-
-// SparseMatrix stores a big square matrix that is sparse
-type SparseMatrix []map[int]int
 
 // findBin returns the i-th bin along the path
 func findBin(contigStarts map[*Contig]int, contig *Contig, pos, resolution int) int {
