@@ -77,12 +77,17 @@ func (r *Anchorer) Run() {
 		}
 		CG := r.makeConfidenceGraph(G)
 		paths = r.generatePathAndCycle(CG)
-		// printPaths(paths)
 		if len(paths) == prevPaths {
 			paths = r.removeSmallestPath(paths, G)
 			graphRemake = true
+		} else {
+			graphRemake = true
 		}
 		prevPaths = len(paths)
+		// if prevPaths < 80 {
+		// 	printPaths(paths)
+		// 	break
+		// }
 	}
 
 	// Test split the final path
@@ -101,28 +106,28 @@ func (r *Anchorer) removeSmallestPath(paths []*Path, G Graph) []*Path {
 			smallestPath = path
 		}
 	}
+	// Inactivate the nodes
+	fmt.Println("Try inactivating path", smallestPath, smallestPath.LNode, smallestPath.RNode)
 
 	// Un-assign the contigs
 	for _, contig := range smallestPath.contigs {
 		contig.path = nil
 	}
-	// Inactivate the nodes
-	fmt.Println("Try inactivating path", smallestPath, smallestPath.LNode, smallestPath.RNode)
-	for _, node := range []*Node{smallestPath.LNode, smallestPath.RNode} {
-		if nb, ok := G[node]; ok {
-			for b := range nb {
-				delete(G[b], node)
-			}
-			delete(G, node)
-			fmt.Println("Deleted node %s", node)
-		}
-	}
-	nEdges := 0
-	for _, node := range G {
-		nEdges += len(node)
-	}
-	nEdges /= 2 // since each edge counted twice
-	log.Noticef("Graph contains %d nodes and %d edges", len(G), nEdges)
+	// for _, node := range []*Node{smallestPath.LNode, smallestPath.RNode} {
+	// 	if nb, ok := G[node]; ok {
+	// 		for b := range nb {
+	// 			delete(G[b], node)
+	// 		}
+	// 		delete(G, node)
+	// 		fmt.Println("Deleted node", node)
+	// 	}
+	// }
+	// nEdges := 0
+	// for _, node := range G {
+	// 	nEdges += len(node)
+	// }
+	// nEdges /= 2 // since each edge counted twice
+	// log.Noticef("Graph contains %d nodes, %d edges and %d paths", len(G), nEdges, len(paths))
 
 	return r.getUniquePaths()
 }
@@ -274,9 +279,9 @@ func (r *Anchorer) linkToNodes(link *Link) (*Node, *Node) {
 // insertEdge adds just one link to the graph
 func (r *Anchorer) insertEdge(G Graph, a, b *Node) {
 	if _, aok := G[a]; aok {
-		G[a][b]++
+		G[a][b] += 1.0
 	} else {
-		G[a] = map[*Node]float64{b: 1}
+		G[a] = map[*Node]float64{b: 1.0}
 	}
 }
 

@@ -139,7 +139,7 @@ func (r *Anchorer) getUniquePaths() []*Path {
 	pathsSet := map[*Path]bool{}
 	nSingletonContigs := 0
 	nComplexContigs := 0
-	nSingletons := 0
+	nSingleton := 0
 	nComplex := 0
 	for _, contig := range r.contigs {
 		path := contig.path
@@ -156,14 +156,14 @@ func (r *Anchorer) getUniquePaths() []*Path {
 		}
 		pathsSet[path] = true
 		if len(path.contigs) == 1 {
-			nSingletons++
+			nSingleton++
 		} else {
 			nComplex++
 		}
 	}
 
-	log.Noticef("%d paths (nComplex=%d nSingletons=%d), %d contigs (nComplex=%d nSingleton=%d)",
-		nComplex+nSingletons, nComplex, nSingletons,
+	log.Noticef("%d paths (nComplex=%d nSingleton=%d), %d contigs (nComplex=%d nSingleton=%d)",
+		nComplex+nSingleton, nComplex, nSingleton,
 		nComplexContigs+nSingletonContigs, nComplexContigs, nSingletonContigs)
 
 	paths := make([]*Path, len(pathsSet))
