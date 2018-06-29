@@ -54,6 +54,8 @@ const (
 	EffLinkDist = 1 << 19
 	// BinNorm is a ratio to make the link density human readable
 	BinNorm = 1000000.0
+	// BigNorm is a big integer multiplier so we don't have to mess with float64
+	BigNorm = int64(1000000000000)
 	// EPS is that Q must be larger than this value, used in cluster.go
 	EPS = 1e-5
 	// MinAvgLinkage is the minimum cutoff for merging clusters

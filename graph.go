@@ -10,6 +10,7 @@
 package allhic
 
 import (
+	"fmt"
 	"math"
 	"sort"
 )
@@ -23,11 +24,11 @@ type Node struct {
 // Edge is between two nodes in a graph
 type Edge struct {
 	a, b   *Node
-	weight float64
+	weight int64
 }
 
 // Graph is an adjacency list
-type Graph map[*Node]map[*Node]float64
+type Graph map[*Node]map[*Node]int64
 
 // isLNode returns if a Node is an LNode (5`-end`)
 func (r *Node) isLNode() bool {
@@ -40,8 +41,12 @@ func (r *Node) isRNode() bool {
 }
 
 // length returns the length of a node, which is half of the path length
-func (r *Node) length() float64 {
-	return float64(r.path.length) / 2
+func (r *Node) length() int64 {
+	ans := int64(r.path.length) / 2
+	if r.isRNode() {
+		return ans
+	}
+	return r.path.length - ans
 }
 
 // isReverse returns the orientation of an edge
@@ -76,10 +81,10 @@ func (r *Anchorer) makeGraph(paths PathSet) Graph {
 		}
 	}
 
-	// Normalize against the product of two paths
+	// Normalize against the product of lengths of two paths
 	for a, nb := range G {
 		for b, score := range nb {
-			G[a][b] = score / a.length() / b.length()
+			G[a][b] = score * BigNorm / (a.length() * b.length())
 		}
 	}
 
@@ -99,10 +104,10 @@ func (r *Anchorer) makeGraph(paths PathSet) Graph {
 // 1 - calculate the link density as links divided by the product of two contigs
 // 2 - calculate the confidence as the weight divided by the second largest edge
 func (r *Anchorer) makeConfidenceGraph(G Graph) Graph {
-	twoLargest := map[*Node][]float64{}
+	twoLargest := map[*Node][]int64{}
 
 	for a, nb := range G {
-		first, second := 0.0, 0.0
+		first, second := int64(0), int64(0)
 		for _, score := range nb {
 			if score > first {
 				first, second = score, first
@@ -110,42 +115,51 @@ func (r *Anchorer) makeConfidenceGraph(G Graph) Graph {
 				second = score
 			}
 		}
-		twoLargest[a] = []float64{first, second}
+		twoLargest[a] = []int64{first, second}
 	}
+	// fmt.Println(G)
 
 	confidenceGraph := Graph{}
 	// Now a second pass to compute confidence
 	for a, nb := range G {
 		for b, weight := range nb {
 			secondLargest := getSecondLargest(twoLargest[a], twoLargest[b])
-			confidence := weight / secondLargest
-			if confidence > 1 {
+			if secondLargest == 0 {
+				continue
+			}
+			confidence := weight * BigNorm / secondLargest
+			if confidence > BigNorm {
 				if _, ok := confidenceGraph[a]; ok {
 					confidenceGraph[a][b] = confidence
 				} else {
-					confidenceGraph[a] = map[*Node]float64{b: confidence}
+					confidenceGraph[a] = map[*Node]int64{b: confidence}
 				}
 				// There can be ties in terms of scores
-				// if len(confidenceGraph[a]) > 1 {
-				// 	fmt.Println(a.path, "<=>", b.path, G[a], "\n", confidenceGraph[a],
-				// 		twoLargest[a], twoLargest[b], secondLargest)
-				// 	for k, v := range confidenceGraph[a] {
-				// 		fmt.Println(k, k.path, k.sister, v)
-				// 	}
-				// }
+				if len(confidenceGraph[a]) > 1 {
+					// if confidence < BigNorm*101/100 {
+					fmt.Println(a.path, "<=>", b.path, a.isLNode(), b.isLNode(),
+						G[a], "\n", confidenceGraph[a],
+						twoLargest[a], twoLargest[b], secondLargest)
+					for k, v := range confidenceGraph[a] {
+						fmt.Println(k, k.path, k.sister, v)
+					}
+				}
 			}
 		}
 	}
+	// fmt.Println(confidenceGraph)
 	return confidenceGraph
 }
 
 // Get the second largest number without sorting
 // a, b are both 2-item arrays
-func getSecondLargest(a, b []float64) float64 {
+func getSecondLargest(a, b []int64) int64 {
 	A := append(a, b...)
-	sort.Float64s(A)
+	sort.Slice(A, func(i, j int) bool {
+		return A[i] < A[j]
+	})
 	// Some edge will appear twice in this list so need to remove it
-	for i := 2; i >= 0; i-- { // Is precision an issue here?
+	for i := 2; i >= 0; i-- {
 		if A[i] < A[3] {
 			return A[i]
 		}
@@ -209,8 +223,9 @@ func (r *Anchorer) generatePathAndCycle(G Graph) PathSet {
 			path2, _ = dfs(G, a, path2, visited, false)
 			path1 = append(reversePath(path1), path2...)
 		}
-
+		// fmt.Println("path1", path1)
 		path = mergePath(path1)
+		// fmt.Println("path from", a, path)
 		for _, contig := range path.contigs {
 			contig.path = path
 		}
@@ -232,8 +247,6 @@ func mergePath(path []Edge) *Path {
 		s.contigs = append(s.contigs, ep.contigs...)
 	}
 	s.bisect()
-	// fmt.Println(path)
-	// fmt.Println(s)
 	return s
 }
 
@@ -251,7 +264,7 @@ func reversePath(path []Edge) []Edge {
 // breakCycle breaks a single edge path into two edge paths
 // breakage occurs at the weakest link
 func breakCycle(path []Edge) []Edge {
-	minI, minWeight := 0, math.MaxFloat64
+	minI, minWeight := 0, int64(math.MaxInt64)
 	for i, edge := range path {
 		if edge.weight > 1 && edge.weight < minWeight {
 			minI, minWeight = i, edge.weight
@@ -277,7 +290,7 @@ func dfs(G Graph, a *Node, path []Edge, visited map[*Node]bool, visitSister bool
 	}
 	if nb, ok := G[a]; ok {
 		var maxb *Node
-		maxWeight := 0.0 // for tie breaking
+		maxWeight := int64(0) // for tie breaking
 		for b, weight := range nb {
 			if weight > maxWeight {
 				maxb, maxWeight = b, weight

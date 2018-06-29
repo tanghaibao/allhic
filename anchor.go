@@ -32,31 +32,31 @@ type Anchorer struct {
 // Contig stores the name and length of each contig
 type Contig struct {
 	name        string
-	length      int
+	length      int64
 	links       []*Link
 	path        *Path
-	start       int
-	orientation int // 1 => +, -1 => -
+	start       int64
+	orientation int8 // 1 => +, -1 => -
 	segments    []Range
 }
 
 // Link contains a specific inter-contig link
 type Link struct {
 	a, b       *Contig // Contig ids
-	apos, bpos int     // Positions
+	apos, bpos int64   // Positions
 }
 
 // Path is a collection of ordered contigs
 type Path struct {
 	contigs      []*Contig // List of contigs
 	LNode, RNode *Node     // Two nodes at each end
-	length       int       // Cumulative length of all contigs
+	length       int64     // Cumulative length of all contigs
 }
 
 // Range tracks contig:start-end
 type Range struct {
-	start int
-	end   int
+	start int64
+	end   int64
 	node  *Node
 }
 
@@ -182,7 +182,7 @@ func (r *Anchorer) ExtractInterContigLinks() {
 	for _, ref := range refs {
 		contig := Contig{
 			name:   ref.Name(),
-			length: ref.Len(),
+			length: int64(ref.Len()),
 		}
 		r.contigs = append(r.contigs, &contig)
 		r.nameToContig[contig.name] = &contig
@@ -218,7 +218,7 @@ func (r *Anchorer) ExtractInterContigLinks() {
 
 		// An inter-contig link
 		a.links = append(a.links, &Link{
-			a: a, b: b, apos: apos, bpos: bpos,
+			a: a, b: b, apos: int64(apos), bpos: int64(bpos),
 		})
 		interTotal++
 	}
@@ -264,7 +264,7 @@ func (r *Path) String() string {
 }
 
 // contigToNode takes as input contig and position, returns the nodeID
-func contigToNode(contig *Contig, pos int) *Node {
+func contigToNode(contig *Contig, pos int64) *Node {
 	for _, rr := range contig.segments { // multiple 'segments'
 		if pos >= rr.start && pos < rr.end {
 			return rr.node
@@ -284,21 +284,21 @@ func (r *Anchorer) linkToNodes(link *Link) (*Node, *Node) {
 // insertEdge adds just one link to the graph
 func (r *Anchorer) insertEdge(G Graph, a, b *Node) {
 	if _, aok := G[a]; aok {
-		G[a][b] += 1.0
+		G[a][b]++
 	} else {
-		G[a] = map[*Node]float64{b: 1.0}
+		G[a] = map[*Node]int64{b: 1}
 	}
 }
 
 // findMidPoint find the center of a path for bisect
-func (r *Path) findMidPoint() (int, int) {
+func (r *Path) findMidPoint() (int, int64) {
 	r.length = 0
 	for _, contig := range r.contigs {
 		r.length += contig.length
 	}
 
-	midpos := r.length / 2
-	cumsize := 0
+	midpos := int64(math.Ceil(float64(r.length) / 2))
+	cumsize := int64(0)
 	i := 0
 	var contig *Contig
 	for i, contig = range r.contigs {
@@ -367,7 +367,7 @@ func (r *Path) bisect() {
 
 // makeContigStarts returns starts of contigs within a path
 func (r *Anchorer) makeContigStarts() {
-	pos := 0
+	pos := int64(0)
 	for _, contig := range r.path.contigs {
 		contig.start = pos
 		pos += contig.length
@@ -375,17 +375,17 @@ func (r *Anchorer) makeContigStarts() {
 }
 
 // findBin returns the i-th bin along the path
-func findBin(contig *Contig, pos, resolution int) int {
+func findBin(contig *Contig, pos, resolution int64) int {
 	offset := pos
 	if contig.orientation < 0 {
 		offset = contig.length - pos
 	}
-	return (contig.start + offset) / resolution
+	return int((contig.start + offset) / resolution)
 }
 
 // splitPath takes a path and look at joins that are weak
 // Scans the path at certain resolution r, and search radius is d
-func (r *Anchorer) splitPath(res, d int) {
+func (r *Anchorer) splitPath(res int64, d int) {
 	// Look at all intra-path links, then store the counts to a
 	// sparse matrix, indexed by i, j, C[i, j] = # of links between
 	// i-th locus and j-th locus
@@ -466,13 +466,13 @@ func inspectGaps(path *Path) {
 }
 
 // identifyGap prints out all the gaps that lie within the bin
-func (r *Anchorer) identifyGap(breakPoints []int, res int) {
-	contigStart := 0
+func (r *Anchorer) identifyGap(breakPoints []int, res int64) {
+	contigStart := int64(0)
 	j := 0
 	for i, contig := range r.path.contigs {
-		if contigStart >= breakPoints[j]*res {
-			if contigStart >= (breakPoints[j]+1)*res {
-				for j < len(breakPoints) && contigStart >= (breakPoints[j]+1)*res {
+		if contigStart >= int64(breakPoints[j])*res {
+			if contigStart >= int64(breakPoints[j]+1)*res {
+				for j < len(breakPoints) && contigStart >= int64(breakPoints[j]+1)*res {
 					j++
 				}
 				// Exhausted, terminate
