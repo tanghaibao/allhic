@@ -60,6 +60,16 @@ type Range struct {
 	node  *Node
 }
 
+// Piler has the data structures to support overlap counts
+// Here we use a data structure described in:
+// https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3530906/
+// We store the starts and ends of links in sorted arrays
+// The `icount` algorithm then search an interval (or in this case) point
+// query into these sorted interval ends
+type Piler struct {
+	BS, BE []int64
+}
+
 // SparseMatrix stores a big square matrix that is sparse
 type SparseMatrix []map[int]int
 
@@ -84,7 +94,7 @@ func (r *Anchorer) Run() {
 		paths = r.generatePathAndCycle(CG)
 		if len(paths) == prevPaths {
 			paths = r.removeSmallestPath(paths, G)
-			graphRemake = true // Change this to false for speedup
+			graphRemake = false
 		} else {
 			graphRemake = true
 		}
@@ -99,7 +109,35 @@ func (r *Anchorer) Run() {
 		}
 	}
 	r.makeContigStarts()
-	printPaths(paths)
+	piler := r.inspectGaps(LinkDist)
+
+	// Sample evenly in the genome to compute a cutoff value
+	stepSize := r.path.length / 1000
+	counts := []int{}
+	for i := int64(0); i < r.path.length; i += stepSize {
+		counts = append(counts, piler.intervalCounts(i))
+	}
+	sort.Ints(counts)
+	// fmt.Println(counts)
+	countCutoff := counts[len(counts)/10]
+	log.Noticef("Weak joins defined as <%d links (including only links <%d bp)",
+		countCutoff, LinkDist)
+
+	// Now go through all the contig joins
+	for _, contig := range r.path.contigs {
+		// Contigs at the end of the chromosome are at a disadvantage
+		if contig.start < LinkDist && contig.start > r.path.length-LinkDist {
+			continue
+		}
+		// Query this join
+		strength := piler.intervalCounts(contig.start)
+		if strength < countCutoff { // needs to break a join here
+			fmt.Println("-------------------")
+		}
+		fmt.Println(contig.name, contig.start, contig.orientation, strength)
+	}
+
+	// printPaths(paths)
 	// res, d := 500000, 4
 	// r.splitPath(res, d)
 	log.Notice("Success")
@@ -374,13 +412,19 @@ func (r *Anchorer) makeContigStarts() {
 	}
 }
 
-// findBin returns the i-th bin along the path
-func findBin(contig *Contig, pos, resolution int64) int {
+// findPosition returns the i-th bin along the path
+func findPosition(contig *Contig, pos int64) int64 {
 	offset := pos
 	if contig.orientation < 0 {
 		offset = contig.length - pos
 	}
-	return int((contig.start + offset) / resolution)
+	return contig.start + offset
+}
+
+// findBin returns the i-th bin along the path
+func findBin(contig *Contig, pos, resolution int64) int {
+	position := findPosition(contig, pos)
+	return int(position / resolution)
 }
 
 // splitPath takes a path and look at joins that are weak
@@ -452,17 +496,40 @@ func printSparseMatrix(C SparseMatrix, d int) []int {
 }
 
 // inspectGaps check each gap for the number of links <= 1Mb going across
-func inspectGaps(path *Path) {
+func (r *Anchorer) inspectGaps(cutoff int64) Piler {
 	// We need to quickly map all links to their [start, end] on the path
 	// then increment all the link counts for each of the intervening gaps
-	//
-	// Here we use a data structure described in:
-	// https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3530906/
-	// We store the starts and ends of links in sorted arrays
-	// The `icount` algorithm then search an interval (or in this case) point
-	// query into these sorted interval ends
-	// BS := []int{}
-	// BE := []int{}
+	p := Piler{}
+	for _, contig := range r.path.contigs {
+		for _, link := range contig.links {
+			S := findPosition(link.a, link.apos)
+			E := findPosition(link.b, link.bpos)
+			if S > E {
+				S, E = E, S
+			}
+			if E-S < cutoff {
+				p.BS = append(p.BS, S)
+				p.BE = append(p.BE, E)
+			}
+		}
+	}
+	sortInt64s(p.BS)
+	sortInt64s(p.BE)
+
+	return p
+}
+
+// intervalCounts returns the number of intervals over the query position
+func (r *Piler) intervalCounts(pos int64) int {
+	return searchInt64(r.BS, pos) - searchInt64(r.BE, pos)
+	// first := searchInt64(r.BS, pos)
+	// last := searchInt64(r.BE, pos)
+	// if first-last < 5 {
+	// 	for i := max(first-5, 0); i < min(first+5, len(r.BS)); i++ {
+	// 		fmt.Println(i, r.BS[i], r.BE[i])
+	// 	}
+	// }
+	// return first - last
 }
 
 // identifyGap prints out all the gaps that lie within the bin

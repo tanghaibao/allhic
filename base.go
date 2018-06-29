@@ -60,6 +60,8 @@ const (
 	EPS = 1e-5
 	// MinAvgLinkage is the minimum cutoff for merging clusters
 	MinAvgLinkage = 0
+	// LinkDist specifies to maximum size of the links going over a certain position
+	LinkDist = int64(1000000)
 )
 
 // GArray contains golden array of size BB
@@ -312,4 +314,16 @@ func ReadCSVLines(filename string) [][]string {
 	}
 
 	return data
+}
+
+// sortInt64s sorts a slice of int64
+func sortInt64s(a []int64) {
+	sort.Slice(a, func(i, j int) bool {
+		return a[i] < a[j]
+	})
+}
+
+// searchInt64 searches the position within a sorted int64 slice
+func searchInt64(a []int64, x int64) int {
+	return sort.Search(len(a), func(i int) bool { return a[i] >= x })
 }

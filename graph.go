@@ -10,7 +10,6 @@
 package allhic
 
 import (
-	"fmt"
 	"math"
 	"sort"
 )
@@ -135,15 +134,15 @@ func (r *Anchorer) makeConfidenceGraph(G Graph) Graph {
 					confidenceGraph[a] = map[*Node]int64{b: confidence}
 				}
 				// There can be ties in terms of scores
-				if len(confidenceGraph[a]) > 1 {
-					// if confidence < BigNorm*101/100 {
-					fmt.Println(a.path, "<=>", b.path, a.isLNode(), b.isLNode(),
-						G[a], "\n", confidenceGraph[a],
-						twoLargest[a], twoLargest[b], secondLargest)
-					for k, v := range confidenceGraph[a] {
-						fmt.Println(k, k.path, k.sister, v)
-					}
-				}
+				// if len(confidenceGraph[a]) > 1 {
+				// 	// if confidence < BigNorm*101/100 {
+				// 	fmt.Println(a.path, "<=>", b.path, a.isLNode(), b.isLNode(),
+				// 		G[a], "\n", confidenceGraph[a],
+				// 		twoLargest[a], twoLargest[b], secondLargest)
+				// 	for k, v := range confidenceGraph[a] {
+				// 		fmt.Println(k, k.path, k.sister, v)
+				// 	}
+				// }
 			}
 		}
 	}
