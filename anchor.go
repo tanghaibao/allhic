@@ -78,11 +78,25 @@ type PathSet map[*Path]bool
 
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
-	var G Graph
+	// Prepare the paths to run
 	r.ExtractInterContigLinks()
 	paths := r.makeTrivialPaths(r.contigs)
-	prevPaths := len(paths)
+	r.iterativeGraphMerge(paths)
+
+	// Attempt to split bad joins
+	r.makeContigStarts()
+	piler := r.inspectGaps(LinkDist)
+	countCutoff := r.findCountCutoff(piler)
+	paths = r.splitPath(piler, countCutoff)
+
+	// printPaths(paths)
+	log.Notice("Success")
+}
+
+func (r *Anchorer) iterativeGraphMerge(paths PathSet) {
+	var G Graph
 	i := 0
+	prevPaths := len(paths)
 	graphRemake := true
 	for prevPaths > 1 {
 		if graphRemake {
@@ -108,15 +122,6 @@ func (r *Anchorer) Run() {
 			r.path = path
 		}
 	}
-
-	// Attempt to split bad joins
-	r.makeContigStarts()
-	piler := r.inspectGaps(LinkDist)
-	countCutoff := r.findCountCutoff(piler)
-	r.splitPath(piler, countCutoff)
-
-	// printPaths(paths)
-	log.Notice("Success")
 }
 
 // removeSmallestPath forces removal of the smallest path so that we can continue
@@ -332,6 +337,7 @@ func (r *Path) findMidPoint() (int, int64) {
 }
 
 // bisect cuts the Path into two parts
+// If building path from scratch, this needs to be run right after the construction!
 func (r *Path) bisect() {
 	var contig *Contig
 	i, contigpos := r.findMidPoint()
@@ -479,18 +485,37 @@ func (r *Anchorer) identifyGap(breakPoints []int, res int64) {
 }
 
 // splitPath takes a path and look at joins that are weak
-func (r *Anchorer) splitPath(piler Piler, countCutoff int) {
+func (r *Anchorer) splitPath(piler Piler, countCutoff int) PathSet {
+	var path *Path
+	contigs := []*Contig{}
+	paths := PathSet{}
+	strength := 0
 	// Now go through all the contig joins
 	for _, contig := range r.path.contigs {
 		// Contigs at the end of the chromosome are at a disadvantage
-		if contig.start < LinkDist && contig.start > r.path.length-LinkDist {
-			continue
+		if contig.start >= LinkDist && contig.start < r.path.length-LinkDist {
+			// Query this join
+			strength = piler.intervalCounts(contig.start)
+			if strength < countCutoff { // needs to break a join here
+				fmt.Println("-------------------")
+				path = &Path{
+					contigs: contigs,
+				}
+				path.bisect()
+				paths[path] = true
+				fmt.Println(path, len(path.contigs), path.length)
+				contigs = []*Contig{}
+			}
 		}
-		// Query this join
-		strength := piler.intervalCounts(contig.start)
-		if strength < countCutoff { // needs to break a join here
-			fmt.Println("-------------------")
-		}
+		contigs = append(contigs, contig)
 		fmt.Println(contig.name, contig.start, contig.orientation, strength)
 	}
+	// Last piece
+	path = &Path{
+		contigs: contigs,
+	}
+	path.bisect()
+	paths[path] = true
+	fmt.Println(path, len(path.contigs), path.length)
+	return paths
 }
