@@ -26,6 +26,7 @@ type Anchorer struct {
 	Bamfile      string
 	contigs      []*Contig
 	nameToContig map[string]*Contig
+	path         *Path
 }
 
 // Contig stores the name and length of each contig
@@ -34,6 +35,7 @@ type Contig struct {
 	length      int
 	links       []*Link
 	path        *Path
+	start       int
 	orientation int // 1 => +, -1 => -
 	segments    []Range
 }
@@ -91,13 +93,14 @@ func (r *Anchorer) Run() {
 
 	// Test split the final path
 	res, d := 500000, 4
-	var largestPath *Path
+	r.path = nil
 	for path := range paths {
-		if largestPath == nil || path.length > largestPath.length {
-			largestPath = path
+		if r.path == nil || path.length > r.path.length {
+			r.path = path
 		}
 	}
-	r.splitPath(largestPath, res, d)
+	r.makeContigStarts()
+	r.splitPath(res, d)
 	log.Notice("Success")
 }
 
@@ -361,30 +364,31 @@ func (r *Path) bisect() {
 	}
 }
 
+// makeContigStarts returns starts of contigs within a path
+func (r *Anchorer) makeContigStarts() {
+	pos := 0
+	for _, contig := range r.path.contigs {
+		contig.start = pos
+		pos += contig.length
+	}
+}
+
 // findBin returns the i-th bin along the path
-func findBin(contigStarts map[*Contig]int, contig *Contig, pos, resolution int) int {
-	start := contigStarts[contig]
+func findBin(contig *Contig, pos, resolution int) int {
 	offset := pos
 	if contig.orientation < 0 {
 		offset = contig.length - pos
 	}
-	return (start + offset) / resolution
+	return (contig.start + offset) / resolution
 }
 
 // splitPath takes a path and look at joins that are weak
 // Scans the path at certain resolution r, and search radius is d
-func (r *Anchorer) splitPath(path *Path, res, d int) {
-	contigStarts := map[*Contig]int{}
-	pos := 0
-	for _, contig := range path.contigs {
-		contigStarts[contig] = pos
-		pos += contig.length
-	}
-
+func (r *Anchorer) splitPath(res, d int) {
 	// Look at all intra-path links, then store the counts to a
 	// sparse matrix, indexed by i, j, C[i, j] = # of links between
 	// i-th locus and j-th locus
-	bins := int(math.Ceil(float64(path.length) / float64(res)))
+	bins := int(math.Ceil(float64(r.path.length) / float64(res)))
 	log.Noticef("Contains %d bins at resolution %d bp", bins, res)
 	// Initialize the sparse matrix
 	C := make(SparseMatrix, bins)
@@ -392,13 +396,10 @@ func (r *Anchorer) splitPath(path *Path, res, d int) {
 		C[i] = map[int]int{}
 	}
 
-	for _, contig := range path.contigs {
+	for _, contig := range r.path.contigs {
 		for _, link := range contig.links {
-			if _, ok := contigStarts[link.b]; !ok {
-				continue
-			}
-			a := findBin(contigStarts, link.a, link.apos, res)
-			b := findBin(contigStarts, link.b, link.bpos, res)
+			a := findBin(link.a, link.apos, res)
+			b := findBin(link.b, link.bpos, res)
 			if _, ok := C[a][b]; ok {
 				C[a][b]++
 			} else {
@@ -414,7 +415,7 @@ func (r *Anchorer) splitPath(path *Path, res, d int) {
 	}
 
 	breakPoints := printSparseMatrix(C, d)
-	identifyGap(path, breakPoints, res)
+	r.identifyGap(breakPoints, res)
 }
 
 // printMatrix shows all the entries in the matrix C that are higher than a certain
@@ -449,11 +450,25 @@ func printSparseMatrix(C SparseMatrix, d int) []int {
 	return breakPoints
 }
 
+// inspectGaps check each gap for the number of links <= 1Mb going across
+func inspectGaps(path *Path) {
+	// We need to quickly map all links to their [start, end] on the path
+	// then increment all the link counts for each of the intervening gaps
+	//
+	// Here we use a data structure described in:
+	// https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3530906/
+	// We store the starts and ends of links in sorted arrays
+	// The `icount` algorithm then search an interval (or in this case) point
+	// query into these sorted interval ends
+	// BS := []int{}
+	// BE := []int{}
+}
+
 // identifyGap prints out all the gaps that lie within the bin
-func identifyGap(path *Path, breakPoints []int, res int) {
+func (r *Anchorer) identifyGap(breakPoints []int, res int) {
 	contigStart := 0
 	j := 0
-	for i, contig := range path.contigs {
+	for i, contig := range r.path.contigs {
 		if contigStart >= breakPoints[j]*res {
 			if contigStart >= (breakPoints[j]+1)*res {
 				for j < len(breakPoints) && contigStart >= (breakPoints[j]+1)*res {
