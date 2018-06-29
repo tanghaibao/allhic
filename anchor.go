@@ -92,7 +92,6 @@ func (r *Anchorer) Run() {
 	}
 
 	// Test split the final path
-	res, d := 500000, 4
 	r.path = nil
 	for path := range paths {
 		if r.path == nil || path.length > r.path.length {
@@ -100,7 +99,9 @@ func (r *Anchorer) Run() {
 		}
 	}
 	r.makeContigStarts()
-	r.splitPath(res, d)
+	printPaths(paths)
+	// res, d := 500000, 4
+	// r.splitPath(res, d)
 	log.Notice("Success")
 }
 
@@ -136,8 +137,8 @@ func (r *Anchorer) removeSmallestPath(paths PathSet, G Graph) PathSet {
 }
 
 // printPaths shows the current details of the clustering
-func printPaths(paths []*Path) {
-	for _, path := range paths {
+func printPaths(paths PathSet) {
+	for path := range paths {
 		fmt.Println(path)
 	}
 }

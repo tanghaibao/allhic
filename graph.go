@@ -29,9 +29,24 @@ type Edge struct {
 // Graph is an adjacency list
 type Graph map[*Node]map[*Node]float64
 
+// isLNode returns if a Node is an LNode (5`-end`)
+func (r *Node) isLNode() bool {
+	return r == r.path.LNode
+}
+
+// isRNode returns if a Node is an RNode (3`-end`)
+func (r *Node) isRNode() bool {
+	return r == r.path.RNode
+}
+
+// length returns the length of a node, which is half of the path length
+func (r *Node) length() float64 {
+	return float64(r.path.length) / 2
+}
+
 // isReverse returns the orientation of an edge
 func (r *Edge) isReverse() bool {
-	return r.a == r.a.path.RNode
+	return r.a.isRNode()
 }
 
 // isSister returns if the edge is internal to a contig
@@ -64,7 +79,7 @@ func (r *Anchorer) makeGraph(paths PathSet) Graph {
 	// Normalize against the product of two paths
 	for a, nb := range G {
 		for b, score := range nb {
-			G[a][b] = score / (float64(a.path.length) * float64(b.path.length))
+			G[a][b] = score / a.length() / b.length()
 		}
 	}
 
@@ -91,25 +106,33 @@ func (r *Anchorer) makeConfidenceGraph(G Graph) Graph {
 		for _, score := range nb {
 			if score > first {
 				first, second = score, first
-			} else if score <= first && score > second {
+			} else if score < first && score > second {
 				second = score
 			}
 		}
 		twoLargest[a] = []float64{first, second}
 	}
 
-	confidenceGraph := make(Graph)
+	confidenceGraph := Graph{}
 	// Now a second pass to compute confidence
 	for a, nb := range G {
-		for b := range nb {
+		for b, weight := range nb {
 			secondLargest := getSecondLargest(twoLargest[a], twoLargest[b])
-			G[a][b] /= secondLargest
-			if G[a][b] > 1 {
+			confidence := weight / secondLargest
+			if confidence > 1 {
 				if _, ok := confidenceGraph[a]; ok {
-					confidenceGraph[a][b] = G[a][b]
+					confidenceGraph[a][b] = confidence
 				} else {
-					confidenceGraph[a] = map[*Node]float64{b: G[a][b]}
+					confidenceGraph[a] = map[*Node]float64{b: confidence}
 				}
+				// There can be ties in terms of scores
+				// if len(confidenceGraph[a]) > 1 {
+				// 	fmt.Println(a.path, "<=>", b.path, G[a], "\n", confidenceGraph[a],
+				// 		twoLargest[a], twoLargest[b], secondLargest)
+				// 	for k, v := range confidenceGraph[a] {
+				// 		fmt.Println(k, k.path, k.sister, v)
+				// 	}
+				// }
 			}
 		}
 	}
@@ -253,15 +276,20 @@ func dfs(G Graph, a *Node, path []Edge, visited map[*Node]bool, visitSister bool
 		return dfs(G, a.sister, path, visited, false)
 	}
 	if nb, ok := G[a]; ok {
-		var b *Node
-		var weight float64
-		for b, weight = range nb {
-			break
+		var maxb *Node
+		maxWeight := 0.0 // for tie breaking
+		for b, weight := range nb {
+			if weight > maxWeight {
+				maxb, maxWeight = b, weight
+			}
 		}
+		// if len(nb) > 1 {
+		// 	fmt.Println(a, nb, b, maxWeight)
+		// }
 		path = append(path, Edge{
-			a, b, weight,
+			a, maxb, maxWeight,
 		})
-		return dfs(G, b, path, visited, true)
+		return dfs(G, maxb, path, visited, true)
 	}
 	return path, false
 }
