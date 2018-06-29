@@ -108,22 +108,11 @@ func (r *Anchorer) Run() {
 			r.path = path
 		}
 	}
+
+	// Attempt to split bad joins
 	r.makeContigStarts()
 	piler := r.inspectGaps(LinkDist)
-
-	// Sample evenly in the genome to compute a cutoff value
-	stepSize := r.path.length / 1000
-	counts := []int{}
-	for i := int64(0); i < r.path.length; i += stepSize {
-		counts = append(counts, piler.intervalCounts(i))
-	}
-	sort.Ints(counts)
-	// fmt.Println(counts)
-	countCutoff := counts[len(counts)/10]
-	log.Noticef("Weak joins defined as <%d links (including only links <%d bp)",
-		countCutoff, LinkDist)
-
-	// Now go through all the contig joins
+	countCutoff := r.findCountCutoff(piler)
 	r.splitPath(piler, countCutoff)
 
 	// printPaths(paths)
@@ -427,8 +416,29 @@ func (r *Anchorer) inspectGaps(cutoff int64) Piler {
 	}
 	sortInt64s(p.BS)
 	sortInt64s(p.BE)
+	log.Noticef("Sorted both ends of %d links (only <%d bp included)",
+		len(p.BS), LinkDist)
 
 	return p
+}
+
+// findCountCutoff samples evenly in the genome and builds a distribution
+// of the number of links going across at each position, then take the 10-th
+// percentile as the cutoff
+func (r *Anchorer) findCountCutoff(piler Piler) int {
+	// Sample evenly in the genome to compute a cutoff value
+	stepSize := r.path.length / 1000
+	counts := []int{}
+	for i := int64(0); i < r.path.length; i += stepSize {
+		counts = append(counts, piler.intervalCounts(i))
+	}
+	sort.Ints(counts)
+	// fmt.Println(counts)
+	countCutoff := counts[len(counts)/10]
+	log.Noticef("Weak joins defined as <%d links (only <%d bp included)",
+		countCutoff, LinkDist)
+
+	return countCutoff
 }
 
 // intervalCounts returns the number of intervals over the query position
@@ -470,6 +480,7 @@ func (r *Anchorer) identifyGap(breakPoints []int, res int64) {
 
 // splitPath takes a path and look at joins that are weak
 func (r *Anchorer) splitPath(piler Piler, countCutoff int) {
+	// Now go through all the contig joins
 	for _, contig := range r.path.contigs {
 		// Contigs at the end of the chromosome are at a disadvantage
 		if contig.start < LinkDist && contig.start > r.path.length-LinkDist {
