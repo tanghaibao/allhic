@@ -124,22 +124,9 @@ func (r *Anchorer) Run() {
 		countCutoff, LinkDist)
 
 	// Now go through all the contig joins
-	for _, contig := range r.path.contigs {
-		// Contigs at the end of the chromosome are at a disadvantage
-		if contig.start < LinkDist && contig.start > r.path.length-LinkDist {
-			continue
-		}
-		// Query this join
-		strength := piler.intervalCounts(contig.start)
-		if strength < countCutoff { // needs to break a join here
-			fmt.Println("-------------------")
-		}
-		fmt.Println(contig.name, contig.start, contig.orientation, strength)
-	}
+	r.splitPath(piler, countCutoff)
 
 	// printPaths(paths)
-	// res, d := 500000, 4
-	// r.splitPath(res, d)
 	log.Notice("Success")
 }
 
@@ -161,15 +148,14 @@ func (r *Anchorer) removeSmallestPath(paths PathSet, G Graph) PathSet {
 		contig.path = nil
 	}
 
-	// for _, node := range []*Node{smallestPath.LNode, smallestPath.RNode} {
-	// 	if nb, ok := G[node]; ok {
-	// 		for b := range nb {
-	// 			delete(G[b], node)
-	// 		}
-	// 		delete(G, node)
-	// 		fmt.Println("Deleted node", node)
-	// 	}
-	// }
+	for _, node := range []*Node{smallestPath.LNode, smallestPath.RNode} {
+		if nb, ok := G[node]; ok {
+			for b := range nb {
+				delete(G[b], node)
+			}
+			delete(G, node)
+		}
+	}
 	delete(paths, smallestPath)
 	return paths
 }
@@ -421,80 +407,6 @@ func findPosition(contig *Contig, pos int64) int64 {
 	return contig.start + offset
 }
 
-// findBin returns the i-th bin along the path
-func findBin(contig *Contig, pos, resolution int64) int {
-	position := findPosition(contig, pos)
-	return int(position / resolution)
-}
-
-// splitPath takes a path and look at joins that are weak
-// Scans the path at certain resolution r, and search radius is d
-func (r *Anchorer) splitPath(res int64, d int) {
-	// Look at all intra-path links, then store the counts to a
-	// sparse matrix, indexed by i, j, C[i, j] = # of links between
-	// i-th locus and j-th locus
-	bins := int(math.Ceil(float64(r.path.length) / float64(res)))
-	log.Noticef("Contains %d bins at resolution %d bp", bins, res)
-	// Initialize the sparse matrix
-	C := make(SparseMatrix, bins)
-	for i := 0; i < bins; i++ {
-		C[i] = map[int]int{}
-	}
-
-	for _, contig := range r.path.contigs {
-		for _, link := range contig.links {
-			a := findBin(link.a, link.apos, res)
-			b := findBin(link.b, link.bpos, res)
-			if _, ok := C[a][b]; ok {
-				C[a][b]++
-			} else {
-				C[a][b] = 1
-			}
-
-			if _, ok := C[b][a]; ok {
-				C[b][a]++
-			} else {
-				C[b][a] = 1
-			}
-		}
-	}
-
-	breakPoints := printSparseMatrix(C, d)
-	r.identifyGap(breakPoints, res)
-}
-
-// printMatrix shows all the entries in the matrix C that are higher than a certain
-// cutoff, like 95-th percentile of all cells
-func printSparseMatrix(C SparseMatrix, d int) []int {
-	values := []int{}
-	for a := range C {
-		for _, val := range C[a] {
-			values = append(values, val)
-		}
-	}
-
-	sort.Ints(values)
-	cutoff := values[len(values)*95/100]
-	log.Noticef("Cutoff of cell value is at %d", cutoff)
-	scores := []float64{}
-	for a := range C {
-		score := scoreTriangle(C, a, d, cutoff)
-		scores = append(scores, score)
-	}
-
-	// Find the valley points
-	breakPoints := []int{}
-	for i := 0; i < len(scores)-2; i++ {
-		if scores[i+1] <= scores[i] && scores[i+1] <= scores[i+2] && scores[i+1] < .1 {
-			breakPoints = append(breakPoints, i+1)
-		}
-	}
-	fmt.Println(breakPoints)
-	log.Noticef("Found %d breakpoints", len(breakPoints))
-
-	return breakPoints
-}
-
 // inspectGaps check each gap for the number of links <= 1Mb going across
 func (r *Anchorer) inspectGaps(cutoff int64) Piler {
 	// We need to quickly map all links to their [start, end] on the path
@@ -556,22 +468,18 @@ func (r *Anchorer) identifyGap(breakPoints []int, res int64) {
 	}
 }
 
-// scoreTriangle sums up all the cells in the 1st quadrant that are d-distance
-// away from the diagonal
-func scoreTriangle(C SparseMatrix, a, d, cutoff int) float64 {
-	expected := 0
-	score := 0
-	for i := a + 1; i < len(C); i++ {
-		for j := a - 1; j >= 0 && i-j <= d; j-- {
-			if _, ok := C[i][j]; ok {
-				score += min(C[i][j], cutoff)
-			}
-			expected += cutoff
+// splitPath takes a path and look at joins that are weak
+func (r *Anchorer) splitPath(piler Piler, countCutoff int) {
+	for _, contig := range r.path.contigs {
+		// Contigs at the end of the chromosome are at a disadvantage
+		if contig.start < LinkDist && contig.start > r.path.length-LinkDist {
+			continue
 		}
+		// Query this join
+		strength := piler.intervalCounts(contig.start)
+		if strength < countCutoff { // needs to break a join here
+			fmt.Println("-------------------")
+		}
+		fmt.Println(contig.name, contig.start, contig.orientation, strength)
 	}
-	fmt.Println(a, score, expected)
-
-	// We are interested in finding all the misjoins, misjoins are dips in the
-	// link coverage
-	return float64(score) / float64(expected)
 }
