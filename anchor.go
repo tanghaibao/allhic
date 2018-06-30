@@ -81,13 +81,16 @@ func (r *Anchorer) Run() {
 	// Prepare the paths to run
 	r.ExtractInterContigLinks()
 	paths := r.makeTrivialPaths(r.contigs)
-	r.iterativeGraphMerge(paths)
+	nIterations := 10
+	for i := 0; i < nIterations; i++ {
+		r.iterativeGraphMerge(paths)
 
-	// Attempt to split bad joins
-	r.makeContigStarts()
-	piler := r.inspectGaps(LinkDist)
-	countCutoff := r.findCountCutoff(piler)
-	paths = r.splitPath(piler, countCutoff)
+		// Attempt to split bad joins
+		r.makeContigStarts()
+		piler := r.inspectGaps(LinkDist)
+		countCutoff := r.findCountCutoff(piler)
+		paths = r.splitPath(piler, countCutoff)
+	}
 
 	// printPaths(paths)
 	log.Notice("Success")
@@ -106,6 +109,7 @@ func (r *Anchorer) iterativeGraphMerge(paths PathSet) {
 		}
 		CG := r.makeConfidenceGraph(G)
 		paths = r.generatePathAndCycle(CG)
+		// Check if no merges were made in this round
 		if len(paths) == prevPaths {
 			paths = r.removeSmallestPath(paths, G)
 			graphRemake = false
@@ -115,7 +119,7 @@ func (r *Anchorer) iterativeGraphMerge(paths PathSet) {
 		prevPaths = len(paths)
 	}
 
-	// Test split the final path
+	// Path found
 	r.path = nil
 	for path := range paths {
 		if r.path == nil || path.length > r.path.length {
@@ -168,12 +172,7 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig) PathSet {
 	paths := PathSet{}
 	for _, contig := range contigs {
 		contig.orientation = 1
-		path := &Path{
-			contigs: []*Contig{contig},
-		}
-		contig.path = path
-		path.bisect()
-		paths[path] = true
+		makePath([]*Contig{contig}, paths)
 	}
 
 	return paths
@@ -486,7 +485,6 @@ func (r *Anchorer) identifyGap(breakPoints []int, res int64) {
 
 // splitPath takes a path and look at joins that are weak
 func (r *Anchorer) splitPath(piler Piler, countCutoff int) PathSet {
-	var path *Path
 	contigs := []*Contig{}
 	paths := PathSet{}
 	strength := 0
@@ -498,24 +496,32 @@ func (r *Anchorer) splitPath(piler Piler, countCutoff int) PathSet {
 			strength = piler.intervalCounts(contig.start)
 			if strength < countCutoff { // needs to break a join here
 				fmt.Println("-------------------")
-				path = &Path{
-					contigs: contigs,
-				}
-				path.bisect()
-				paths[path] = true
+				path := makePath(contigs, paths)
 				fmt.Println(path, len(path.contigs), path.length)
 				contigs = []*Contig{}
 			}
 		}
 		contigs = append(contigs, contig)
-		fmt.Println(contig.name, contig.start, contig.orientation, strength)
+		// fmt.Println(contig.name, contig.start, contig.orientation, strength)
 	}
 	// Last piece
-	path = &Path{
+	makePath(contigs, paths)
+	// fmt.Println(path, len(path.contigs), path.length)
+	log.Noticef("Split into %d paths", len(paths))
+
+	return paths
+}
+
+// makePath creates a Path from contigs and set everything properly
+func makePath(contigs []*Contig, paths PathSet) *Path {
+	path := &Path{
 		contigs: contigs,
+	}
+	for _, contig := range contigs {
+		contig.path = path
 	}
 	path.bisect()
 	paths[path] = true
-	fmt.Println(path, len(path.contigs), path.length)
-	return paths
+
+	return path
 }
