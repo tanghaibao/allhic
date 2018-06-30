@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -19,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/biogo/hts/bam"
+	"github.com/kshedden/gonpy"
 )
 
 // Anchorer runs the merging algorithm
@@ -27,6 +29,16 @@ type Anchorer struct {
 	contigs      []*Contig
 	nameToContig map[string]*Contig
 	path         *Path
+}
+
+// AnchorerJSON keeps a succinct subset of all fields in Anchorer
+type AnchorerJSON struct {
+	Starts        map[string]int64 `json:"starts"`
+	Sizes         map[string]int64 `json:"sizes"`
+	TotalBins     int              `json:"total_bins"`
+	DistBinStarts []int64          `json:"distbinstarts"`
+	DistBinSizes  []int64          `json:"distbinsizes"`
+	Resolution    int64            `json:"resolution"`
 }
 
 // Contig stores the name and length of each contig
@@ -81,7 +93,7 @@ func (r *Anchorer) Run() {
 	// Prepare the paths to run
 	r.ExtractInterContigLinks()
 	paths := r.makeTrivialPaths(r.contigs)
-	nIterations := 10
+	nIterations := 1
 	for i := 0; i < nIterations; i++ {
 		r.iterativeGraphMerge(paths)
 
@@ -91,6 +103,9 @@ func (r *Anchorer) Run() {
 		countCutoff := r.findCountCutoff(piler)
 		paths = r.splitPath(piler, countCutoff)
 	}
+
+	// Serialize to disk for plotting
+	r.serialize(250000, "genome.json", "data.npy")
 
 	// printPaths(paths)
 	log.Notice("Success")
@@ -524,4 +539,47 @@ func makePath(contigs []*Contig, paths PathSet) *Path {
 	paths[path] = true
 
 	return path
+}
+
+// findBin returns the i-th bin along the path
+func findBin(contig *Contig, pos, resolution int64) int {
+	position := findPosition(contig, pos)
+	return int(position / resolution)
+}
+
+// serialize outputs the current path to disk
+// This contains the data for jcvi.assembly.hic.heatmap()
+func (r *Anchorer) serialize(res int64, jsonfile, npyfile string) {
+	A := &AnchorerJSON{Resolution: res}
+	m := int(math.Ceil(float64(r.path.length) / float64(res)))
+	A.Starts = make(map[string]int64)
+	A.Sizes = make(map[string]int64)
+	A.TotalBins = m
+	// Initialize the count matrix
+	C := make([]int32, m*m)
+	for _, contig := range r.path.contigs {
+		A.Starts[contig.name] = contig.start
+		A.Sizes[contig.name] = contig.length
+		for _, link := range contig.links {
+			a := findBin(link.a, link.apos, res)
+			b := findBin(link.b, link.bpos, res)
+			C[a*m+b]++
+			C[b*m+a]++
+		}
+	}
+
+	// Serialize the contig size stats to JSON file
+	s, _ := json.MarshalIndent(A, "", "\t")
+	f, _ := os.Create(jsonfile)
+	defer f.Close()
+	jw := bufio.NewWriter(f)
+	jw.WriteString(string(s))
+	jw.Flush()
+	log.Noticef("Contig stats written to `%s`", jsonfile)
+
+	// Serialize the pixelated matrix to NPY file
+	w, _ := gonpy.NewFileWriter(npyfile)
+	w.Shape = []int{m, m}
+	w.WriteInt32(C)
+	log.Noticef("Matrix (resolution=%d) written to `%s`", res, npyfile)
 }
