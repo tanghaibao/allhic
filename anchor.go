@@ -91,17 +91,18 @@ type PathSet map[*Path]bool
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
 	// Prepare the paths to run
-	r.ExtractInterContigLinks()
-	paths := r.makeTrivialPaths(r.contigs)
+	flanksize := int64(1000000)
 	nIterations := 1
+	r.ExtractInterContigLinks()
+	paths := r.makeTrivialPaths(r.contigs, flanksize)
 	for i := 0; i < nIterations; i++ {
-		r.iterativeGraphMerge(paths)
+		r.iterativeGraphMerge(paths, flanksize)
 
 		// Attempt to split bad joins
 		r.makeContigStarts()
 		piler := r.inspectGaps(LinkDist)
 		countCutoff := r.findCountCutoff(piler)
-		paths = r.splitPath(piler, countCutoff)
+		paths = r.splitPath(piler, countCutoff, flanksize)
 	}
 
 	// Serialize to disk for plotting
@@ -111,7 +112,7 @@ func (r *Anchorer) Run() {
 	log.Notice("Success")
 }
 
-func (r *Anchorer) iterativeGraphMerge(paths PathSet) {
+func (r *Anchorer) iterativeGraphMerge(paths PathSet, flanksize int64) {
 	var G Graph
 	i := 0
 	prevPaths := len(paths)
@@ -123,7 +124,7 @@ func (r *Anchorer) iterativeGraphMerge(paths PathSet) {
 			G = r.makeGraph(paths)
 		}
 		CG := r.makeConfidenceGraph(G)
-		paths = r.generatePathAndCycle(CG)
+		paths = r.generatePathAndCycle(CG, flanksize)
 		// Check if no merges were made in this round
 		if len(paths) == prevPaths {
 			paths = r.removeSmallestPath(paths, G)
@@ -182,12 +183,12 @@ func printPaths(paths PathSet) {
 
 // makeTrivialPaths starts the initial construction of Path object, with one
 // contig per Path (trivial Path)
-func (r *Anchorer) makeTrivialPaths(contigs []*Contig) PathSet {
+func (r *Anchorer) makeTrivialPaths(contigs []*Contig, flanksize int64) PathSet {
 	// Initially make every contig a single Path object
 	paths := PathSet{}
 	for _, contig := range contigs {
 		contig.orientation = 1
-		makePath([]*Contig{contig}, paths)
+		makePath([]*Contig{contig}, paths, flanksize)
 	}
 
 	return paths
@@ -351,17 +352,23 @@ func (r *Path) findMidPoint() (int, int64) {
 }
 
 // bisect cuts the Path into two parts
+// The initial implementation cuts the path into two equal halves. However, this is
+// not desired for longer path since the 'internal' links should be penalized somehow.
+// Therefore, we add a flanksize parameter so that we only create end nodes that are
+// min(pathlength / 2, flanksize) so that we handle long paths properly
 // If building path from scratch, this needs to be run right after the construction!
-func (r *Path) bisect() {
+func (r *Path) bisect(flanksize int64) {
 	var contig *Contig
 	i, contigpos := r.findMidPoint()
 	contig = r.contigs[i]
 
 	LNode := &Node{
-		path: r,
+		path:   r,
+		length: r.length / 2,
 	}
 	RNode := &Node{
-		path: r,
+		path:   r,
+		length: r.length / 2,
 	}
 	LNode.sister = RNode
 	RNode.sister = LNode
@@ -499,7 +506,7 @@ func (r *Anchorer) identifyGap(breakPoints []int, res int64) {
 }
 
 // splitPath takes a path and look at joins that are weak
-func (r *Anchorer) splitPath(piler Piler, countCutoff int) PathSet {
+func (r *Anchorer) splitPath(piler Piler, countCutoff int, flanksize int64) PathSet {
 	contigs := []*Contig{}
 	paths := PathSet{}
 	strength := 0
@@ -511,7 +518,7 @@ func (r *Anchorer) splitPath(piler Piler, countCutoff int) PathSet {
 			strength = piler.intervalCounts(contig.start)
 			if strength < countCutoff { // needs to break a join here
 				fmt.Println("-------------------")
-				path := makePath(contigs, paths)
+				path := makePath(contigs, paths, flanksize)
 				fmt.Println(path, len(path.contigs), path.length)
 				contigs = []*Contig{}
 			}
@@ -520,7 +527,7 @@ func (r *Anchorer) splitPath(piler Piler, countCutoff int) PathSet {
 		// fmt.Println(contig.name, contig.start, contig.orientation, strength)
 	}
 	// Last piece
-	makePath(contigs, paths)
+	makePath(contigs, paths, flanksize)
 	// fmt.Println(path, len(path.contigs), path.length)
 	log.Noticef("Split into %d paths", len(paths))
 
@@ -528,14 +535,14 @@ func (r *Anchorer) splitPath(piler Piler, countCutoff int) PathSet {
 }
 
 // makePath creates a Path from contigs and set everything properly
-func makePath(contigs []*Contig, paths PathSet) *Path {
+func makePath(contigs []*Contig, paths PathSet, flanksize int64) *Path {
 	path := &Path{
 		contigs: contigs,
 	}
 	for _, contig := range contigs {
 		contig.path = path
 	}
-	path.bisect()
+	path.bisect(flanksize)
 	paths[path] = true
 
 	return path
@@ -558,8 +565,8 @@ func (r *Anchorer) serialize(res int64, jsonfile, npyfile string) {
 	// Initialize the count matrix
 	C := make([]int32, m*m)
 	for _, contig := range r.path.contigs {
-		A.Starts[contig.name] = contig.start
-		A.Sizes[contig.name] = contig.length
+		A.Starts[contig.name] = contig.start / res
+		A.Sizes[contig.name] = contig.length / res
 		for _, link := range contig.links {
 			a := findBin(link.a, link.apos, res)
 			b := findBin(link.b, link.bpos, res)

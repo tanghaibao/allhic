@@ -18,6 +18,7 @@ import (
 type Node struct {
 	path   *Path // List of contigs
 	sister *Node // Node of the other end
+	length int64 // Typically min(pathlength / 2, flanksize)
 }
 
 // Edge is between two nodes in a graph
@@ -37,15 +38,6 @@ func (r *Node) isLNode() bool {
 // isRNode returns if a Node is an RNode (3`-end`)
 func (r *Node) isRNode() bool {
 	return r == r.path.RNode
-}
-
-// length returns the length of a node, which is half of the path length
-func (r *Node) length() int64 {
-	ans := int64(r.path.length) / 2
-	if r.isRNode() {
-		return ans
-	}
-	return r.path.length - ans
 }
 
 // isReverse returns the orientation of an edge
@@ -83,7 +75,7 @@ func (r *Anchorer) makeGraph(paths PathSet) Graph {
 	// Normalize against the product of lengths of two paths
 	for a, nb := range G {
 		for b, score := range nb {
-			G[a][b] = score * BigNorm / (a.length() * b.length())
+			G[a][b] = score * BigNorm / (a.length * b.length)
 		}
 	}
 
@@ -204,7 +196,7 @@ func (r *Anchorer) getUniquePaths() PathSet {
 // generatePathAndCycle makes new paths by merging the unique extensions
 // in the graph. This first extends upstream (including the sister edge)
 // and then walk downstream until it hits something seen before
-func (r *Anchorer) generatePathAndCycle(G Graph) PathSet {
+func (r *Anchorer) generatePathAndCycle(G Graph, flanksize int64) PathSet {
 	visited := map[*Node]bool{}
 	var isCycle bool
 	var path *Path
@@ -223,7 +215,7 @@ func (r *Anchorer) generatePathAndCycle(G Graph) PathSet {
 			path1 = append(reversePath(path1), path2...)
 		}
 		// fmt.Println("path1", path1)
-		path = mergePath(path1)
+		path = mergePath(path1, flanksize)
 		// fmt.Println("path from", a, path)
 		for _, contig := range path.contigs {
 			contig.path = path
@@ -233,7 +225,7 @@ func (r *Anchorer) generatePathAndCycle(G Graph) PathSet {
 }
 
 // mergePath converts a single edge path into a node path
-func mergePath(path []Edge) *Path {
+func mergePath(path []Edge, flanksize int64) *Path {
 	s := &Path{}
 	for _, edge := range path {
 		if !edge.isSister() {
@@ -245,7 +237,7 @@ func mergePath(path []Edge) *Path {
 		}
 		s.contigs = append(s.contigs, ep.contigs...)
 	}
-	s.bisect()
+	s.bisect(flanksize)
 	return s
 }
 
