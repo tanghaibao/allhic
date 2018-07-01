@@ -239,6 +239,26 @@ func median(s []float64) float64 {
 	return result
 }
 
+// L50 returns the sequence length L where half of the genome is covered in contigs
+// of length >= L50
+func L50(lengths []int64) int64 {
+	sortInt64s(lengths)
+	total := int64(0)
+	for _, length := range lengths {
+		total += length
+	}
+	halfTotal := total / 2
+	cumsize := int64(0)
+	i := len(lengths) - 1
+	for ; i >= 0; i-- {
+		cumsize += lengths[i]
+		if cumsize > halfTotal {
+			break
+		}
+	}
+	return lengths[i]
+}
+
 // OutlierCutoff implements Iglewicz and Hoaglin's robust, returns the cutoff values -
 // lower bound and upper bound.
 func OutlierCutoff(a []float64) (float64, float64) {

@@ -191,7 +191,7 @@ func (r *Anchorer) getUniquePaths() PathSet {
 		}
 	}
 
-	log.Noticef("%d paths (nComplex=%d nSingleton=%d), %d contigs (nComplex=%d nSingleton=%d)",
+	log.Noticef("%d paths (nComplex=%d nSingle=%d), %d contigs (nComplex=%d nSingle=%d)",
 		nComplex+nSingleton, nComplex, nSingleton,
 		nComplexContigs+nSingletonContigs, nComplexContigs, nSingletonContigs)
 

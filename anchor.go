@@ -91,13 +91,12 @@ type PathSet map[*Path]bool
 // Run kicks off the merging algorithm
 func (r *Anchorer) Run() {
 	// Prepare the paths to run
-	flanksize := int64(1000000)
 	nIterations := 1
 	r.ExtractInterContigLinks()
+	flanksize := int64(1000000)
 	paths := r.makeTrivialPaths(r.contigs, flanksize)
 	for i := 0; i < nIterations; i++ {
 		r.iterativeGraphMerge(paths, flanksize)
-
 		// Attempt to split bad joins
 		r.makeContigStarts()
 		piler := r.inspectGaps(LinkDist)
@@ -118,9 +117,11 @@ func (r *Anchorer) iterativeGraphMerge(paths PathSet, flanksize int64) {
 	prevPaths := len(paths)
 	graphRemake := true
 	for prevPaths > 1 {
+		// flanksize = getL50(paths) / 4
 		if graphRemake {
 			i++
-			log.Noticef("Starting iteration %d with %d paths", i, len(paths))
+			log.Noticef("Starting iteration %d with %d paths (L50=%d)",
+				i, len(paths), getL50(paths))
 			G = r.makeGraph(paths)
 		}
 		CG := r.makeConfidenceGraph(G)
@@ -595,4 +596,14 @@ func (r *Anchorer) serialize(res int64, jsonfile, npyfile string) {
 	w.Shape = []int{m, m}
 	w.WriteInt32(C)
 	log.Noticef("Matrix (resolution=%d) written to `%s`", res, npyfile)
+}
+
+// getL50 computes the L50 of all component contigs within a path
+func getL50(paths PathSet) int64 {
+	pathLengths := []int64{}
+	for path := range paths {
+		pathLengths = append(pathLengths, path.length)
+	}
+
+	return L50(pathLengths)
 }
