@@ -53,7 +53,8 @@ func (r *Edge) isSister() bool {
 // makeGraph makes a contig linkage graph
 func (r *Anchorer) makeGraph(paths PathSet) Graph {
 	G := Graph{}
-	nSkipped := 0
+	nIntra := 0    // becomes an intra-path link
+	nInternal := 0 // internal to another path, too far away from the edge
 	nUsed := 0
 	// Go through the links for each node and compile edges
 	for _, contig := range r.contigs {
@@ -62,8 +63,12 @@ func (r *Anchorer) makeGraph(paths PathSet) Graph {
 		}
 		for _, link := range contig.links {
 			a, b := r.linkToNodes(link)
+			if a == nil || b == nil {
+				nInternal++
+				continue
+			}
 			if a == b || a.sister == b { // These links have now become intra, discard
-				nSkipped++
+				nIntra++
 				continue
 			}
 			nUsed++
@@ -85,8 +90,8 @@ func (r *Anchorer) makeGraph(paths PathSet) Graph {
 		nEdges += len(node)
 	}
 	nEdges /= 2 // since each edge counted twice
-	log.Noticef("Graph contains %d nodes and %d edges (from %d links, %d links skipped)",
-		len(G), nEdges, nUsed, nSkipped)
+	log.Noticef("Graph contains %d nodes and %d edges (%d used, %d intra, %d internal)",
+		len(G), nEdges, nUsed, nIntra, nInternal)
 	return G
 }
 

@@ -303,7 +303,7 @@ func contigToNode(contig *Contig, pos int64) *Node {
 			return rr.node
 		}
 	}
-	log.Errorf("%s:%d not found", contig.name, pos)
+	// log.Errorf("%s:%d not found", contig.name, pos)
 	return nil
 }
 
@@ -323,82 +323,88 @@ func (r *Anchorer) insertEdge(G Graph, a, b *Node) {
 	}
 }
 
-// findMidPoint find the center of a path for bisect
-func (r *Path) findMidPoint() (int, int64) {
-	r.length = 0
-	for _, contig := range r.contigs {
-		r.length += contig.length
-	}
-
-	midpos := int64(math.Ceil(float64(r.length) / 2))
-	cumsize := int64(0)
-	i := 0
-	var contig *Contig
-	for i, contig = range r.contigs {
-		// midpos must be within this contig
-		if cumsize+contig.length > midpos {
-			break
-		}
-		cumsize += contig.length
-	}
-	contigpos := midpos - cumsize
-
-	// --> ----> <-------- ------->
-	//              | mid point here
-	if contig.orientation == -1 {
-		contigpos = contig.length - contigpos
-	}
-	return i, contigpos
-}
-
 // bisect cuts the Path into two parts
 // The initial implementation cuts the path into two equal halves. However, this is
 // not desired for longer path since the 'internal' links should be penalized somehow.
 // Therefore, we add a flanksize parameter so that we only create end nodes that are
 // min(pathlength / 2, flanksize) so that we handle long paths properly
-// If building path from scratch, this needs to be run right after the construction!
 func (r *Path) bisect(flanksize int64) {
 	var contig *Contig
-	i, contigpos := r.findMidPoint()
-	contig = r.contigs[i]
+	var contigpos int64
+
+	r.length = 0
+	for _, contig := range r.contigs {
+		r.length += contig.length
+	}
+
+	flanksize = minInt64(r.length/2, flanksize)
 
 	LNode := &Node{
 		path:   r,
-		length: r.length / 2,
+		length: flanksize,
 	}
 	RNode := &Node{
 		path:   r,
-		length: r.length / 2,
+		length: flanksize,
 	}
 	LNode.sister = RNode
 	RNode.sister = LNode
 	r.LNode = LNode
 	r.RNode = RNode
 
-	// Update the registry to convert contig:start-end range to nodes
-	for k := 0; k < i; k++ { // Left contigs
-		contig = r.contigs[k]
+	// Build the left node
+	contigStart := int64(0)
+	i := 0
+	for i = 0; i < len(r.contigs); i++ {
+		contig = r.contigs[i]
+		if contigStart+contig.length > flanksize {
+			break
+		}
 		contig.segments = []Range{
 			Range{0, contig.length, LNode},
 		}
+		contigStart += contig.length
 	}
 
-	// Handles the middle contig as a special case
-	var leftRange, rightRange Range
-	contig = r.contigs[i]
-	if contig.orientation > 0 { // Forward orientation
-		leftRange = Range{0, contigpos, LNode}
-		rightRange = Range{contigpos, contig.length, RNode}
-	} else { // Reverse orientation
-		leftRange = Range{0, contigpos, RNode}
-		rightRange = Range{contigpos, contig.length, LNode}
-	}
-	contig.segments = []Range{
-		leftRange, rightRange,
+	// Left flank cuts through this contig
+	contigpos = flanksize - contigStart
+	if contig.orientation > 0 {
+		contig.segments = append(contig.segments, Range{
+			0, contigpos, LNode,
+		})
+	} else {
+		contigpos = contig.length - contigpos
+		contig.segments = append(contig.segments, Range{
+			contigpos, contig.length, LNode,
+		})
 	}
 
-	for k := i + 1; k < len(r.contigs); k++ { // Right contigs
-		contig = r.contigs[k]
+	// Fast forward to right flank
+	for ; i < len(r.contigs); i++ {
+		contig = r.contigs[i]
+		if contigStart+contig.length > r.length-flanksize {
+			break
+		}
+		contig.segments = nil
+		contigStart += contig.length
+	}
+
+	// Right flank cuts through this contig
+	contigpos = r.length - flanksize - contigStart
+	if contig.orientation > 0 {
+		contig.segments = append(contig.segments, Range{
+			contigpos, contig.length, RNode,
+		})
+	} else {
+		contigpos = contig.length - contigpos
+		contig.segments = append(contig.segments, Range{
+			0, contigpos, RNode,
+		})
+	}
+
+	// Build the right node
+	for ; i < len(r.contigs); i++ {
+		contig = r.contigs[i]
 		contig.segments = []Range{
 			Range{0, contig.length, RNode},
 		}

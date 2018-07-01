@@ -171,6 +171,14 @@ func min(x, y int) int {
 	return y
 }
 
+// min gets the minimum for two ints
+func minInt64(x, y int64) int64 {
+	if x < y {
+		return x
+	}
+	return y
+}
+
 // min gets the maximum for two ints
 func max(x, y int) int {
 	if x > y {
