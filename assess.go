@@ -241,7 +241,7 @@ func (r *Assesser) ExtractContigLinks() {
 		r.interLinksRev[ci] = append(r.interLinksRev[ci], link)
 		nInterLinks++
 	}
-	log.Noticef("A total of %d intra-contig links and %d inter-contig links imported (%d skipped, too short)",
+	log.Noticef("A total of %d intra-contig and %d inter-contig links imported (%d skipped, too short)",
 		nIntraLinks, nInterLinks, nSkippedTooShort)
 }
 
@@ -364,7 +364,6 @@ func (r *Assesser) fitPowerLaw(Xs []int, Ys []float64) {
 	}
 
 	B := (float64(n)*SumLogXLogY - SumLogX*SumLogY) / (float64(n)*SumLogXLogX - SumLogX*SumLogX)
-	fmt.Println(n, SumLogXLogY, SumLogX*SumLogY, SumLogXLogX, SumLogX*SumLogX)
 	A := math.Exp((SumLogY - B*SumLogX) / float64(n))
 	r.linkDensityModel = &LinkDensityModel{
 		A: A, B: B,

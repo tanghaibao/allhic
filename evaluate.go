@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"sort"
@@ -73,6 +74,35 @@ func (r Tour) Copy() gago.Slice {
 	return clone
 }
 
+// // Evaluate calculates a score for the current tour
+// func (r Tour) Evaluate() (score float64) {
+// 	size := r.Len()
+// 	mid := make([]float64, size)
+// 	cumSum := 0.0
+// 	for i, t := range r.Tigs {
+// 		tsize := float64(t.Size)
+// 		mid[i] = cumSum + tsize/2
+// 		cumSum += tsize
+// 	}
+// 	// fmt.Println(r.Tigs, mid)
+
+// 	// Now add up all the pairwise scores
+// 	for i := 0; i < size; i++ {
+// 		a := r.Tigs[i].Idx
+// 		for j := i + 1; j < size; j++ {
+// 			b := r.Tigs[j].Idx
+// 			nlinks := r.M[a][b]
+// 			dist := mid[j] - mid[i]
+// 			if dist > LIMIT {
+// 				break
+// 			}
+// 			// We are looking for maximum
+// 			score -= float64(nlinks) / dist
+// 		}
+// 	}
+// 	return
+// }
+
 // Evaluate calculates a score for the current tour
 func (r Tour) Evaluate() (score float64) {
 	size := r.Len()
@@ -92,11 +122,8 @@ func (r Tour) Evaluate() (score float64) {
 			b := r.Tigs[j].Idx
 			nlinks := r.M[a][b]
 			dist := mid[j] - mid[i]
-			if dist > LIMIT {
-				break
-			}
 			// We are looking for maximum
-			score -= float64(nlinks) / dist
+			score += float64(nlinks) * math.Log(float64(dist))
 		}
 	}
 	return
