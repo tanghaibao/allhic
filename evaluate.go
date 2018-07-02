@@ -104,7 +104,7 @@ func (r Tour) Copy() gago.Slice {
 // }
 
 // Evaluate calculates a score for the current tour
-func (r Tour) Evaluate() (score float64) {
+func (r Tour) Evaluate() float64 {
 	size := r.Len()
 	mid := make([]float64, size)
 	cumSum := 0.0
@@ -115,6 +115,7 @@ func (r Tour) Evaluate() (score float64) {
 	}
 	// fmt.Println(r.Tigs, mid)
 
+	score := 0.0
 	// Now add up all the pairwise scores
 	for i := 0; i < size; i++ {
 		a := r.Tigs[i].Idx
@@ -123,10 +124,10 @@ func (r Tour) Evaluate() (score float64) {
 			nlinks := r.M[a][b]
 			dist := mid[j] - mid[i]
 			// We are looking for maximum
-			score += float64(nlinks) * math.Log(float64(dist))
+			score += float64(nlinks) * math.Log(dist)
 		}
 	}
-	return
+	return score
 }
 
 // Sample k unique integers in range [min, max) using reservoir sampling,
@@ -236,7 +237,7 @@ func (r *CLM) GARun(fwtour *os.File, npop, ngen int, mutRate, crossRate float64,
 	ga := gago.GA{
 		NewGenome: MakeTour,
 		NPops:     1,
-		PopSize:   100,
+		PopSize:   npop,
 		Model: gago.ModGenerational{
 			Selector: gago.SelTournament{
 				NContestants: 3,
@@ -252,7 +253,7 @@ func (r *CLM) GARun(fwtour *os.File, npop, ngen int, mutRate, crossRate float64,
 		npop, ngen, mutRate, crossRate)
 
 	gen := 1
-	best := 0.0
+	best := -math.MaxFloat64
 	updated := 0
 	for ; ; gen++ {
 		ga.Evolve()
