@@ -20,7 +20,7 @@ import (
 )
 
 // LIMIT determines the largest distance for two tigs to add to total score
-const LIMIT = 5000000
+const LIMIT = 2500000
 
 // LimitLog is the Log of LIMIT
 var LimitLog = math.Log(LIMIT)
@@ -77,33 +77,6 @@ func (r Tour) Copy() gago.Slice {
 	return clone
 }
 
-// // Evaluate calculates a score for the current tour
-// func (r Tour) Evaluate() (score float64) {
-// 	size := r.Len()
-// 	mid := make([]float64, size)
-// 	cumSum := 0.0
-// 	for i, t := range r.Tigs {
-// 		tsize := float64(t.Size)
-// 		mid[i] = cumSum + tsize/2
-// 		cumSum += tsize
-// 	}
-// 	// Now add up all the pairwise scores
-// 	for i := 0; i < size; i++ {
-// 		a := r.Tigs[i].Idx
-// 		for j := i + 1; j < size; j++ {
-// 			b := r.Tigs[j].Idx
-// 			nlinks := r.M[a][b]
-// 			dist := mid[j] - mid[i]
-// 			if dist > LIMIT {
-// 				break
-// 			}
-// 			// We are looking for maximum
-// 			score -= float64(nlinks) / dist
-// 		}
-// 	}
-// 	return
-// }
-
 // Evaluate calculates a score for the current tour
 func (r Tour) Evaluate() float64 {
 	size := r.Len()
@@ -123,6 +96,10 @@ func (r Tour) Evaluate() float64 {
 			b := r.Tigs[j].Idx
 			nlinks := r.M[a][b]
 			dist := mid[j] - mid[i]
+			// This serves two purposes:
+			// 1. Break earlier reduces the amount of calculation
+			// 2. Ignore distant links so that telomeric regions don't come
+			//    to be adjacent (based on Ler0 data)
 			if dist > LIMIT {
 				break
 			}
@@ -264,7 +241,7 @@ func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
 	for ; ; gen++ {
 		ga.Evolve()
 		currentBest := -ga.HallOfFame[0].Fitness
-		if gen%(opt.NGen/10) == 0 {
+		if gen%500 == 0 {
 			fmt.Printf("Current iteration GA%d-%d: max_score=%.5f\n",
 				phase, gen, currentBest)
 			currentBestTour := ga.HallOfFame[0].Genome.(Tour)
