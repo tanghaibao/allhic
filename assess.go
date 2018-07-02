@@ -35,21 +35,27 @@ const probCutoff = .95
 // Step 3. Normalize the likelihood to get the posterior probability (implicit assumption)
 //         of equal prior probability for each contig
 type Assesser struct {
-	Bamfile       string
-	Bedfile       string
-	Seqid         string
-	Seqsize       int
-	nBins         int
-	nLinks        []int
-	binNorms      []int
-	linkDensity   []float64
-	binStarts     []int
-	logP          []float64
-	contigs       []BedLine
-	intraLinks    []int   // Contig link sizes for all intra-contig links
-	interLinksFwd [][]int // Contig link sizes assuming same dir
-	interLinksRev [][]int // Contig link sizes assuming other dir
-	postprob      []float64
+	Bamfile          string
+	Bedfile          string
+	Seqid            string
+	Seqsize          int
+	nBins            int
+	nLinks           []int
+	binNorms         []int
+	linkDensity      []float64
+	linkDensityModel *LinkDensityModel
+	binStarts        []int
+	logP             []float64
+	contigs          []BedLine
+	intraLinks       []int   // Contig link sizes for all intra-contig links
+	interLinksFwd    [][]int // Contig link sizes assuming same dir
+	interLinksRev    [][]int // Contig link sizes assuming other dir
+	postprob         []float64
+}
+
+// LinkDensityModel is a power-law model Y = A * X ^ B, stores co-efficients
+type LinkDensityModel struct {
+	A, B float64
 }
 
 // BedLine stores the information from each line in the bedfile
@@ -312,13 +318,23 @@ func (r *Assesser) Makebins() {
 		r.linkDensity[i] = float64(nLinks[i]) / float64(binNorms[i])
 	}
 
-	// Step 5: assume the distribution approximates 1/x for large x
+	// Step 5: in LACHESIS, we assume the distribution approximates 1/x
+	// for large x. This is not accurate. We should instead infer a power law
+	// distribution.
 	topBin := nIntraContigBins - 1
 	nTopLinks := 0
 	nTopLinksNeeded := len(r.intraLinks) / 100
 	for ; nTopLinks < nTopLinksNeeded; topBin-- {
 		nTopLinks += nLinks[topBin]
 	}
+
+	Xs := []int{}
+	Ys := []float64{}
+	for i := 0; i < topBin; i++ {
+		Xs = append(Xs, r.binStarts[i])
+		Ys = append(Ys, r.linkDensity[i]/float64(r.BinSize(i)))
+	}
+	r.fitPowerLaw(Xs, Ys)
 
 	avgLinkDensity := 0.0
 	for i := topBin; i < nIntraContigBins; i++ {
@@ -329,7 +345,9 @@ func (r *Assesser) Makebins() {
 	// Overwrite the values of last few bins, or a bin with na values
 	for i := 0; i < nBins; i++ {
 		if r.linkDensity[i] == 0 || i >= topBin {
-			r.linkDensity[i] = avgLinkDensity
+			r.linkDensity[i] = r.transformPowerLaw(r.binStarts[i]) * float64(r.BinSize(i))
+		} else {
+			fmt.Println(r.linkDensity[i], r.transformPowerLaw(r.binStarts[i])*float64(r.BinSize(i)))
 		}
 	}
 
@@ -337,6 +355,35 @@ func (r *Assesser) Makebins() {
 	r.nBins = nBins
 	r.binNorms = binNorms
 	r.nLinks = nLinks
+}
+
+// fitPowerLaw fits power law distribution
+// See reference: http://mathworld.wolfram.com/LeastSquaresFittingPowerLaw.html
+// Assumes the form Y = A * X^B, returns (A, B), the coefficients
+func (r *Assesser) fitPowerLaw(Xs []int, Ys []float64) {
+	SumLogXLogY, SumLogXLogX, SumLogX, SumLogY := 0.0, 0.0, 0.0, 0.0
+	n := len(Xs)
+	for i := 0; i < n; i++ {
+		logXs, logYs := math.Log(float64(Xs[i])), math.Log(Ys[i])
+		SumLogXLogY += logXs * logYs
+		SumLogXLogX += logXs * logXs
+		SumLogX += logXs
+		SumLogY += logYs
+	}
+
+	B := (float64(n)*SumLogXLogY - SumLogX*SumLogY) / (float64(n)*SumLogXLogX - SumLogX*SumLogX)
+	fmt.Println(n, SumLogXLogY, SumLogX*SumLogY, SumLogXLogX, SumLogX*SumLogX)
+	A := math.Exp((SumLogY - B*SumLogX) / float64(n))
+	r.linkDensityModel = &LinkDensityModel{
+		A: A, B: B,
+	}
+
+	log.Noticef("Power law Y = %.4f * X ^ %.4f", A, B)
+}
+
+// transformPowerLaw interpolate probability value given a link size
+func (r *Assesser) transformPowerLaw(X int) float64 {
+	return r.linkDensityModel.A * math.Pow(float64(X), r.linkDensityModel.B)
 }
 
 // MakeProbDist calculates the expected number of links in each bin, which is then
