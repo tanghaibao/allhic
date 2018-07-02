@@ -45,7 +45,6 @@ type Assesser struct {
 	linkDensity      []float64
 	linkDensityModel *LinkDensityModel
 	binStarts        []int
-	logP             []float64
 	contigs          []BedLine
 	intraLinks       []int   // Contig link sizes for all intra-contig links
 	interLinksFwd    [][]int // Contig link sizes assuming same dir
@@ -54,6 +53,8 @@ type Assesser struct {
 }
 
 // LinkDensityModel is a power-law model Y = A * X ^ B, stores co-efficients
+// this density than needs to multiply C - X to make it a probability distribution
+// where C is chromosome length
 type LinkDensityModel struct {
 	A, B float64
 }
@@ -73,7 +74,6 @@ func (r *Assesser) Run() {
 	r.ExtractContigLinks()
 	r.Makebins()
 	r.WriteDistribution(r.Seqid + ".distribution.txt")
-	r.MakeProbDist()
 	r.ComputePosteriorProb()
 	r.WritePostProb(r.Seqid + ".postprob.txt")
 }
@@ -209,11 +209,6 @@ func (r *Assesser) ExtractContigLinks() {
 			ci++
 			// fmt.Println(r.contigs[ci], a, nIntraLinks, nInterLinks)
 		}
-
-		// TODO: remove this
-		// if ci > 100 {
-		// 	break
-		// }
 
 		link := abs(a - b)
 		if link < MinLinkDist {
@@ -377,51 +372,30 @@ func (r *Assesser) transformPowerLaw(X int) float64 {
 	return r.linkDensityModel.A * math.Pow(float64(X), r.linkDensityModel.B)
 }
 
-// MakeProbDist calculates the expected number of links in each bin, which is then
-// normalized to make a probability distribution
-//
-// TODO: check if we need to build prob dist for each contig
-func (r *Assesser) MakeProbDist() {
-	nBins := len(r.linkDensity)
-	expectedLinks := make([]float64, nBins) // expected number of links for each bin
-	sum := 0.0
-	minLink := math.MaxFloat64
-	for i := 0; i < nBins; i++ {
-		if r.Seqsize > r.binStarts[i] {
-			expectedLinks[i] = r.linkDensity[i] * float64(r.Seqsize-r.binStarts[i])
-			if expectedLinks[i] < minLink {
-				minLink = expectedLinks[i]
-			}
-		} else {
-			expectedLinks[i] = minLink
-		}
-		// Last bin may not be fully filled
-		sum += expectedLinks[i] * float64(min(r.Seqsize-r.binStarts[i], r.BinSize(i)))
-	}
-
-	r.logP = make([]float64, nBins)
-	// Normalize so that they add to 1
-	for i := 0; i < nBins; i++ {
-		r.logP[i] = math.Log(expectedLinks[i] / sum)
-	}
+// transformLogProb calculates the probability given a link size
+func (r *Assesser) tranformLogProb(X int) float64 {
+	// The following two version have subtle differences, first one is more accurate, but
+	// in reality the difference seems to be neglible
+	// return math.Log(float64(r.Seqsize-X)) + r.linkDensityModel.B*math.Log(float64(X))
+	return r.linkDensityModel.B * math.Log(float64(X))
 }
 
 // ComputeLikelihood computes the likelihood of link sizes assuming + orientation
 // and - orientation, respectively
-func computeLikelihood(links []int, logP []float64) float64 {
+func (r *Assesser) computeLikelihood(links []int) float64 {
 	sumLogP := 0.0
 	for _, link := range links {
-		if link < MinLinkDist {
-			link = MinLinkDist
-		}
-		bin := linkBin(link)
-		sumLogP += logP[bin]
+		// if link < MinLinkDist {
+		// 	link = MinLinkDist
+		// }
+		// bin := linkBin(link)
+		sumLogP += r.tranformLogProb(link)
 	}
 	return sumLogP
 }
 
 // posterioProbability calculates the posterior probability given two likelihood
-func posterioProbability(L1, L2 float64) float64 {
+func posteriorProbability(L1, L2 float64) float64 {
 	base := L1 // smaller of the two
 	if L1 > L2 {
 		base = L2
@@ -448,9 +422,9 @@ func (r *Assesser) ComputePosteriorProb() {
 		// 	break
 		// }
 		// fmt.Println(contig)
-		fwdLogP := computeLikelihood(r.interLinksFwd[i], r.logP)
-		revLogP := computeLikelihood(r.interLinksRev[i], r.logP)
-		fwdProb := posterioProbability(fwdLogP, revLogP)
+		fwdLogP := r.computeLikelihood(r.interLinksFwd[i])
+		revLogP := r.computeLikelihood(r.interLinksRev[i])
+		fwdProb := posteriorProbability(fwdLogP, revLogP)
 		r.postprob[i] = fwdProb
 		// fmt.Println(fwdLogP, revLogP, fwdProb)
 
