@@ -22,6 +22,9 @@ import (
 // LIMIT determines the largest distance for two tigs to add to total score
 const LIMIT = 10000000
 
+// LimitLog is the Log of LIMIT
+var LimitLog = math.Log(LIMIT)
+
 // We will implement the Slice interface here, key ideas borrowed from:
 // https://github.com/MaxHalford/gago-examples/blob/master/tsp_grid/main.go
 
@@ -84,8 +87,6 @@ func (r Tour) Copy() gago.Slice {
 // 		mid[i] = cumSum + tsize/2
 // 		cumSum += tsize
 // 	}
-// 	// fmt.Println(r.Tigs, mid)
-
 // 	// Now add up all the pairwise scores
 // 	for i := 0; i < size; i++ {
 // 		a := r.Tigs[i].Idx
@@ -113,7 +114,6 @@ func (r Tour) Evaluate() float64 {
 		mid[i] = cumSum + tsize/2
 		cumSum += tsize
 	}
-	// fmt.Println(r.Tigs, mid)
 
 	score := 0.0
 	// Now add up all the pairwise scores
@@ -123,8 +123,13 @@ func (r Tour) Evaluate() float64 {
 			b := r.Tigs[j].Idx
 			nlinks := r.M[a][b]
 			dist := mid[j] - mid[i]
-			// We are looking for maximum
-			score += float64(nlinks) * math.Log(dist)
+			if dist > LIMIT {
+				break
+			}
+			// gago only looks at minimum =>
+			// everytime we have a small dist, we reduce the total score
+			// we are looking at the largest reductions from all links
+			score += float64(nlinks) * (math.Log(dist) - LimitLog)
 		}
 	}
 	return score
