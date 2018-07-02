@@ -20,7 +20,7 @@ import (
 )
 
 // LIMIT determines the largest distance for two tigs to add to total score
-const LIMIT = 10000000
+const LIMIT = 5000000
 
 // LimitLog is the Log of LIMIT
 var LimitLog = math.Log(LIMIT)
@@ -254,8 +254,8 @@ func (r *CLM) GARun(fwtour *os.File, npop, ngen int, mutRate, crossRate float64,
 	}
 	ga.Initialize()
 
-	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.3f, cx: %.3f)",
-		npop, ngen, mutRate, crossRate)
+	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.3f, cx: %.3f, break: %d)",
+		npop, ngen, mutRate, crossRate, LIMIT)
 
 	gen := 1
 	best := -math.MaxFloat64
