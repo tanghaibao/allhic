@@ -19,6 +19,9 @@ import (
 type Optimizer struct {
 	Clmfile   string
 	RunGA     bool
+	Seed      int64
+	NPop      int
+	NGen      int
 	MutProb   float64
 	CrossProb float64
 }
@@ -38,7 +41,7 @@ func (r *Optimizer) Run() {
 
 	if r.RunGA {
 		for phase := 1; phase < 3; phase++ {
-			clm.OptimizeOrdering(fwtour, phase, r.MutProb, r.CrossProb)
+			clm.OptimizeOrdering(fwtour, r, phase)
 		}
 	}
 
@@ -53,8 +56,8 @@ func (r *Optimizer) Run() {
 }
 
 // OptimizeOrdering changes the ordering of contigs by Genetic Algorithm
-func (r *CLM) OptimizeOrdering(fwtour *os.File, phase int, mutpb, cxpb float64) {
-	r.GARun(fwtour, 100, 5000, mutpb, cxpb, phase)
+func (r *CLM) OptimizeOrdering(fwtour *os.File, opt *Optimizer, phase int) {
+	r.GARun(fwtour, opt, phase)
 	r.pruneTour()
 }
 

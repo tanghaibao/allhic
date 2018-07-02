@@ -233,7 +233,7 @@ func (r Tour) Shuffle() {
 }
 
 // GARun set up the Genetic Algorithm and run it
-func (r *CLM) GARun(fwtour *os.File, npop, ngen int, mutRate, crossRate float64, phase int) Tour {
+func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
 	MakeTour := func(rng *rand.Rand) gago.Genome {
 		c := r.Tour.Clone()
 		return c
@@ -242,20 +242,21 @@ func (r *CLM) GARun(fwtour *os.File, npop, ngen int, mutRate, crossRate float64,
 	ga := gago.GA{
 		NewGenome: MakeTour,
 		NPops:     1,
-		PopSize:   npop,
+		PopSize:   opt.NPop,
 		Model: gago.ModGenerational{
 			Selector: gago.SelTournament{
 				NContestants: 3,
 			},
-			MutRate:   mutRate,
-			CrossRate: crossRate,
+			MutRate:   opt.MutProb,
+			CrossRate: opt.CrossProb,
 		},
+		RNG:          rand.New(rand.NewSource(opt.Seed)),
 		ParallelEval: true,
 	}
 	ga.Initialize()
 
-	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.3f, cx: %.3f, break: %d)",
-		npop, ngen, mutRate, crossRate, LIMIT)
+	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.3f, cx: %.3f, rng: %d, break: %d)",
+		opt.NPop, opt.NGen, opt.MutProb, opt.CrossProb, opt.Seed, LIMIT)
 
 	gen := 1
 	best := -math.MaxFloat64
@@ -263,7 +264,7 @@ func (r *CLM) GARun(fwtour *os.File, npop, ngen int, mutRate, crossRate float64,
 	for ; ; gen++ {
 		ga.Evolve()
 		currentBest := -ga.HallOfFame[0].Fitness
-		if gen%(ngen/10) == 0 {
+		if gen%(opt.NGen/10) == 0 {
 			fmt.Printf("Current iteration GA%d-%d: max_score=%.5f\n",
 				phase, gen, currentBest)
 			currentBestTour := ga.HallOfFame[0].Genome.(Tour)
@@ -276,7 +277,7 @@ func (r *CLM) GARun(fwtour *os.File, npop, ngen int, mutRate, crossRate float64,
 			updated = gen
 		}
 
-		if gen-updated > ngen { // Converged
+		if gen-updated > opt.NGen { // Converged
 			break
 		}
 	}

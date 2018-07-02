@@ -100,8 +100,10 @@ func (r *CLM) flipOne() (tag string) {
 			nRejects++
 			tag = REJECT
 		}
-		flipLog(fmt.Sprintf("FLIPONE (%d/%d)", i+1, r.Tour.Len()),
-			score, newScore, tag)
+		if (i+1)%50 == 0 {
+			flipLog(fmt.Sprintf("FLIPONE (%d/%d)", i+1, r.Tour.Len()),
+				score, newScore, tag)
+		}
 		if tag == ACCEPT {
 			anyTagACCEPT = true
 			score = newScore

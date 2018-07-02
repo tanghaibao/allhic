@@ -157,6 +157,21 @@ for these contigs.
 					Name:  "skipGA",
 					Usage: "Skip GA step",
 				},
+				cli.Int64Flag{
+					Name:  "seed",
+					Usage: "Random seed",
+					Value: 42,
+				},
+				cli.IntFlag{
+					Name:  "npop",
+					Usage: "Population size",
+					Value: 100,
+				},
+				cli.IntFlag{
+					Name:  "ngen",
+					Usage: "Number of generations for convergence",
+					Value: 5000,
+				},
 				cli.Float64Flag{
 					Name:  "mutpb",
 					Usage: "Mutation prob in GA",
@@ -176,9 +191,14 @@ for these contigs.
 
 				clmfile := c.Args().Get(0)
 				runGA := !c.Bool("skipGA")
+				seed := c.Int64("seed")
+				npop := c.Int("npop")
+				ngen := c.Int("ngen")
 				mutpb := c.Float64("mutpb")
 				cxpb := c.Float64("cxpb")
-				p := allhic.Optimizer{Clmfile: clmfile, RunGA: runGA, MutProb: mutpb, CrossProb: cxpb}
+				p := allhic.Optimizer{Clmfile: clmfile, RunGA: runGA,
+					Seed: seed, NPop: npop, NGen: ngen,
+					MutProb: mutpb, CrossProb: cxpb}
 				p.Run()
 				return nil
 			},
