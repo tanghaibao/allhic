@@ -128,10 +128,10 @@ func randomInts(k, min, max int, rng *rand.Rand) (ints []int) {
 }
 
 // randomTwoInts is a faster version than randomInts above
-func randomTwoInts(genome gago.Slice) (int, int) {
+func randomTwoInts(genome gago.Slice, rng *rand.Rand) (int, int) {
 	n := genome.Len()
-	p := rand.Intn(n)
-	q := rand.Intn(n)
+	p := rng.Intn(n)
+	q := rng.Intn(n)
 	if p > q {
 		p, q = q, p
 	}
@@ -142,7 +142,7 @@ func randomTwoInts(genome gago.Slice) (int, int) {
 func MutInversion(genome gago.Slice, rng *rand.Rand) {
 	// log.Debugf("Before MutInversion: %v", genome)
 	// Choose two points on the genome
-	p, q := randomTwoInts(genome)
+	p, q := randomTwoInts(genome, rng)
 	if p == q {
 		return
 	}
@@ -157,16 +157,27 @@ func MutInversion(genome gago.Slice, rng *rand.Rand) {
 func MutInsertion(genome gago.Slice, rng *rand.Rand) {
 	// log.Debugf("Before MutInsertion: %v", genome)
 	// Choose two points on the genome
-	p, q := randomTwoInts(genome)
+	p, q := randomTwoInts(genome, rng)
 	if p == q {
 		return
 	}
-	cq := genome.At(q) // Pop q and insert to p position
-	// Move cq to the front and push everyone right
-	for i := q; i > p; i-- {
-		genome.Set(i, genome.At(i-1))
+
+	if rng.Float64() < .5 {
+		cq := genome.At(q) // Pop q and insert to p position
+		// Move cq to the front and push everyone right
+		for i := q; i > p; i-- {
+			genome.Set(i, genome.At(i-1))
+		}
+		genome.Set(p, cq)
+	} else {
+		cp := genome.At(p)
+		// Move cq to the back and push everyone left
+		for i := p; i < q; i++ {
+			genome.Set(i, genome.At(i+1))
+		}
+		genome.Set(q, cp)
 	}
-	genome.Set(p, cq)
+
 	// log.Debugf("After MutInsertion: %v", genome)
 }
 
