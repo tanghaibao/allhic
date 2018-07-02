@@ -14,13 +14,12 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"sort"
 
 	"github.com/tanghaibao/gago"
 )
 
 // LIMIT determines the largest distance for two tigs to add to total score
-const LIMIT = 2500000
+const LIMIT = 5000000
 
 // LimitLog is the Log of LIMIT
 var LimitLog = math.Log(LIMIT)
@@ -128,60 +127,55 @@ func randomInts(k, min, max int, rng *rand.Rand) (ints []int) {
 	return
 }
 
+// randomTwoInts is a faster version than randomInts above
+func randomTwoInts(genome gago.Slice) (int, int) {
+	n := genome.Len()
+	p := rand.Intn(n)
+	q := rand.Intn(n)
+	if p > q {
+		p, q = q, p
+	}
+	return p, q
+}
+
 // MutInversion applies inversion operation on the genome
-func MutInversion(genome gago.Slice, n int, rng *rand.Rand) {
+func MutInversion(genome gago.Slice, rng *rand.Rand) {
 	// log.Debugf("Before MutInversion: %v", genome)
-	for k := 0; k < n; k++ {
-		// Choose two points on the genome
-		var points = randomInts(2, 0, genome.Len(), rng)
-		sort.Ints(points)
-		p := points[0]
-		q := points[1]
-		if p == q {
-			return
-		}
-		// Swap within range
-		for i, j := p, q; i < j; i, j = i+1, j-1 {
-			genome.Swap(i, j)
-		}
+	// Choose two points on the genome
+	p, q := randomTwoInts(genome)
+	if p == q {
+		return
+	}
+	// Swap within range
+	for i, j := p, q; i < j; i, j = i+1, j-1 {
+		genome.Swap(i, j)
 	}
 	// log.Debugf("After MutInversion: %v", genome)
 }
 
 // MutInsertion applies insertion operation on the genome
-func MutInsertion(genome gago.Slice, n int, rng *rand.Rand) {
+func MutInsertion(genome gago.Slice, rng *rand.Rand) {
 	// log.Debugf("Before MutInsertion: %v", genome)
-	for k := 0; k < n; k++ {
-		// Choose two points on the genome
-		var points = randomInts(2, 0, genome.Len(), rng)
-		p := points[0]
-		q := points[1]
-		if p == q {
-			return
-		}
-		cq := genome.At(q) // Pop q and insert to p position
-		if p < q {
-			// Move cq to the front and push everyone right
-			for i := q; i > p; i-- {
-				genome.Set(i, genome.At(i-1))
-			}
-		} else { // q < p
-			// Move cq to the back and push everyone left
-			for i := q; i < p; i++ {
-				genome.Set(i, genome.At(i+1))
-			}
-		}
-		genome.Set(p, cq)
+	// Choose two points on the genome
+	p, q := randomTwoInts(genome)
+	if p == q {
+		return
 	}
+	cq := genome.At(q) // Pop q and insert to p position
+	// Move cq to the front and push everyone right
+	for i := q; i > p; i-- {
+		genome.Set(i, genome.At(i-1))
+	}
+	genome.Set(p, cq)
 	// log.Debugf("After MutInsertion: %v", genome)
 }
 
 // Mutate a Tour by applying by inversion or insertion
 func (r Tour) Mutate(rng *rand.Rand) {
 	if rng.Float64() < 0.5 {
-		MutInversion(r, 1, rng)
+		MutInversion(r, rng)
 	} else {
-		MutInsertion(r, 1, rng)
+		MutInsertion(r, rng)
 	}
 }
 
