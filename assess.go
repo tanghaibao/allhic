@@ -315,7 +315,7 @@ func (r *Assesser) Makebins() {
 	// Step 4: normalize to calculate link density
 	r.linkDensity = make([]float64, nBins)
 	for i := 0; i < nIntraContigBins; i++ {
-		r.linkDensity[i] = float64(nLinks[i]) / float64(binNorms[i])
+		r.linkDensity[i] = float64(nLinks[i]) / float64(binNorms[i]) / float64(r.BinSize(i))
 	}
 
 	// Step 5: in LACHESIS, we assume the distribution approximates 1/x
@@ -332,22 +332,14 @@ func (r *Assesser) Makebins() {
 	Ys := []float64{}
 	for i := 0; i < topBin; i++ {
 		Xs = append(Xs, r.binStarts[i])
-		Ys = append(Ys, r.linkDensity[i]/float64(r.BinSize(i)))
+		Ys = append(Ys, r.linkDensity[i])
 	}
 	r.fitPowerLaw(Xs, Ys)
-
-	avgLinkDensity := 0.0
-	for i := topBin; i < nIntraContigBins; i++ {
-		avgLinkDensity += r.linkDensity[i]
-	}
-	avgLinkDensity /= float64(nIntraContigBins - topBin)
 
 	// Overwrite the values of last few bins, or a bin with na values
 	for i := 0; i < nBins; i++ {
 		if r.linkDensity[i] == 0 || i >= topBin {
-			r.linkDensity[i] = r.transformPowerLaw(r.binStarts[i]) * float64(r.BinSize(i))
-		} else {
-			fmt.Println(r.linkDensity[i], r.transformPowerLaw(r.binStarts[i])*float64(r.BinSize(i)))
+			r.linkDensity[i] = r.transformPowerLaw(r.binStarts[i])
 		}
 	}
 
@@ -404,16 +396,15 @@ func (r *Assesser) MakeProbDist() {
 		} else {
 			expectedLinks[i] = minLink
 		}
-		sum += expectedLinks[i]
+		// Last bin may not be fully filled
+		sum += expectedLinks[i] * float64(min(r.Seqsize-r.binStarts[i], r.BinSize(i)))
 	}
 
 	r.logP = make([]float64, nBins)
 	// Normalize so that they add to 1
 	for i := 0; i < nBins; i++ {
-		r.logP[i] = math.Log(expectedLinks[i] / sum / float64(r.BinSize(i)))
+		r.logP[i] = math.Log(expectedLinks[i] / sum)
 	}
-	// fmt.Println(expectedLinks)
-	// fmt.Println(r.logP)
 }
 
 // ComputeLikelihood computes the likelihood of link sizes assuming + orientation
