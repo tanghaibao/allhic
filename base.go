@@ -115,13 +115,21 @@ func Round(input float64) float64 {
 	return math.Floor(input + 0.5)
 }
 
+// SumLog returns the kernel of sum of log likelihood
+func SumLog(a []int) float64 {
+	sum := 0.0
+	for _, val := range a {
+		sum += math.Log(float64(val))
+	}
+	return sum
+}
+
 // HmeanInt returns the harmonic mean
 // That is:  n / (1/x1 + 1/x2 + ... + 1/xn)
-func HmeanInt(a []int, amin, amax int) int {
+func HmeanInt(a []int, amin, amax int) float64 {
 	size := len(a)
 	sum := 0.0
-	for i := 0; i < size; i++ {
-		val := a[i]
+	for _, val := range a {
 		if val > amax {
 			val = amax
 		} else if val < amin {
@@ -129,7 +137,7 @@ func HmeanInt(a []int, amin, amax int) int {
 		}
 		sum += 1.0 / float64(val)
 	}
-	return int(Round(float64(size) / sum))
+	return float64(size) / sum
 }
 
 // GoldenArray is given list of ints, we aggregate similar values so that it becomes an

@@ -69,7 +69,7 @@ type OrientedPair struct {
 type Contact struct {
 	strandedness int
 	nlinks       int
-	meanDist     int
+	meanDist     float64
 }
 
 // TigF stores the index to activeTigs and size of the tig
@@ -192,7 +192,8 @@ func (r *CLM) ParseClm() {
 
 		// Store all these info in contacts
 		gdists := GoldenArray(line.links)
-		meanDist := HmeanInt(line.links, GRLB, GRUB)
+		// meanDist := Hmean(line.links, GRLB, GRUB)
+		meanDist := SumLog(line.links)
 		strandedness := 1
 		if line.ao != line.bo {
 			strandedness = -1

@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/gonum/matrix/mat64"
 )
@@ -155,9 +156,10 @@ func (r *CLM) Q() [][]GArray {
 // plus the actual link distances. Maximize Sum(1 / distance) for all links.
 // For performance consideration, we actually use a histogram to approximate
 // all link distances. See goldenArray() for details.
-func (r *CLM) EvaluateQ() (score float64) {
+func (r *CLM) EvaluateQ() float64 {
 	tour := r.Tour
 	Q := r.Q()
+	score := 0.0
 
 	size := tour.Len()
 	cumsize := make([]int, size)
@@ -181,10 +183,11 @@ func (r *CLM) EvaluateQ() (score float64) {
 				break
 			}
 			for k := 0; k < BB; k++ {
-				score += float64(Q[a][b][k]) / float64(GR[k]+dist)
+				// score += float64(Q[a][b][k]) / float64(GR[k]+dist)
+				score -= float64(Q[a][b][k]) * math.Log(float64(GR[k]+dist))
 			}
 			// fmt.Println(r.Tigs[a], r.Tigs[b], Q[a][b], score)
 		}
 	}
-	return
+	return score
 }
