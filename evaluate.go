@@ -181,12 +181,38 @@ func MutInsertion(genome gago.Slice, rng *rand.Rand) {
 	// log.Debugf("After MutInsertion: %v", genome)
 }
 
+// MutPermute permutes two genes at random n times
+func MutPermute(genome gago.Slice, rng *rand.Rand) {
+	// Nothing to permute
+	if genome.Len() <= 1 {
+		return
+	}
+	// Choose two points on the genome
+	p, q := randomTwoInts(genome, rng)
+	genome.Swap(p, q)
+}
+
+// MutSplice splits a genome in 2 and glues the pieces back together in reverse
+// order
+func MutSplice(genome gago.Slice, rng *rand.Rand) {
+	var (
+		k    = rng.Intn(genome.Len()-1) + 1
+		a, b = genome.Split(k)
+	)
+	genome.Replace(b.Append(a))
+}
+
 // Mutate a Tour by applying by inversion or insertion
 func (r Tour) Mutate(rng *rand.Rand) {
-	if rng.Float64() < 0.5 {
-		MutInversion(r, rng)
-	} else {
+	rd := rng.Float64()
+	if rd < 0.25 {
+		MutPermute(r, rng)
+	} else if rd < .5 {
+		MutSplice(r, rng)
+	} else if rd < .75 {
 		MutInsertion(r, rng)
+	} else {
+		MutInversion(r, rng)
 	}
 }
 
@@ -236,7 +262,7 @@ func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
 	}
 	ga.Initialize()
 
-	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.3f, rng: %d, break: %d)",
+	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %f, rng: %d, break: %d)",
 		opt.NPop, opt.NGen, opt.MutProb, opt.Seed, LIMIT)
 
 	gen := 1
