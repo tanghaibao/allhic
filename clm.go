@@ -289,7 +289,8 @@ func (r *CLM) pruneTour() {
 
 	for {
 		tour = r.Tour
-		tourScore := -tour.Evaluate()
+		tourScore, _ := tour.Evaluate()
+		tourScore = -tourScore
 		log.Noticef("Starting score: %.5f", tourScore)
 		log10ds := make([]float64, tour.Len()) // Each entry is the log10 of diff
 
@@ -301,7 +302,8 @@ func (r *CLM) pruneTour() {
 			wg.Add(1)
 			go func(idx int, newTour Tour) {
 				defer wg.Done()
-				newTourScore := -newTour.Evaluate()
+				newTourScore, _ := newTour.Evaluate()
+				newTourScore = -newTourScore
 				deltaScore := tourScore - newTourScore
 				// log.Noticef("In goroutine %v, newTour = %v, newTourScore = %v, deltaScore = %v",
 				// 	idx, newTour.Tigs, newTourScore, deltaScore)

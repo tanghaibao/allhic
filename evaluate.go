@@ -15,7 +15,7 @@ import (
 	"math/rand"
 	"os"
 
-	"github.com/tanghaibao/gago"
+	"github.com/MaxHalford/gago"
 )
 
 // LIMIT determines the largest distance for two tigs to add to total score
@@ -77,7 +77,7 @@ func (r Tour) Copy() gago.Slice {
 }
 
 // Evaluate calculates a score for the current tour
-func (r Tour) Evaluate() float64 {
+func (r Tour) Evaluate() (float64, error) {
 	size := r.Len()
 	mid := make([]float64, size)
 	cumSum := 0.0
@@ -108,7 +108,7 @@ func (r Tour) Evaluate() float64 {
 			score += float64(nlinks) * (math.Log(dist) - LimitLog)
 		}
 	}
-	return score
+	return score, nil
 }
 
 // Sample k unique integers in range [min, max) using reservoir sampling,
