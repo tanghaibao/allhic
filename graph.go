@@ -30,6 +30,12 @@ type Edge struct {
 // Graph is an adjacency list
 type Graph map[*Node]map[*Node]int64
 
+// nodeCmp is used often to present nodes ordered (since pointers and maps are not ordered)
+func nodeCmp(a, b *Node) bool {
+	return a.path.contigs[0].name < b.path.contigs[0].name ||
+		(a.sister == b && a.isLNode())
+}
+
 // isLNode returns if a Node is an LNode (5`-end`)
 func (r *Node) isLNode() bool {
 	return r == r.path.LNode
@@ -205,7 +211,18 @@ func (r *Anchorer) generatePathAndCycle(G Graph, flanksize int64) PathSet {
 	visited := map[*Node]bool{}
 	var isCycle bool
 	var path *Path
+	// We can just iterate the dictionary, however, that will not be ordered
+	// we want the visit order to be stable
+	orderedNodes := []*Node{}
 	for a := range G {
+		orderedNodes = append(orderedNodes, a)
+	}
+	sort.Slice(orderedNodes, func(i, j int) bool {
+		return nodeCmp(orderedNodes[i], orderedNodes[j])
+	})
+
+	// Now go through all nodes
+	for _, a := range orderedNodes {
 		if _, ok := visited[a]; ok {
 			continue
 		}
@@ -261,8 +278,10 @@ func reversePath(path []Edge) []Edge {
 // breakage occurs at the weakest link
 func breakCycle(path []Edge) []Edge {
 	minI, minWeight := 0, int64(math.MaxInt64)
+	var minEdge *Edge
 	for i, edge := range path {
-		if edge.weight > 1 && edge.weight < minWeight {
+		if edge.weight > 1 && (edge.weight < minWeight ||
+			(edge.weight == minWeight && nodeCmp(edge.a, minEdge.a))) {
 			minI, minWeight = i, edge.weight
 		}
 	}
@@ -288,7 +307,7 @@ func dfs(G Graph, a *Node, path []Edge, visited map[*Node]bool, visitSister bool
 		var maxb *Node
 		maxWeight := int64(0) // for tie breaking
 		for b, weight := range nb {
-			if weight > maxWeight {
+			if weight > maxWeight || (weight == maxWeight && nodeCmp(b, maxb)) {
 				maxb, maxWeight = b, weight
 			}
 		}
