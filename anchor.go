@@ -98,13 +98,14 @@ func (r *Anchorer) Run() {
 	for i := 0; i < nIterations; i++ {
 		r.iterativeGraphMerge(paths, flanksize)
 		// Attempt to split bad joins
-		r.makeContigStarts()
-		piler := r.inspectGaps(LinkDist)
-		countCutoff := r.findCountCutoff(piler)
-		paths = r.splitPath(piler, countCutoff, flanksize)
+		// r.makeContigStarts()
+		// piler := r.inspectGaps(LinkDist)
+		// countCutoff := r.findCountCutoff(piler)
+		// paths = r.splitPath(piler, countCutoff, flanksize)
 	}
 
 	// Serialize to disk for plotting
+	r.makeContigStarts()
 	r.serialize(250000, "genome.json", "data.npy")
 
 	// printPaths(paths)
@@ -116,7 +117,7 @@ func (r *Anchorer) iterativeGraphMerge(paths PathSet, flanksize int64) {
 	i := 0
 	prevPaths := len(paths)
 	graphRemake := true
-	for prevPaths > 1 {
+	for prevPaths > 20 {
 		// flanksize = getL50(paths) / 4
 		if graphRemake {
 			i++
@@ -135,6 +136,8 @@ func (r *Anchorer) iterativeGraphMerge(paths PathSet, flanksize int64) {
 		}
 		prevPaths = len(paths)
 	}
+
+	printPaths(paths)
 
 	// Path found
 	r.path = nil
@@ -575,6 +578,10 @@ func (r *Anchorer) serialize(res int64, jsonfile, npyfile string) {
 		A.Starts[contig.name] = contig.start / res
 		A.Sizes[contig.name] = contig.length / res
 		for _, link := range contig.links {
+			// The link need to be within the path!
+			if link.a.path != link.b.path {
+				continue
+			}
 			a := findBin(link.a, link.apos, res)
 			b := findBin(link.b, link.bpos, res)
 			C[a*m+b]++
@@ -589,7 +596,8 @@ func (r *Anchorer) serialize(res int64, jsonfile, npyfile string) {
 	jw := bufio.NewWriter(f)
 	jw.WriteString(string(s))
 	jw.Flush()
-	log.Noticef("Contig stats written to `%s`", jsonfile)
+	log.Noticef("Contig stats (N=%d Length=%d) written to `%s`",
+		m, r.path.length, jsonfile)
 
 	// Serialize the pixelated matrix to NPY file
 	w, _ := gonpy.NewFileWriter(npyfile)
