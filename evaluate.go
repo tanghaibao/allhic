@@ -229,16 +229,15 @@ func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
 			Selector: gago.SelTournament{
 				NContestants: 3,
 			},
-			MutRate:   opt.MutProb,
-			CrossRate: opt.CrossProb,
+			MutRate: opt.MutProb,
 		},
 		RNG:          rand.New(rand.NewSource(opt.Seed)),
 		ParallelEval: true,
 	}
 	ga.Initialize()
 
-	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.3f, cx: %.3f, rng: %d, break: %d)",
-		opt.NPop, opt.NGen, opt.MutProb, opt.CrossProb, opt.Seed, LIMIT)
+	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.3f, rng: %d, break: %d)",
+		opt.NPop, opt.NGen, opt.MutProb, opt.Seed, LIMIT)
 
 	gen := 1
 	best := -math.MaxFloat64

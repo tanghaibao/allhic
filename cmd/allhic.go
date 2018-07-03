@@ -177,11 +177,6 @@ for these contigs.
 					Usage: "Mutation prob in GA",
 					Value: .2,
 				},
-				cli.Float64Flag{
-					Name:  "cxpb",
-					Usage: "Crossover prob in GA",
-					Value: .7,
-				},
 			},
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) < 1 {
@@ -195,10 +190,8 @@ for these contigs.
 				npop := c.Int("npop")
 				ngen := c.Int("ngen")
 				mutpb := c.Float64("mutpb")
-				cxpb := c.Float64("cxpb")
 				p := allhic.Optimizer{Clmfile: clmfile, RunGA: runGA,
-					Seed: seed, NPop: npop, NGen: ngen,
-					MutProb: mutpb, CrossProb: cxpb}
+					Seed: seed, NPop: npop, NGen: ngen, MutProb: mutpb}
 				p.Run()
 				return nil
 			},
