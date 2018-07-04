@@ -26,6 +26,7 @@ import (
 // Anchorer runs the merging algorithm
 type Anchorer struct {
 	Bamfile      string
+	Tourfile     string
 	contigs      []*Contig
 	nameToContig map[string]*Contig
 	path         *Path
@@ -93,21 +94,27 @@ func (r *Anchorer) Run() {
 	// Prepare the paths to run
 	nIterations := 1
 	r.ExtractInterContigLinks()
-	flanksize := int64(1000000)
-	paths := r.makeTrivialPaths(r.contigs, flanksize)
-	for i := 0; i < nIterations; i++ {
-		r.iterativeGraphMerge(paths, flanksize)
-		// Attempt to split bad joins
-		// r.makeContigStarts()
-		// piler := r.inspectGaps(LinkDist)
-		// countCutoff := r.findCountCutoff(piler)
-		// paths = r.splitPath(piler, countCutoff, flanksize)
+
+	if r.Tourfile != "" { // Use existing tourfile (just for dumping a matrix)
+		r.parseTourFile(r.Tourfile)
+		r.printTour(os.Stdout, "ANCHORER")
+	} else {
+		flanksize := int64(1000000)
+		paths := r.makeTrivialPaths(r.contigs, flanksize)
+		for i := 0; i < nIterations; i++ {
+			r.iterativeGraphMerge(paths, flanksize)
+			// Attempt to split bad joins
+			// r.makeContigStarts()
+			// piler := r.inspectGaps(LinkDist)
+			// countCutoff := r.findCountCutoff(piler)
+			// paths = r.splitPath(piler, countCutoff, flanksize)
+		}
 	}
 
 	// Serialize to disk for plotting
 	r.makeContigStarts()
 	r.serialize(250000, "genome.json", "data.npy")
-	r.printTour(os.Stdout, "ANCHORER")
+	// r.printTour(os.Stdout, "ANCHORER")
 
 	// printPaths(paths)
 	log.Notice("Success")
@@ -328,6 +335,14 @@ func (r *Anchorer) insertEdge(G Graph, a, b *Node) {
 	}
 }
 
+// getLength computes the length of the path
+func (r *Path) setLength() {
+	r.length = 0
+	for _, contig := range r.contigs {
+		r.length += contig.length
+	}
+}
+
 // bisect cuts the Path into two parts
 // The initial implementation cuts the path into two equal halves. However, this is
 // not desired for longer path since the 'internal' links should be penalized somehow.
@@ -337,11 +352,7 @@ func (r *Path) bisect(flanksize int64) {
 	var contig *Contig
 	var contigpos int64
 
-	r.length = 0
-	for _, contig := range r.contigs {
-		r.length += contig.length
-	}
-
+	r.setLength()
 	flanksize = minInt64(r.length/2, flanksize)
 
 	LNode := &Node{
@@ -615,6 +626,29 @@ func getL50(paths PathSet) int64 {
 	}
 
 	return L50(pathLengths)
+}
+
+// parseTourFile parses tour file
+// Only the last line is retained anc onverted into a Tour
+func (r *Anchorer) parseTourFile(filename string) {
+	words := parseTourFile(filename)
+	tigs := make([]*Contig, len(words))
+
+	for i, word := range words {
+		tigName, tigOrientation := word[:len(word)-1], word[len(word)-1]
+		tig, ok := r.nameToContig[tigName]
+		if !ok {
+			log.Errorf("Contig %s not found!", tigName)
+		}
+		tigs[i] = tig
+		tig.orientation = 1
+		if tigOrientation == '-' {
+			tig.orientation = -1
+		}
+	}
+
+	r.path = &Path{contigs: tigs}
+	r.path.setLength()
 }
 
 // printTour logs the current tour to file

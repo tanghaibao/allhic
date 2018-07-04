@@ -102,6 +102,13 @@ Given a bamfile, we anchor contigs based on an iterative merging method similar
 to the method used in 3D-DNA. The method is based on maximum weight matching
 of the contig linkage graph.
 `,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "tour",
+					Usage: "Initiate paths using existing tourfile",
+					Value: "",
+				},
+			},
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) < 1 {
 					cli.ShowSubcommandHelp(c)
@@ -109,7 +116,8 @@ of the contig linkage graph.
 				}
 
 				bamfile := c.Args().Get(0)
-				p := allhic.Anchorer{Bamfile: bamfile}
+				tourfile := c.String("tour")
+				p := allhic.Anchorer{Bamfile: bamfile, Tourfile: tourfile}
 				p.Run()
 				return nil
 			},

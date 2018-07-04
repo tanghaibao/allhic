@@ -275,7 +275,7 @@ func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
 			fmt.Printf("Current iteration GA%d-%d: max_score=%.5f\n",
 				phase, gen, currentBest)
 			currentBestTour := ga.HallOfFame[0].Genome.(Tour)
-			r.PrintTour(fwtour, currentBestTour, fmt.Sprintf("GA%d-%d-%.5f",
+			r.printTour(fwtour, currentBestTour, fmt.Sprintf("GA%d-%d-%.5f",
 				phase, gen, currentBest))
 		}
 

@@ -39,7 +39,7 @@ func (r *Optimizer) Run() {
 	if _, err := os.Stat(tourfile); !r.StartOver && err == nil {
 		log.Noticef("Found existing tour file")
 		clm.parseTourFile(tourfile)
-		clm.PrintTour(os.Stdout, clm.Tour, "INIT")
+		clm.printTour(os.Stdout, clm.Tour, "INIT")
 		// Rename the tour file
 		backupTourFile := tourfile + ".sav"
 		os.Rename(tourfile, backupTourFile)
@@ -53,7 +53,7 @@ func (r *Optimizer) Run() {
 	// tourfile logs the intermediate configurations
 	fwtour, _ := os.Create(tourfile)
 	defer fwtour.Close()
-	clm.PrintTour(fwtour, clm.Tour, "INIT")
+	clm.printTour(fwtour, clm.Tour, "INIT")
 
 	if r.RunGA {
 		for phase := 1; phase < 3; phase++ {
@@ -80,25 +80,21 @@ func (r *CLM) OptimizeOrdering(fwtour *os.File, opt *Optimizer, phase int) {
 // OptimizeOrientations changes the orientations of contigs by using heuristic flipping algorithms.
 func (r *CLM) OptimizeOrientations(fwtour *os.File, phase int) (string, string) {
 	tag1 := r.flipWhole()
-	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("FLIPWHOLE%d", phase))
+	r.printTour(fwtour, r.Tour, fmt.Sprintf("FLIPWHOLE%d", phase))
 	tag2 := r.flipOne()
-	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("FLIPONE%d", phase))
+	r.printTour(fwtour, r.Tour, fmt.Sprintf("FLIPONE%d", phase))
 	return tag1, tag2
 }
 
 // parseTourFile parses tour file
 // Only the last line is retained anc onverted into a Tour
-func (r *CLM) parseTourFile(filename string) {
+func parseTourFile(filename string) []string {
 	f, _ := os.Open(filename)
 	log.Noticef("Parse tour file `%s`", filename)
 	defer f.Close()
 
 	reader := bufio.NewReader(f)
-	var tigs []Tig
-	r.Signs = make([]byte, len(r.Tigs))
-	for _, tig := range r.Tigs {
-		tig.IsActive = false
-	}
+	var words []string
 	for {
 		row, err := reader.ReadString('\n')
 		row = strings.TrimSpace(row)
@@ -108,24 +104,36 @@ func (r *CLM) parseTourFile(filename string) {
 		if row[0] == '>' { // header
 			continue
 		}
-		words := strings.Split(row, " ")
-		tigs = make([]Tig, len(words))
-		for i, word := range words {
-			tigName, tigOrientation := word[:len(word)-1], word[len(word)-1]
-			idx, ok := r.tigToIdx[tigName]
-			if !ok {
-				log.Errorf("Contig %s not found!", tigName)
-			}
-			tigs[i].Idx = idx
-			r.Signs[idx] = tigOrientation
-			r.Tour.Tigs = tigs
-			r.Tigs[idx].IsActive = true
+		words = strings.Split(row, " ")
+	}
+	return words
+}
+
+// parseTourFile parses tour file
+// Only the last line is retained anc onverted into a Tour
+func (r *CLM) parseTourFile(filename string) {
+	words := parseTourFile(filename)
+	tigs := make([]Tig, len(words))
+	r.Signs = make([]byte, len(r.Tigs))
+	for _, tig := range r.Tigs {
+		tig.IsActive = false
+	}
+
+	for i, word := range words {
+		tigName, tigOrientation := word[:len(word)-1], word[len(word)-1]
+		idx, ok := r.tigToIdx[tigName]
+		if !ok {
+			log.Errorf("Contig %s not found!", tigName)
 		}
+		tigs[i].Idx = idx
+		r.Signs[idx] = tigOrientation
+		r.Tour.Tigs = tigs
+		r.Tigs[idx].IsActive = true
 	}
 }
 
-// PrintTour logs the current tour to file
-func (r *CLM) PrintTour(fwtour *os.File, tour Tour, label string) {
+// printTour logs the current tour to file
+func (r *CLM) printTour(fwtour *os.File, tour Tour, label string) {
 	fwtour.WriteString(">" + label + "\n")
 	atoms := make([]string, tour.Len())
 	for i := 0; i < tour.Len(); i++ {
