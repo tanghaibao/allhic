@@ -33,7 +33,7 @@ type Optimizer struct {
 func (r *Optimizer) Run() {
 	clm := NewCLM(r.Clmfile)
 	tourfile := RemoveExt(r.Clmfile) + ".tour"
-	var shuffle bool
+	shuffle := false
 
 	// Load tourfile if it exists
 	if _, err := os.Stat(tourfile); !r.StartOver && err == nil {

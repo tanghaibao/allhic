@@ -107,6 +107,7 @@ func (r *Anchorer) Run() {
 	// Serialize to disk for plotting
 	r.makeContigStarts()
 	r.serialize(250000, "genome.json", "data.npy")
+	r.printTour(os.Stdout, "ANCHORER")
 
 	// printPaths(paths)
 	log.Notice("Success")
@@ -614,4 +615,18 @@ func getL50(paths PathSet) int64 {
 	}
 
 	return L50(pathLengths)
+}
+
+// printTour logs the current tour to file
+func (r *Anchorer) printTour(fwtour *os.File, label string) {
+	fwtour.WriteString(">" + label + "\n")
+	atoms := make([]string, len(r.path.contigs))
+	for i, contig := range r.path.contigs {
+		sign := "+"
+		if contig.orientation < 0 {
+			sign = "-"
+		}
+		atoms[i] = contig.name + sign
+	}
+	fwtour.WriteString(strings.Join(atoms, " ") + "\n")
 }
