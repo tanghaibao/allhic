@@ -10,7 +10,9 @@
 package allhic
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -19,6 +21,7 @@ import (
 type Optimizer struct {
 	Clmfile   string
 	RunGA     bool
+	StartOver bool
 	Seed      int64
 	NPop      int
 	NGen      int
@@ -30,8 +33,21 @@ type Optimizer struct {
 func (r *Optimizer) Run() {
 	clm := NewCLM(r.Clmfile)
 	tourfile := RemoveExt(r.Clmfile) + ".tour"
+	var shuffle bool
 
-	shuffle := true
+	// Load tourfile if it exists
+	if _, err := os.Stat(tourfile); !r.StartOver && err == nil {
+		log.Noticef("Found existing tour file")
+		clm.parseTourFile(tourfile)
+		clm.PrintTour(os.Stdout, clm.Tour, "INIT")
+		// Rename the tour file
+		backupTourFile := tourfile + ".sav"
+		os.Rename(tourfile, backupTourFile)
+		log.Noticef("Backup `%s` to `%s`", tourfile, backupTourFile)
+	} else {
+		shuffle = true
+	}
+
 	clm.Activate(shuffle)
 
 	// tourfile logs the intermediate configurations
@@ -68,6 +84,44 @@ func (r *CLM) OptimizeOrientations(fwtour *os.File, phase int) (string, string) 
 	tag2 := r.flipOne()
 	r.PrintTour(fwtour, r.Tour, fmt.Sprintf("FLIPONE%d", phase))
 	return tag1, tag2
+}
+
+// parseTourFile parses tour file
+// Only the last line is retained anc onverted into a Tour
+func (r *CLM) parseTourFile(filename string) {
+	f, _ := os.Open(filename)
+	log.Noticef("Parse tour file `%s`", filename)
+	defer f.Close()
+
+	reader := bufio.NewReader(f)
+	var tigs []Tig
+	r.Signs = make([]byte, len(r.Tigs))
+	for _, tig := range r.Tigs {
+		tig.IsActive = false
+	}
+	for {
+		row, err := reader.ReadString('\n')
+		row = strings.TrimSpace(row)
+		if row == "" && err == io.EOF {
+			break
+		}
+		if row[0] == '>' { // header
+			continue
+		}
+		words := strings.Split(row, " ")
+		tigs = make([]Tig, len(words))
+		for i, word := range words {
+			tigName, tigOrientation := word[:len(word)-1], word[len(word)-1]
+			idx, ok := r.tigToIdx[tigName]
+			if !ok {
+				log.Errorf("Contig %s not found!", tigName)
+			}
+			tigs[i].Idx = idx
+			r.Signs[idx] = tigOrientation
+			r.Tour.Tigs = tigs
+			r.Tigs[idx].IsActive = true
+		}
+	}
 }
 
 // PrintTour logs the current tour to file

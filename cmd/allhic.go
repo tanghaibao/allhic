@@ -157,6 +157,10 @@ for these contigs.
 					Name:  "skipGA",
 					Usage: "Skip GA step",
 				},
+				cli.BoolFlag{
+					Name:  "startOver",
+					Usage: "Do not resume from existing tour file",
+				},
 				cli.Int64Flag{
 					Name:  "seed",
 					Usage: "Random seed",
@@ -186,11 +190,12 @@ for these contigs.
 
 				clmfile := c.Args().Get(0)
 				runGA := !c.Bool("skipGA")
+				startOver := c.Bool("startOver")
 				seed := c.Int64("seed")
 				npop := c.Int("npop")
 				ngen := c.Int("ngen")
 				mutpb := c.Float64("mutpb")
-				p := allhic.Optimizer{Clmfile: clmfile, RunGA: runGA,
+				p := allhic.Optimizer{Clmfile: clmfile, RunGA: runGA, StartOver: startOver,
 					Seed: seed, NPop: npop, NGen: ngen, MutProb: mutpb}
 				p.Run()
 				return nil

@@ -364,9 +364,10 @@ func (r *CLM) pruneTour() {
 //    derived from the last tour in the file.
 func (r *CLM) Activate(shuffle bool) {
 	N := len(r.Tigs)
-	r.reportActive(true)
-	r.pruneByDensity()
-	//r.pruneBySize()
+	if shuffle {
+		r.reportActive(true)
+		r.pruneByDensity()
+	}
 	activeCounts, _ := r.reportActive(true)
 
 	r.Tour.Tigs = make([]Tig, activeCounts)

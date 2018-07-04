@@ -117,7 +117,7 @@ func (r *Anchorer) iterativeGraphMerge(paths PathSet, flanksize int64) {
 	i := 0
 	prevPaths := len(paths)
 	graphRemake := true
-	for prevPaths > 20 {
+	for prevPaths > 1 {
 		// flanksize = getL50(paths) / 4
 		if graphRemake {
 			i++

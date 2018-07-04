@@ -262,7 +262,7 @@ func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
 	}
 	ga.Initialize()
 
-	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %f, rng: %d, break: %d)",
+	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.2f, rng: %d, break: %d)",
 		opt.NPop, opt.NGen, opt.MutProb, opt.Seed, LIMIT)
 
 	gen := 1
