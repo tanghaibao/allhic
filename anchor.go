@@ -99,7 +99,7 @@ func (r *Anchorer) Run() {
 		r.parseTourFile(r.Tourfile)
 		r.printTour(os.Stdout, "ANCHORER")
 	} else {
-		flanksize := int64(1000000)
+		flanksize := int64(LIMIT)
 		paths := r.makeTrivialPaths(r.contigs, flanksize)
 		for i := 0; i < nIterations; i++ {
 			r.iterativeGraphMerge(paths, flanksize)
@@ -632,15 +632,16 @@ func getL50(paths PathSet) int64 {
 // Only the last line is retained anc onverted into a Tour
 func (r *Anchorer) parseTourFile(filename string) {
 	words := parseTourFile(filename)
-	tigs := make([]*Contig, len(words))
+	tigs := []*Contig{}
 
-	for i, word := range words {
+	for _, word := range words {
 		tigName, tigOrientation := word[:len(word)-1], word[len(word)-1]
 		tig, ok := r.nameToContig[tigName]
 		if !ok {
-			log.Errorf("Contig %s not found!", tigName)
+			log.Errorf("Contig %s not found! Skipped", tigName)
+			continue
 		}
-		tigs[i] = tig
+		tigs = append(tigs, tig)
 		tig.orientation = 1
 		if tigOrientation == '-' {
 			tig.orientation = -1

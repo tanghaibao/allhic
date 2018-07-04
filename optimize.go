@@ -113,19 +113,22 @@ func parseTourFile(filename string) []string {
 // Only the last line is retained anc onverted into a Tour
 func (r *CLM) parseTourFile(filename string) {
 	words := parseTourFile(filename)
-	tigs := make([]Tig, len(words))
+	tigs := []Tig{}
 	r.Signs = make([]byte, len(r.Tigs))
 	for _, tig := range r.Tigs {
 		tig.IsActive = false
 	}
 
-	for i, word := range words {
+	for _, word := range words {
 		tigName, tigOrientation := word[:len(word)-1], word[len(word)-1]
 		idx, ok := r.tigToIdx[tigName]
 		if !ok {
 			log.Errorf("Contig %s not found!", tigName)
+			continue
 		}
-		tigs[i].Idx = idx
+		tigs = append(tigs, Tig{
+			Idx: idx,
+		})
 		r.Signs[idx] = tigOrientation
 		r.Tour.Tigs = tigs
 		r.Tigs[idx].IsActive = true
