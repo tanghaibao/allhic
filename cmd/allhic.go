@@ -50,21 +50,30 @@ func main() {
 			Name:  "extract",
 			Usage: "Extract Hi-C link size distribution",
 			UsageText: `
-	allhic extract bamfile [options]
+	allhic extract bamfile fastafile [options]
 
 Extract function:
 Given a bamfile, the goal of the extract step is to calculate an empirical
 distribution of Hi-C link size based on intra-contig links. The Extract function
 also prepares for the latter steps of ALLHIC.
 `,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "RE",
+					Usage: "Restriction site pattern",
+					Value: "GATC",
+				},
+			},
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 1 {
+				if len(c.Args()) < 2 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify distfile, clmfile and bamfile", 1)
 				}
 
 				bamfile := c.Args().Get(0)
-				p := allhic.Extracter{Bamfile: bamfile}
+				fastafile := c.Args().Get(1)
+				RE := c.String("RE")
+				p := allhic.Extracter{Bamfile: bamfile, Fastafile: fastafile, RE: RE}
 				p.Run()
 				return nil
 			},

@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"math"
@@ -19,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/biogo/hts/bam"
+	"github.com/shenwei356/bio/seqio/fastx"
 )
 
 var b = [...]uint{0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000}
@@ -27,6 +29,8 @@ var s = [...]uint{1, 2, 4, 8, 16}
 // Extracter processes the distribution step
 type Extracter struct {
 	Bamfile           string
+	Fastafile         string
+	RE                string
 	maxLinkDist       int
 	nBins             int
 	logFactorials     []float64
@@ -114,10 +118,37 @@ func (r *Extracter) Run() {
 	r.ExtractInterContigLinks()
 	r.ExtractIntraContigLinks()
 	r.Makebins()
-	r.WriteExtracter("distribution.txt")
+	r.writeRE("counts_" + r.RE + ".txt")
+	r.WriteDistribution("distribution.txt")
 	r.FindEnrichmentOnContigs("enrichment.txt")
 	r.PreComputeLogFactorials()
 	r.FindDistanceBetweenContigs("distance.txt")
+}
+
+// WriteRE writes out the number of restriction fragments, one per line
+func (r *Extracter) writeRE(outfile string) {
+	reader, _ := fastx.NewDefaultReader(r.Fastafile)
+	f, _ := os.Create(outfile)
+	w := bufio.NewWriter(f)
+	defer f.Close()
+	totalCounts := 0
+	totalBp := int64(0)
+
+	for {
+		rec, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+
+		count := bytes.Count(rec.Seq.Seq, []byte(r.RE))
+		totalCounts += count
+		totalBp += int64(rec.Seq.Length())
+		fmt.Printf("%s\t%d\r", rec.Name, count)
+		fmt.Fprintf(w, "%s\t%d\n", rec.Name, count)
+	}
+	w.Flush()
+	log.Noticef("RE counts (total: %d, avg 1 per %d bp) written to `%s`",
+		totalCounts, totalBp/int64(totalCounts), outfile)
 }
 
 // Makebins makes geometric bins and count links that fall in each bin
@@ -200,8 +231,8 @@ func (r *Extracter) Makebins() {
 	}
 }
 
-// WriteExtracter writes the link size distribution to file
-func (r *Extracter) WriteExtracter(outfile string) {
+// WriteDistribution writes the link
+func (r *Extracter) WriteDistribution(outfile string) {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
