@@ -10,11 +10,11 @@
 package allhic
 
 import (
-	"container/list"
+	"fmt"
 )
 
-// Item is a generic type that stores the merges
-type Item struct {
+// merge is a generic type that stores the merges
+type merge struct {
 	a     int
 	b     int
 	score float64
@@ -49,12 +49,12 @@ func Cluster(G [][]float64, nclusters int) map[int][]int {
 	// The original LACHESIS implementation used a C++ multimap with its use similar
 	// to a priority queue, however, the performance benefit is not obvious since we
 	// need to perform updates to all merges (remove old merges and insert new merges)
-	merges := list.New()
+	merges := []*merge{}
 
 	for i := 0; i < N; i++ {
 		for j := i + 1; j < N; j++ {
 			if G[i][j] > MinAvgLinkage {
-				merges.PushBack(&Item{
+				merges = append(merges, &merge{
 					a:     i,
 					b:     j,
 					score: G[i][j],
@@ -63,19 +63,19 @@ func Cluster(G [][]float64, nclusters int) map[int][]int {
 		}
 	}
 
-	var bestMerge *Item
 	nMerges := 0
 	// The core hierarchical clustering
 	for {
-		if merges.Len() == 0 {
+		if len(merges) == 0 {
 			log.Notice("No more merges to do since the queue is empty")
 			break
 		}
+		log.Noticef("Inspecting %d potential merges", len(merges))
+		bestMerge := merges[0]
 		// Step 1. Find the pairs of the clusters with the highest merge score
-		bestMerge = merges.Front().Value.(*Item)
-		for e := merges.Front(); e != nil; e = e.Next() {
-			if e.Value.(*Item).score > bestMerge.score {
-				bestMerge = e.Value.(*Item)
+		for _, merge := range merges {
+			if merge.score > bestMerge.score {
+				bestMerge = merge
 			}
 		}
 
@@ -106,11 +106,12 @@ func Cluster(G [][]float64, nclusters int) map[int][]int {
 
 		// Step 3. Calculate new score entries for the new cluster
 		// Remove all used clusters
-		newMerges := list.New()
-		for e := merges.Front(); e != nil; e = e.Next() {
-			p := e.Value.(*Item)
-			if clusterActive[p.a] && clusterActive[p.b] {
-				newMerges.PushBack(p)
+		newMerges := []*merge{}
+		for _, merge := range merges {
+			if clusterActive[merge.a] && clusterActive[merge.b] {
+				newMerges = append(newMerges, merge)
+			} else {
+				fmt.Println("Ignore", merge)
 			}
 		}
 
@@ -141,11 +142,13 @@ func Cluster(G [][]float64, nclusters int) map[int][]int {
 				continue
 			}
 
-			newMerges.PushBack(&Item{
+			p := &merge{
 				a:     min(i, newClusterID),
 				b:     max(i, newClusterID),
 				score: avgLinkage,
-			})
+			}
+			newMerges = append(newMerges, p)
+			fmt.Println("Insert", p)
 		}
 
 		// Analyze the current clusters if enough merges occurred

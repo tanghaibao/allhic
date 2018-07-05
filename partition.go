@@ -75,9 +75,10 @@ func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]float64 {
 // ParseDist imports the edges of the contig linkage graph
 func (r *Partitioner) ParseDist() []ContigPair {
 	pairs := ParseDistLines(r.Distfile)
-	goodPairs := FilterEdges(pairs)
-	log.Noticef("Edge filtering keeps %s edges",
-		Percentage(len(goodPairs), len(pairs)))
+	// goodPairs := FilterEdges(pairs)
+	// log.Noticef("Edge filtering keeps %s edges",
+	// 	Percentage(len(goodPairs), len(pairs)))
+	goodPairs := pairs
 	return goodPairs
 }
 

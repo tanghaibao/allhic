@@ -111,8 +111,8 @@ func (r *Extracter) BinSize(i int) int {
 
 // Run calls the distribution steps
 func (r *Extracter) Run() {
-	r.ExtractIntraContigLinks()
 	r.ExtractInterContigLinks()
+	r.ExtractIntraContigLinks()
 	r.Makebins()
 	r.WriteExtracter("distribution.txt")
 	r.FindEnrichmentOnContigs("enrichment.txt")
