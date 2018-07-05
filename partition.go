@@ -62,8 +62,10 @@ func (r *Partitioner) skipContigsWithFewREs() {
 	shortRE := 0
 	shortLen := 0
 
-	for _, contig := range r.contigs {
+	for i, contig := range r.contigs {
 		if contig.recounts < MinREs {
+			fmt.Printf("Contig #%d (%s) has %d RE sites -> MARKED SHORT\n",
+				i, contig.name, contig.recounts)
 			nShort++
 			shortRE += contig.recounts
 			shortLen += contig.length
@@ -94,7 +96,7 @@ func (r *Partitioner) skipRepeats() {
 		}
 	}
 
-	// Determine the threshold to determine whether a contig is 'repetitive'
+	// Determine the threshold of whether a contig is 'repetitive'
 	nLinksAvg := 2.0 * float64(totalLinks) / float64(N)
 	nRepetitive := 0
 	repetitiveLength := 0
@@ -108,7 +110,7 @@ func (r *Partitioner) skipRepeats() {
 		}
 
 		if factor >= MaxLinkDensity {
-			fmt.Printf("Contig #%d (%s) has %.2f factor x the average number of Hi-C links -> MARKED REPETITIVE\n",
+			fmt.Printf("Contig #%d (%s) has %.2fx the average number of Hi-C links -> MARKED REPETITIVE\n",
 				i, contig.name, factor)
 			nRepetitive++
 			repetitiveLength += contig.length
@@ -179,6 +181,7 @@ func (r *Partitioner) readRE() {
 	for _, rec := range recs {
 		name := rec[0]
 		recounts, _ := strconv.Atoi(rec[1])
+		recounts++ // Prevent some contig to have 0 restriction fragments
 		length, _ := strconv.Atoi(rec[2])
 		ci := &ContigInfo{
 			name:     name,
@@ -230,11 +233,11 @@ func ParseDistLines(distfile string) []ContigPair {
 	recs := ReadCSVLines(distfile)
 
 	for _, rec := range recs {
-		at, bt := rec[0], rec[1]
-		RE1, _ := strconv.Atoi(rec[2])
-		RE2, _ := strconv.Atoi(rec[3])
-		L1, _ := strconv.Atoi(rec[4])
-		L2, _ := strconv.Atoi(rec[5])
+		ai, _ := strconv.Atoi(rec[0])
+		bi, _ := strconv.Atoi(rec[1])
+		at, bt := rec[2], rec[3]
+		RE1, _ := strconv.Atoi(rec[4])
+		RE2, _ := strconv.Atoi(rec[5])
 		lde1, _ := strconv.ParseFloat(rec[6], 64)
 		lde2, _ := strconv.ParseFloat(rec[7], 64)
 		localLDE, _ := strconv.ParseFloat(rec[8], 64)
@@ -242,9 +245,9 @@ func ParseDistLines(distfile string) []ContigPair {
 		nExpectedLinks, _ := strconv.ParseFloat(rec[10], 64)
 
 		cp := ContigPair{
+			ai: ai, bi: bi,
 			at: at, bt: bt,
 			RE1: RE1, RE2: RE2,
-			L1: L1, L2: L2,
 			lde1: lde1, lde2: lde2, localLDE: localLDE,
 			nObservedLinks: nObservedLinks, nExpectedLinks: nExpectedLinks,
 		}

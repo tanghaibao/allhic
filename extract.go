@@ -16,6 +16,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -315,8 +316,8 @@ func (r *Extracter) FindEnrichmentOnContigs(outfile string) {
 
 // ContigPair stores results calculated from FindDistanceBetweenContigs
 type ContigPair struct {
-	at             string
-	bt             string
+	ai, bi         int
+	at, bt         string
 	RE1, RE2       int
 	L1, L2         int
 	lde1, lde2     float64
@@ -330,8 +331,8 @@ type ContigPair struct {
 
 // String() outputs the string representation of ContigInfo
 func (r ContigPair) String() string {
-	return fmt.Sprintf("%s\t%s\t%d\t%d\t%d\t%d\t%.4f\t%.4f\t%.4f\t%d\t%.1f",
-		r.at, r.bt, r.RE1, r.RE2, r.L1, r.L2, r.lde1, r.lde2, r.localLDE,
+	return fmt.Sprintf("%d\t%d\t%s\t%s\t%d\t%d\t%.4f\t%.4f\t%.4f\t%d\t%.1f",
+		r.ai, r.bi, r.at, r.bt, r.RE1, r.RE2, r.lde1, r.lde2, r.localLDE,
 		r.nObservedLinks, r.nExpectedLinks)
 }
 
@@ -339,7 +340,7 @@ func (r ContigPair) String() string {
 func (r *Extracter) FindDistanceBetweenContigs(outfile string) {
 	clmfile := RemoveExt(r.Bamfile) + ".clm"
 	lines := ParseClmLines(clmfile)
-	contigPairs := make(map[[2]string]*ContigPair)
+	contigPairs := make(map[[2]int]*ContigPair)
 	var L1, L2 int
 	var lde1, lde2, localLDE float64
 
@@ -354,18 +355,20 @@ func (r *Extracter) FindDistanceBetweenContigs(outfile string) {
 	for i := 0; i < len(lines); i++ {
 		line := &lines[i]
 		at, bt := line.at, line.bt
-		pair := [2]string{at, bt}
+		ai, _ := r.contigToIdx[at]
+		bi, _ := r.contigToIdx[bt]
+
+		pair := [2]int{ai, bi}
 		cp, ok := contigPairs[pair]
 		if !ok {
-			ai, _ := r.contigToIdx[at]
-			bi, _ := r.contigToIdx[bt]
 			ca, cb := r.contigs[ai], r.contigs[bi]
 			L1, L2 = ca.length, cb.length
 			lde1, lde2 = ca.lde, cb.lde
 			// localLDE is weighted average of LDEs of contig A and B
 			// Solve: lde1^L1 * lde2^L2 = x^(L1+L2)
 			localLDE = math.Exp((float64(L1)*math.Log(lde1) + float64(L2)*math.Log(lde2)) / float64(L1+L2))
-			cp = &ContigPair{at: at, bt: bt, RE1: ca.recounts, RE2: cb.recounts,
+			cp = &ContigPair{ai: ai, bi: bi, at: at, bt: bt,
+				RE1: ca.recounts, RE2: cb.recounts,
 				L1: ca.length, L2: cb.length,
 				lde1: ca.lde, lde2: ca.lde, localLDE: localLDE}
 			contigPairs[pair] = cp
@@ -376,10 +379,19 @@ func (r *Extracter) FindDistanceBetweenContigs(outfile string) {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
-	fmt.Fprintf(w, "#Contig1\tContig2\tLength1\tLength2\tLDE1\tLDE2\tLDE"+
-		"\tObservedLinks\tExpectedLinksIfAdjacent\tMLEdistance\tNormalizedScore\n")
+	fmt.Fprintf(w, "#X\tY\tContig1\tContig2\tRE1\tRE2\tLDE1\tLDE2\tLDE"+
+		"\tObservedLinks\tExpectedLinksIfAdjacent\n")
+
+	allPairs := []*ContigPair{}
 	for _, c := range contigPairs {
 		c.score = float64(c.nObservedLinks) * longestContigSizeSquared / (float64(c.L1) * float64(c.L2))
+		allPairs = append(allPairs, c)
+	}
+	sort.Slice(allPairs, func(i, j int) bool {
+		return allPairs[i].ai < allPairs[j].ai ||
+			(allPairs[i].ai == allPairs[j].ai && allPairs[i].bi < allPairs[j].bi)
+	})
+	for _, c := range allPairs {
 		fmt.Fprintln(w, c)
 	}
 	w.Flush()
