@@ -608,6 +608,7 @@ func (r *Extracter) ExtractInterContigLinks() {
 		// An inter-contig link
 		if ai > bi {
 			ai, bi = bi, ai
+			apos, bpos = bpos, apos
 			ca, cb = cb, ca
 		}
 
