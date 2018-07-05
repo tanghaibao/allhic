@@ -17,12 +17,12 @@ import (
 type merge struct {
 	a     int
 	b     int
-	score float64
+	score int64
 }
 
 // Cluster performs the hierarchical clustering
 // This function is a re-implementation of the AHClustering() function in LACHESIS
-func Cluster(G [][]float64, nclusters int) map[int][]int {
+func Cluster(G [][]int64, nclusters int) map[int][]int {
 
 	// TODO: Skip contigs that are too small or irrelevant
 	// LACHESIS also skips contigs that are thought to be centromeric
@@ -116,7 +116,7 @@ func Cluster(G [][]float64, nclusters int) map[int][]int {
 		}
 
 		// Add all merges with the new cluster
-		totalLinkageByCluster := make([]float64, 2*N)
+		totalLinkageByCluster := make([]int64, 2*N)
 		for i := 0; i < N; i++ {
 			cID := clusterID[i]
 			if cID == newClusterID { // No need to calculate linkages within cluster
@@ -135,8 +135,8 @@ func Cluster(G [][]float64, nclusters int) map[int][]int {
 				log.Errorf("Cluster %d does not exist", i)
 			}
 			// Average linkage
-			avgLinkage := totalLinkageByCluster[i] / float64(clusterSize[i]) /
-				float64(clusterSize[newClusterID])
+			avgLinkage := totalLinkageByCluster[i] / int64(clusterSize[i]) /
+				int64(clusterSize[newClusterID])
 
 			if avgLinkage < MinAvgLinkage {
 				continue

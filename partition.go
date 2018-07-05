@@ -58,7 +58,7 @@ func (r *Partitioner) skipContigsWithFewREs() {
 	log.Noticef("skipContigsWithFewREs with MinREs = %d", MinREs)
 	nShort := 0
 	shortRE := 0
-	shortLen := int64(0)
+	shortLen := 0
 
 	for _, contig := range r.contigs {
 		if contig.recounts < MinREs {
@@ -68,9 +68,9 @@ func (r *Partitioner) skipContigsWithFewREs() {
 			contig.skip = true
 		}
 	}
-	avgRE, avgLen := 0.0, int64(0)
+	avgRE, avgLen := 0.0, 0
 	if nShort > 0 {
-		avgRE, avgLen = float64(shortRE)/float64(nShort), shortLen/int64(nShort)
+		avgRE, avgLen = float64(shortRE)/float64(nShort), shortLen/nShort
 	}
 	log.Noticef("Marked %d contigs (avg %.1f RE sites, len %d) since they contain too few REs (MinREs = %d)",
 		nShort, avgRE, avgLen, MinREs)
@@ -95,7 +95,7 @@ func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]int64 {
 			continue
 		}
 
-		w := e.nObservedLinks * longestSquared / (e.L1 * e.L2)
+		w := int64(e.nObservedLinks) * longestSquared / (int64(e.L1) * int64(e.L2))
 		M[a][b] = w
 		M[b][a] = w
 	}
@@ -135,7 +135,7 @@ func (r *Partitioner) readRE() {
 	for _, rec := range recs {
 		name := rec[0]
 		recounts, _ := strconv.Atoi(rec[1])
-		length, _ := strconv.ParseInt(rec[2], 10, 64)
+		length, _ := strconv.Atoi(rec[2])
 		ci := &ContigInfo{
 			name:     name,
 			recounts: recounts,
@@ -168,7 +168,7 @@ func (r *Partitioner) ParseContigLines() {
 		lde, _ := strconv.ParseFloat(rec[4], 64)
 
 		ci := &ContigInfo{
-			name: name, length: int64(length),
+			name: name, length: length,
 			nExpectedLinks: nExpectedLinks, nObservedLinks: nObservedLinks,
 			lde: lde,
 		}
