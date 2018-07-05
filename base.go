@@ -48,8 +48,7 @@ const (
 	MinInterLinks = 1
 	// MinLinkDist is the minimum link distance we care about
 	MinLinkDist = 1 << 11
-	// MinREs is the minimum number of RE sites in a contig to be clustered
-	MinREs = 25
+
 	// MaxLinkDist is the maximum link distance we care about
 	MaxLinkDist = 1 << 27
 	// EffLinkDist is the link distance where we are willing to accept contig pairs
@@ -64,6 +63,15 @@ const (
 	MinAvgLinkage = 0
 	// LinkDist specifies to maximum size of the links going over a certain position
 	LinkDist = int64(1000000)
+
+	// *** The following parameters are modeled after LACHESIS ***
+
+	// MinREs is the minimum number of RE sites in a contig to be clustered (CLUSTER_MIN_RE_SITES)
+	MinREs = 25
+	// MaxLinkDensity is the density threshold before marking a contig as 'repetitve' (CLUSTER_MAX_LINK_DENSITY)
+	MaxLinkDensity = 2
+	// NonInformativeRatio is the cutoff for recovering skipped contigs back into the clusters (CLUSTER_NONINFORMATIVE_RATIO)
+	NonInformativeRatio = 3
 )
 
 // GArray contains golden array of size BB

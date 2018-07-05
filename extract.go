@@ -49,7 +49,7 @@ type ContigInfo struct {
 	name           string
 	recounts       int
 	length         int
-	links          []int
+	links          []int // only intra-links are counted
 	nExpectedLinks float64
 	nObservedLinks int
 	lde            float64
@@ -210,6 +210,7 @@ func (r *Extracter) Makebins() {
 
 	r.binNorms = make([]int, nBins)
 	r.nLinks = make([]int, nBins)
+	r.totalIntraLinks = 0
 	for _, contig := range r.contigs {
 		for j := 0; j < nIntraContigBins; j++ {
 			z := contig.length - r.binStarts[j]
@@ -218,10 +219,7 @@ func (r *Extracter) Makebins() {
 			}
 			r.binNorms[j] += z
 		}
-	}
-
-	// Step 3: loop through all links and tabulate the counts
-	for _, contig := range r.contigs {
+		// Step 3: loop through all links and tabulate the counts
 		for _, link := range contig.links {
 			bin := r.LinkBin(link)
 			if bin == -1 {
@@ -531,6 +529,7 @@ func (r *Extracter) ExtractIntraContigLinks() {
 
 	file, _ := os.Open(disfile)
 	reader := bufio.NewReader(file)
+	r.totalIntraLinks = 0
 	for {
 		row, err := reader.ReadString('\n')
 		row = strings.TrimSpace(row)
@@ -540,7 +539,7 @@ func (r *Extracter) ExtractIntraContigLinks() {
 		words := strings.Split(row, "\t")
 		contig := r.contigs[r.contigToIdx[words[0]]]
 		contig.links = []int{}
-		for _, link := range strings.Split(words[1], ",") {
+		for _, link := range strings.Split(words[3], ",") {
 			ll, _ := strconv.Atoi(link)
 			if ll >= MinLinkDist {
 				contig.links = append(contig.links, ll)
@@ -631,7 +630,7 @@ func (r *Extracter) ExtractInterContigLinks() {
 			continue
 		}
 		intraGroups++
-		contig.links = unique(contig.links)
+		// contig.links = unique(contig.links)
 		total += len(contig.links)
 		fmt.Fprintf(wdis, "%s\t%s\n", contig, arrayToString(contig.links, ","))
 	}

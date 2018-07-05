@@ -11,6 +11,7 @@ package allhic
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,7 +24,7 @@ type Partitioner struct {
 	K             int
 	contigs       []*ContigInfo
 	contigToIdx   map[string]int
-	matrix        [][]float64
+	matrix        [][]int64
 	longestLength int
 }
 
@@ -37,6 +38,7 @@ func (r *Partitioner) Run() {
 	dists := r.ParseDist()
 	M := r.MakeMatrix(dists)
 	r.skipContigsWithFewREs()
+	r.skipRepeats()
 
 	clusters := Cluster(M, r.K)
 
@@ -79,7 +81,49 @@ func (r *Partitioner) skipContigsWithFewREs() {
 // skipRepeats skip contigs likely from repetitive regions. Contigs are repetitive if they have more links
 // compared to the average contig. This should be run after contig length normalization.
 func (r *Partitioner) skipRepeats() {
+	log.Noticef("skipRepeats with multiplicity = %d", MaxLinkDensity)
+	// Find the number of Hi-C links on each contig
+	totalLinks := int64(0)
+	N := len(r.contigs)
+	nLinks := make([]int64, N)
+	for i := 0; i < N; i++ {
+		for j := 1; j < N; j++ {
+			counts := r.matrix[i][j]
+			totalLinks += counts
+			nLinks[i] += counts
+		}
+	}
 
+	// Determine the threshold to determine whether a contig is 'repetitive'
+	nLinksAvg := 2.0 * float64(totalLinks) / float64(N)
+	nRepetitive := 0
+	repetitiveLength := 0
+	for i, contig := range r.contigs {
+		factor := float64(nLinks[i]) / nLinksAvg
+		// Adjust all ink densitities by their repetitive factors
+		for j := 0; j < N; j++ {
+			if r.matrix[i][j] != 0 {
+				r.matrix[i][j] = int64(math.Ceil(float64(r.matrix[i][j]) / factor))
+			}
+		}
+
+		if factor >= MaxLinkDensity {
+			fmt.Printf("Contig #%d (%s) has %.2f factor x the average number of Hi-C links -> MARKED REPETITIVE",
+				i, contig.name, factor)
+			nRepetitive++
+			repetitiveLength += contig.length
+			contig.skip = true
+		}
+	}
+
+	avgRepetiveLength := 0
+	if nRepetitive > 0 {
+		avgRepetiveLength = repetitiveLength / nRepetitive
+	}
+
+	// Note that the contigs reported as repetitive may have already been marked as skip (e.g. skipContigsWithFewREs)
+	log.Noticef("Marked %d contigs (avg len %d) as repetitive (MaxLinkDensity = %d)",
+		nRepetitive, avgRepetiveLength, MaxLinkDensity)
 }
 
 // MakeMatrix creates an adjacency matrix containing normalized score
@@ -178,32 +222,33 @@ func (r *Partitioner) ParseContigLines() {
 
 // ParseDistLines imports the edges of the contig into a slice of DistLine
 // DistLine stores the data structure of the distfile
-// #Contig1        Contig2 Length1 Length2 LDE1    LDE2    LDE     ObservedLinks   ExpectedLinksIfAdjacent MLEdistance
-// jpcChr1.ctg199  jpcChr1.ctg257  124567  274565  0.3195  2.0838  1.1607  2       27.4    1617125
-// idcChr1.ctg353  idcChr1.ctg382  143105  270892  2.1577  1.0544  1.3505  2       34.2    2190000
+// #Contig1        Contig2 Length1 Length2 LDE1    LDE2    LDE     ObservedLinks   ExpectedLinksIfAdjacent
+// jpcChr1.ctg199  jpcChr1.ctg257  124567  274565  0.3195  2.0838  1.1607  2       27.4
+// idcChr1.ctg353  idcChr1.ctg382  143105  270892  2.1577  1.0544  1.3505  2       34.2
 func ParseDistLines(distfile string) []ContigPair {
 	var edges []ContigPair
 	recs := ReadCSVLines(distfile)
 
 	for _, rec := range recs {
 		at, bt := rec[0], rec[1]
-		L1, _ := strconv.Atoi(rec[2])
-		L2, _ := strconv.Atoi(rec[3])
-		lde1, _ := strconv.ParseFloat(rec[4], 64)
-		lde2, _ := strconv.ParseFloat(rec[5], 64)
-		localLDE, _ := strconv.ParseFloat(rec[6], 64)
-		nObservedLinks, _ := strconv.Atoi(rec[7])
-		nExpectedLinks, _ := strconv.ParseFloat(rec[8], 64)
-		mleDistance, _ := strconv.Atoi(rec[9])
-		score, _ := strconv.ParseFloat(rec[10], 64)
+		RE1, _ := strconv.Atoi(rec[2])
+		RE2, _ := strconv.Atoi(rec[3])
+		L1, _ := strconv.Atoi(rec[4])
+		L2, _ := strconv.Atoi(rec[5])
+		lde1, _ := strconv.ParseFloat(rec[6], 64)
+		lde2, _ := strconv.ParseFloat(rec[7], 64)
+		localLDE, _ := strconv.ParseFloat(rec[8], 64)
+		nObservedLinks, _ := strconv.Atoi(rec[9])
+		nExpectedLinks, _ := strconv.ParseFloat(rec[10], 64)
 
 		cp := ContigPair{
 			at: at, bt: bt,
+			RE1: RE1, RE2: RE2,
 			L1: L1, L2: L2,
 			lde1: lde1, lde2: lde2, localLDE: localLDE,
 			nObservedLinks: nObservedLinks, nExpectedLinks: nExpectedLinks,
-			mleDistance: mleDistance, score: score,
 		}
+		fmt.Println(cp)
 
 		edges = append(edges, cp)
 	}
