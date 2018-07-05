@@ -76,10 +76,16 @@ func (r *Partitioner) skipContigsWithFewREs() {
 		nShort, avgRE, avgLen, MinREs)
 }
 
+// skipRepeats skip contigs likely from repetitive regions. Contigs are repetitive if they have more links
+// compared to the average contig. This should be run after contig length normalization.
+func (r *Partitioner) skipRepeats() {
+
+}
+
 // MakeMatrix creates an adjacency matrix containing normalized score
-func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]float64 {
-	M := Make2DSliceFloat64(len(r.contigs), len(r.contigs))
-	longestSquared := float64(r.longestLength) * float64(r.longestLength)
+func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]int64 {
+	M := Make2DSliceInt64(len(r.contigs), len(r.contigs))
+	longestSquared := int64(r.longestLength) * int64(r.longestLength)
 
 	// Load up all the contig pairs
 	for _, e := range edges {
@@ -89,8 +95,7 @@ func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]float64 {
 			continue
 		}
 
-		w := float64(e.nObservedLinks) * longestSquared / (float64(e.L1) * float64(e.L2))
-		// fmt.Printf("%s %s %d %.6f\n", e.at, e.bt, e.nObservedLinks, w)
+		w := e.nObservedLinks * longestSquared / (e.L1 * e.L2)
 		M[a][b] = w
 		M[b][a] = w
 	}
@@ -126,6 +131,7 @@ func FilterEdges(edges []ContigPair) []ContigPair {
 // #Contig    REcounts    Length
 func (r *Partitioner) readRE() {
 	recs := ReadCSVLines(r.Contigsfile)
+	r.longestLength = 0
 	for _, rec := range recs {
 		name := rec[0]
 		recounts, _ := strconv.Atoi(rec[1])
@@ -134,6 +140,9 @@ func (r *Partitioner) readRE() {
 			name:     name,
 			recounts: recounts,
 			length:   length,
+		}
+		if recounts > r.longestLength {
+			r.longestLength = recounts
 		}
 		r.contigs = append(r.contigs, ci)
 	}

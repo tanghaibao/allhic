@@ -32,10 +32,12 @@ type Extracter struct {
 	Bamfile           string
 	Fastafile         string
 	RE                string
+	contigs           []*ContigInfo
+	contigToIdx       map[string]int
 	maxLinkDist       int
 	nBins             int
 	logFactorials     []float64
-	binStarts         []int
+	binStarts         []int64
 	links             []int
 	contigLens        []int
 	linkDensity       []float64
@@ -110,7 +112,7 @@ func (r *Extracter) LinkBin(dist int) int {
 }
 
 // BinSize returns the size of each bin
-func (r *Extracter) BinSize(i int) int {
+func (r *Extracter) BinSize(i int) int64 {
 	return r.binStarts[i+1] - r.binStarts[i]
 }
 
@@ -176,7 +178,7 @@ func (r *Extracter) Makebins() {
 		jpower := 1.0
 		for j := 0; j < 16 && 16*i+j <= nBins; j++ {
 			binStart := MinLinkDist << uint(i)
-			r.binStarts = append(r.binStarts, int(float64(binStart)*jpower))
+			r.binStarts = append(r.binStarts, int64(float64(binStart)*jpower))
 			jpower *= GeometricBinSize
 		}
 	}
@@ -306,10 +308,9 @@ func (r *Extracter) FindEnrichmentOnContigs(outfile string) {
 type ContigPair struct {
 	at             string
 	bt             string
-	L1             int
-	L2             int
-	lde1           float64
-	lde2           float64
+	RE1, RE2       int
+	L1, L2         int64
+	lde1, lde2     float64
 	localLDE       float64
 	nObservedLinks int
 	nExpectedLinks float64
@@ -320,9 +321,9 @@ type ContigPair struct {
 
 // String() outputs the string representation of ContigInfo
 func (r ContigPair) String() string {
-	return fmt.Sprintf("%s\t%s\t%d\t%d\t%.4f\t%.4f\t%.4f\t%d\t%.1f\t%d\t%.1f",
-		r.at, r.bt, r.L1, r.L2, r.lde1, r.lde2, r.localLDE,
-		r.nObservedLinks, r.nExpectedLinks, r.mleDistance, r.score)
+	return fmt.Sprintf("%s\t%s\t%d\t%d\t%d\t%d\t%.4f\t%.4f\t%.4f\t%d\t%.1f",
+		r.at, r.bt, r.RE1, r.RE2, r.L1, r.L2, r.lde1, r.lde2, r.localLDE,
+		r.nObservedLinks, r.nExpectedLinks)
 }
 
 // FindDistanceBetweenContigs calculates the MLE of distance between all contigs
@@ -345,16 +346,21 @@ func (r *Extracter) FindDistanceBetweenContigs(outfile string) {
 		line := &lines[i]
 		at, bt := line.at, line.bt
 		pair := [2]string{at, bt}
-		cp, cpok := contigPairs[pair]
-		if !cpok {
-			L1, _ = r.contigSizes[at]
-			L2, _ = r.contigSizes[bt]
+		cp, ok := contigPairs[pair]
+		if !ok {
+			a, _ := r.contigToIdx[at]
+			b, _ := r.contigToIdx[bt]
+			RE1 := r.contigs[a].recounts
+			RE2 := r.contigs[b].recounts
+			L1 := r.contigs[a].length
+			L2 := r.contigs[b].length
 			// localLDE is weighted average of LDEs of contig A and B
 			lde1, _ = r.contigEnrichments[at]
 			lde2, _ = r.contigEnrichments[bt]
 			// Solve: lde1^L1 * lde2^L2 = x^(L1+L2)
 			localLDE = math.Exp((float64(L1)*math.Log(lde1) + float64(L2)*math.Log(lde2)) / float64(L1+L2))
-			cp = &ContigPair{at: at, bt: bt, L1: L1, L2: L2, lde1: lde1, lde2: lde2, localLDE: localLDE}
+			cp = &ContigPair{at: at, bt: bt, RE1: RE1, RE2: RE2, L1: L1, L2: L2,
+				lde1: lde1, lde2: lde2, localLDE: localLDE}
 			contigPairs[pair] = cp
 			r.FindDistanceBetweenLinks(cp, line)
 		}
@@ -389,7 +395,7 @@ func (r *Extracter) FindDistanceBetweenLinks(cp *ContigPair, line *CLMLine) {
 	bestD := MaxLinkDist
 	for i := 0; i < r.nBins; i++ {
 		D := r.binStarts[i]
-		logLikelihood := r.LogLikelihoodD(D, L1, L2, LDE, links)
+		logLikelihood := r.LogLikelihoodD(int64(D), L1, L2, LDE, links)
 		if logLikelihood > bestLogLikelihood {
 			bestLogLikelihood = logLikelihood
 			bestD = D
@@ -405,7 +411,7 @@ func (r *Extracter) FindDistanceBetweenLinks(cp *ContigPair, line *CLMLine) {
 
 // LogLikelihoodD calculates the log-likelihood given the distance between contigs D
 // This function gets called by FindDistanceBetweenLinks
-func (r *Extracter) LogLikelihoodD(D, L1, L2 int, LDE float64, links []int) float64 {
+func (r *Extracter) LogLikelihoodD(D, L1, L2 int64, LDE float64, links []int) float64 {
 	// Find expected number of links per bin
 	nExpectedLinks := r.FindExpectedInterContigLinks(D, L1, L2, LDE)
 	// nObservedLinks := make([]int, r.nBins)
@@ -463,7 +469,7 @@ func (r *Extracter) FindExpectedIntraContigLinks(L int, links []int) []float64 {
 }
 
 // FindExpectedInterContigLinks calculates the expected number of links between two contigs
-func (r *Extracter) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64) []float64 {
+func (r *Extracter) FindExpectedInterContigLinks(D, L1, L2 int64, LDE float64) []float64 {
 	nExpectedLinks := make([]float64, r.nBins)
 
 	for i := 0; i < r.nBins; i++ {

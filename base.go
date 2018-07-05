@@ -291,6 +291,15 @@ func Make2DSlice(m, n int) [][]int {
 	return P
 }
 
+// Make2DSliceInt64 allocates a 2D int64 matrix with shape (m, n)
+func Make2DSliceInt64(m, n int) [][]int64 {
+	P := make([][]int64, m)
+	for i := 0; i < m; i++ {
+		P[i] = make([]int64, n)
+	}
+	return P
+}
+
 // Make2DSliceFloat64 allocates a 2D float64 matrix with shape (m, n)
 func Make2DSliceFloat64(m, n int) [][]float64 {
 	P := make([][]float64, m)
