@@ -48,6 +48,8 @@ const (
 	MinInterLinks = 1
 	// MinLinkDist is the minimum link distance we care about
 	MinLinkDist = 1 << 11
+	// MinREs is the minimum number of RE sites in a contig to be clustered
+	MinREs = 25
 	// MaxLinkDist is the maximum link distance we care about
 	MaxLinkDist = 1 << 27
 	// EffLinkDist is the link distance where we are willing to accept contig pairs

@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/biogo/hts/bam"
+	"github.com/shenwei356/bio/seq"
 	"github.com/shenwei356/bio/seqio/fastx"
 )
 
@@ -134,6 +135,9 @@ func (r *Extracter) writeRE(outfile string) {
 	totalCounts := 0
 	totalBp := int64(0)
 
+	fmt.Fprintf(w, "#Contig\tRECounts\tLength\n")
+	seq.ValidateSeq = false
+
 	for {
 		rec, err := reader.Read()
 		if err == io.EOF {
@@ -141,10 +145,10 @@ func (r *Extracter) writeRE(outfile string) {
 		}
 
 		count := bytes.Count(rec.Seq.Seq, []byte(r.RE))
+		length := rec.Seq.Length()
 		totalCounts += count
-		totalBp += int64(rec.Seq.Length())
-		fmt.Printf("%s\t%d\r", rec.Name, count)
-		fmt.Fprintf(w, "%s\t%d\n", rec.Name, count)
+		totalBp += int64(length)
+		fmt.Fprintf(w, "%s\t%d\t%d\n", rec.Name, count, length)
 	}
 	w.Flush()
 	log.Noticef("RE counts (total: %d, avg 1 per %d bp) written to `%s`",
@@ -250,16 +254,17 @@ func (r *Extracter) WriteDistribution(outfile string) {
 // ContigInfo stores results calculated from FindEnrichmentOnContigs
 type ContigInfo struct {
 	name           string
-	length         int
+	recounts       int
+	length         int64
 	nExpectedLinks float64
 	nObservedLinks int
 	lde            float64
+	skip           bool
 }
 
 // String() outputs the string representation of ContigInfo
 func (r ContigInfo) String() string {
-	return fmt.Sprintf("%s\t%d\t%.1f\t%d\t%.4f",
-		r.name, r.length, r.nExpectedLinks, r.nObservedLinks, r.lde)
+	return fmt.Sprintf("%s\t%d\t%d", r.name, r.recounts, r.length)
 }
 
 // FindEnrichmentOnContigs determine the local enrichment of links on this contig.
@@ -287,7 +292,7 @@ func (r *Extracter) FindEnrichmentOnContigs(outfile string) {
 		} else if LDE > 5.0 {
 			LDE = 5.0
 		}
-		ci := ContigInfo{name: contig, length: L, nExpectedLinks: sumf(nExpectedLinks),
+		ci := ContigInfo{name: contig, length: int64(L), nExpectedLinks: sumf(nExpectedLinks),
 			nObservedLinks: nObservedLinks, lde: LDE}
 		fmt.Fprintln(w, ci)
 
