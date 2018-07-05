@@ -9,10 +9,6 @@
 
 package allhic
 
-import (
-	"fmt"
-)
-
 // merge is a generic type that stores the merges
 type merge struct {
 	a     int
@@ -70,7 +66,7 @@ func Cluster(G [][]int64, nclusters int) map[int][]int {
 			log.Notice("No more merges to do since the queue is empty")
 			break
 		}
-		log.Noticef("Inspecting %d potential merges", len(merges))
+		// log.Noticef("Inspecting %d potential merges", len(merges))
 		bestMerge := merges[0]
 		// Step 1. Find the pairs of the clusters with the highest merge score
 		for _, merge := range merges {
@@ -111,7 +107,7 @@ func Cluster(G [][]int64, nclusters int) map[int][]int {
 			if clusterActive[merge.a] && clusterActive[merge.b] {
 				newMerges = append(newMerges, merge)
 			} else {
-				fmt.Println("Ignore", merge)
+				// fmt.Println("Ignore", merge)
 			}
 		}
 
@@ -148,7 +144,7 @@ func Cluster(G [][]int64, nclusters int) map[int][]int {
 				score: avgLinkage,
 			}
 			newMerges = append(newMerges, p)
-			fmt.Println("Insert", p)
+			// fmt.Println("Insert", p)
 		}
 
 		// Analyze the current clusters if enough merges occurred
@@ -159,7 +155,7 @@ func Cluster(G [][]int64, nclusters int) map[int][]int {
 				break
 			}
 		}
-		log.Noticef("Merge #%d: Clusters %d + %d -> %d, Linkage = %.3f",
+		log.Noticef("Merge #%d: Clusters %d + %d -> %d, Linkage = %d",
 			nMerges, bestMerge.a, bestMerge.b, newClusterID, bestMerge.score)
 
 		merges = newMerges

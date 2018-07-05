@@ -19,28 +19,28 @@ import (
 
 // Partitioner converts the bamfile into a matrix of link counts
 type Partitioner struct {
-	Contigsfile   string
-	Distfile      string
-	K             int
-	contigs       []*ContigInfo
-	contigToIdx   map[string]int
-	matrix        [][]int64
-	longestLength int
+	Contigsfile string
+	Distfile    string
+	K           int
+	contigs     []*ContigInfo
+	contigToIdx map[string]int
+	matrix      [][]int64
+	longestRE   int
 }
 
 // Run is the main function body of partition
 func (r *Partitioner) Run() {
 	r.readRE()
 	r.contigToIdx = make(map[string]int)
-	for i, ci := range r.contigs {
-		r.contigToIdx[ci.name] = i
+	for i, contig := range r.contigs {
+		r.contigToIdx[contig.name] = i
 	}
 	dists := r.ParseDist()
-	M := r.MakeMatrix(dists)
+	r.matrix = r.MakeMatrix(dists)
 	r.skipContigsWithFewREs()
 	r.skipRepeats()
 
-	clusters := Cluster(M, r.K)
+	clusters := Cluster(r.matrix, r.K)
 
 	for _, ids := range clusters {
 		names := make([]string, len(ids))
@@ -108,7 +108,7 @@ func (r *Partitioner) skipRepeats() {
 		}
 
 		if factor >= MaxLinkDensity {
-			fmt.Printf("Contig #%d (%s) has %.2f factor x the average number of Hi-C links -> MARKED REPETITIVE",
+			fmt.Printf("Contig #%d (%s) has %.2f factor x the average number of Hi-C links -> MARKED REPETITIVE\n",
 				i, contig.name, factor)
 			nRepetitive++
 			repetitiveLength += contig.length
@@ -129,7 +129,7 @@ func (r *Partitioner) skipRepeats() {
 // MakeMatrix creates an adjacency matrix containing normalized score
 func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]int64 {
 	M := Make2DSliceInt64(len(r.contigs), len(r.contigs))
-	longestSquared := int64(r.longestLength) * int64(r.longestLength)
+	longestSquared := int64(r.longestRE) * int64(r.longestRE)
 
 	// Load up all the contig pairs
 	for _, e := range edges {
@@ -139,7 +139,7 @@ func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]int64 {
 			continue
 		}
 
-		w := int64(e.nObservedLinks) * longestSquared / (int64(e.L1) * int64(e.L2))
+		w := int64(e.nObservedLinks) * longestSquared / (int64(e.RE1) * int64(e.RE2))
 		M[a][b] = w
 		M[b][a] = w
 	}
@@ -175,7 +175,7 @@ func FilterEdges(edges []ContigPair) []ContigPair {
 // #Contig    REcounts    Length
 func (r *Partitioner) readRE() {
 	recs := ReadCSVLines(r.Contigsfile)
-	r.longestLength = 0
+	r.longestRE = 0
 	for _, rec := range recs {
 		name := rec[0]
 		recounts, _ := strconv.Atoi(rec[1])
@@ -185,8 +185,8 @@ func (r *Partitioner) readRE() {
 			recounts: recounts,
 			length:   length,
 		}
-		if recounts > r.longestLength {
-			r.longestLength = recounts
+		if recounts > r.longestRE {
+			r.longestRE = recounts
 		}
 		r.contigs = append(r.contigs, ci)
 	}
@@ -204,8 +204,8 @@ func (r *Partitioner) ParseContigLines() {
 	for _, rec := range recs {
 		name := rec[0]
 		length, _ := strconv.Atoi(rec[1])
-		if length > r.longestLength {
-			r.longestLength = length
+		if length > r.longestRE {
+			r.longestRE = length
 		}
 		nExpectedLinks, _ := strconv.ParseFloat(rec[2], 64)
 		nObservedLinks, _ := strconv.Atoi(rec[3])
@@ -248,7 +248,7 @@ func ParseDistLines(distfile string) []ContigPair {
 			lde1: lde1, lde2: lde2, localLDE: localLDE,
 			nObservedLinks: nObservedLinks, nExpectedLinks: nExpectedLinks,
 		}
-		fmt.Println(cp)
+		// fmt.Println(cp)
 
 		edges = append(edges, cp)
 	}
