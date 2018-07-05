@@ -18,11 +18,12 @@ type merge struct {
 
 // Cluster performs the hierarchical clustering
 // This function is a re-implementation of the AHClustering() function in LACHESIS
-func Cluster(G [][]int64, nclusters int) map[int][]int {
+func (r *Partitioner) Cluster() map[int][]int {
 
 	// TODO: Skip contigs that are too small or irrelevant
 	// LACHESIS also skips contigs that are thought to be centromeric
-
+	G := r.matrix
+	nclusters := r.K
 	N := len(G)
 	log.Noticef("Clustering starts with %d contigs with target of %d clusters",
 		N, nclusters)

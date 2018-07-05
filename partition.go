@@ -40,7 +40,7 @@ func (r *Partitioner) Run() {
 	r.skipContigsWithFewREs()
 	r.skipRepeats()
 
-	clusters := Cluster(r.matrix, r.K)
+	clusters := r.Cluster()
 
 	for _, ids := range clusters {
 		names := make([]string, len(ids))
@@ -89,10 +89,11 @@ func (r *Partitioner) skipRepeats() {
 	N := len(r.contigs)
 	nLinks := make([]int64, N)
 	for i := 0; i < N; i++ {
-		for j := 1; j < N; j++ {
+		for j := i; j < N; j++ {
 			counts := r.matrix[i][j]
 			totalLinks += counts
 			nLinks[i] += counts
+			nLinks[j] += counts
 		}
 	}
 
@@ -110,7 +111,7 @@ func (r *Partitioner) skipRepeats() {
 		}
 
 		if factor >= MaxLinkDensity {
-			fmt.Printf("Contig #%d (%s) has %.2fx the average number of Hi-C links -> MARKED REPETITIVE\n",
+			fmt.Printf("Contig #%d (%s) has %.1fx the average number of Hi-C links -> MARKED REPETITIVE\n",
 				i, contig.name, factor)
 			nRepetitive++
 			repetitiveLength += contig.length
@@ -130,7 +131,8 @@ func (r *Partitioner) skipRepeats() {
 
 // MakeMatrix creates an adjacency matrix containing normalized score
 func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]int64 {
-	M := Make2DSliceInt64(len(r.contigs), len(r.contigs))
+	N := len(r.contigs)
+	M := Make2DSliceInt64(N, N)
 	longestSquared := int64(r.longestRE) * int64(r.longestRE)
 
 	// Load up all the contig pairs
@@ -141,22 +143,13 @@ func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]int64 {
 			continue
 		}
 
+		// Just normalize the counts
 		w := int64(e.nObservedLinks) * longestSquared / (int64(e.RE1) * int64(e.RE2))
 		M[a][b] = w
 		M[b][a] = w
 	}
 
 	return M
-}
-
-// ParseDist imports the edges of the contig linkage graph
-func (r *Partitioner) ParseDist() []ContigPair {
-	pairs := ParseDistLines(r.Distfile)
-	// goodPairs := FilterEdges(pairs)
-	// log.Noticef("Edge filtering keeps %s edges",
-	// 	Percentage(len(goodPairs), len(pairs)))
-	goodPairs := pairs
-	return goodPairs
 }
 
 // FilterEdges implements rules to keep edges between close contigs and remove distant or weak contig pairs
@@ -223,14 +216,14 @@ func (r *Partitioner) ParseContigLines() {
 	}
 }
 
-// ParseDistLines imports the edges of the contig into a slice of DistLine
+// ParseDist imports the edges of the contig into a slice of DistLine
 // DistLine stores the data structure of the distfile
 // #Contig1        Contig2 Length1 Length2 LDE1    LDE2    LDE     ObservedLinks   ExpectedLinksIfAdjacent
 // jpcChr1.ctg199  jpcChr1.ctg257  124567  274565  0.3195  2.0838  1.1607  2       27.4
 // idcChr1.ctg353  idcChr1.ctg382  143105  270892  2.1577  1.0544  1.3505  2       34.2
-func ParseDistLines(distfile string) []ContigPair {
+func (r *Partitioner) ParseDist() []ContigPair {
 	var edges []ContigPair
-	recs := ReadCSVLines(distfile)
+	recs := ReadCSVLines(r.Distfile)
 
 	for _, rec := range recs {
 		ai, _ := strconv.Atoi(rec[0])

@@ -132,7 +132,7 @@ func (r *Extracter) Run() {
 	r.ExtractIntraContigLinks()
 	r.Makebins()
 	r.WriteDistribution("distribution.txt")
-	r.FindEnrichmentOnContigs("enrichment.txt")
+	r.FindEnrichmentOnContigs()
 	r.PreComputeLogFactorials()
 	r.FindDistanceBetweenContigs("distance.txt")
 }
@@ -281,13 +281,7 @@ func (r ContigInfo) String() string {
 }
 
 // FindEnrichmentOnContigs determine the local enrichment of links on this contig.
-func (r *Extracter) FindEnrichmentOnContigs(outfile string) {
-	f, _ := os.Create(outfile)
-	w := bufio.NewWriter(f)
-	defer f.Close()
-
-	fmt.Fprintf(w, "#Contig\tLength\tExpected\tObserved\tLDE\n")
-
+func (r *Extracter) FindEnrichmentOnContigs() {
 	for _, contig := range r.contigs {
 		L := contig.length
 		links := contig.links
@@ -308,10 +302,7 @@ func (r *Extracter) FindEnrichmentOnContigs(outfile string) {
 		contig.nExpectedLinks = sumf(nExpectedLinks)
 		contig.nObservedLinks = nObservedLinks
 		contig.lde = LDE
-		fmt.Fprintln(w, contig)
 	}
-	w.Flush()
-	log.Noticef("Link enrichments written to `%s`", outfile)
 }
 
 // ContigPair stores results calculated from FindDistanceBetweenContigs
@@ -370,7 +361,7 @@ func (r *Extracter) FindDistanceBetweenContigs(outfile string) {
 			cp = &ContigPair{ai: ai, bi: bi, at: at, bt: bt,
 				RE1: ca.recounts, RE2: cb.recounts,
 				L1: ca.length, L2: cb.length,
-				lde1: ca.lde, lde2: ca.lde, localLDE: localLDE}
+				lde1: ca.lde, lde2: cb.lde, localLDE: localLDE}
 			contigPairs[pair] = cp
 			r.FindDistanceBetweenLinks(cp, line)
 		}
@@ -660,7 +651,7 @@ func (r *Extracter) ExtractInterContigLinks() {
 			for j, link := range links {
 				linksWithDir[j] = link[i]
 			}
-			linksWithDir = unique(linksWithDir)
+			// linksWithDir = unique(linksWithDir)
 			nLinks := len(linksWithDir)
 			if nLinks < MinInterLinks {
 				continue
