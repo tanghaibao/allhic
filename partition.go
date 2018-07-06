@@ -30,15 +30,9 @@ type Partitioner struct {
 // Run is the main function body of partition
 func (r *Partitioner) Run() {
 	r.readRE()
-	r.contigToIdx = make(map[string]int)
-	for i, contig := range r.contigs {
-		r.contigToIdx[contig.name] = i
-	}
-	dists := r.ParseDist()
-	r.matrix = r.MakeMatrix(dists)
+	r.makeMatrix()
 	r.skipContigsWithFewREs()
 	r.skipRepeats()
-
 	r.Cluster()
 	r.printClusters()
 
@@ -120,8 +114,9 @@ func (r *Partitioner) skipRepeats() {
 		nRepetitive, avgRepetiveLength, MaxLinkDensity)
 }
 
-// MakeMatrix creates an adjacency matrix containing normalized score
-func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]int64 {
+// makeMatrix creates an adjacency matrix containing normalized score
+func (r *Partitioner) makeMatrix() {
+	edges := r.parseDist()
 	N := len(r.contigs)
 	M := Make2DSliceInt64(N, N)
 	longestSquared := int64(r.longestRE) * int64(r.longestRE)
@@ -139,8 +134,7 @@ func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]int64 {
 		M[a][b] = w
 		M[b][a] = w
 	}
-
-	return M
+	r.matrix = M
 }
 
 // readRE reads in a three-column tab-separated file
@@ -162,16 +156,20 @@ func (r *Partitioner) readRE() {
 		}
 		r.contigs = append(r.contigs, ci)
 	}
+	r.contigToIdx = make(map[string]int)
+	for i, contig := range r.contigs {
+		r.contigToIdx[contig.name] = i
+	}
 	log.Noticef("Loading contig RE lengths for normalization from `%s`",
 		r.Contigsfile)
 }
 
-// ParseDist imports the edges of the contig into a slice of DistLine
+// parseDist imports the edges of the contig into a slice of DistLine
 // DistLine stores the data structure of the distfile
-// #Contig1        Contig2 Length1 Length2 LDE1    LDE2    LDE     ObservedLinks   ExpectedLinksIfAdjacent
-// jpcChr1.ctg199  jpcChr1.ctg257  124567  274565  0.3195  2.0838  1.1607  2       27.4
-// idcChr1.ctg353  idcChr1.ctg382  143105  270892  2.1577  1.0544  1.3505  2       34.2
-func (r *Partitioner) ParseDist() []ContigPair {
+// #X      Y       Contig1 Contig2 RE1     RE2     ObservedLinks   ExpectedLinksIfAdjacent
+// 1       44      idcChr1.ctg24   idcChr1.ctg51   6612    1793    12      121.7
+// 1       70      idcChr1.ctg24   idcChr1.ctg52   6612    686     2       59.3
+func (r *Partitioner) parseDist() []ContigPair {
 	var edges []ContigPair
 	recs := ReadCSVLines(r.Distfile)
 
