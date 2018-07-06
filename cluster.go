@@ -31,6 +31,12 @@ type clusterLen struct {
 	length int
 }
 
+// linkage stores the average of a contig to a cluster (for sorting)
+type linkage struct {
+	avgLinkage float64
+	cID        int
+}
+
 // Cluster performs the hierarchical clustering
 // This function is a re-implementation of the AHClustering() function in LACHESIS
 func (r *Partitioner) Cluster() {
@@ -202,7 +208,7 @@ func (r *Partitioner) Cluster() {
 func (r *Partitioner) setClusters(clusterID []int) {
 	clusters := Clusters{}
 	for i, cID := range clusterID {
-		if i == cID {
+		if i == cID || cID == -1 { // cID == -1 is skipped
 			continue
 		}
 		clusters[cID] = append(clusters[cID], i)
@@ -210,7 +216,7 @@ func (r *Partitioner) setClusters(clusterID []int) {
 	r.clusters = clusters
 
 	if !(NonInformativeRatio == 0 || NonInformativeRatio > 1) {
-		log.Errorf("NonInformative Ratio needs to either 0 or > 1")
+		log.Errorf("NonInformativeRatio needs to either 0 or > 1")
 	}
 
 	// Now try to recover previously skipped contigs
@@ -220,22 +226,76 @@ func (r *Partitioner) setClusters(clusterID []int) {
 	}
 
 	N := len(r.contigs)
+	nPassRatio := 0
+	nFailRatio := 0
+	nFailCluster := 0
+	skippedClusters := map[int]int{}
+
 	// NonInformativeRatio > 1
 	// Loop through all skipped contigs. Determine the cluster with largest average linkage.
 	for i := 0; i < N; i++ {
 		if clusterID[i] != -1 {
 			continue
 		}
+		linkages := r.findClusterLinkage(i)
+		if len(linkages) == 0 { // Didn't cluster with any
+			nFailCluster++
+			continue
+		}
+
+		sort.Slice(linkages, func(i, j int) bool {
+			return linkages[i].avgLinkage > linkages[j].avgLinkage
+		})
+		// for _, linkage := range linkages {
+		// 	fmt.Println(r.contigs[i].name, linkage.avgLinkage,
+		// 		linkage.cID, r.clusters[linkage.cID])
+		// }
+
+		passRatio := len(linkages) == 1 || linkages[1].avgLinkage == 0 ||
+			linkages[0].avgLinkage/linkages[1].avgLinkage >= NonInformativeRatio
+		if !passRatio {
+			nFailRatio++
+		}
+		skippedClusters[i] = linkages[0].cID
+		nPassRatio++
+	}
+
+	log.Noticef("setClusters summary (NonInformativeRatio = %d): nPassRatio = %d, nFailRatio = %d, nFailCluster=%d",
+		NonInformativeRatio, nPassRatio, nFailRatio, nFailCluster)
+
+	// Insert the skipped contigs into clusters
+	for contigID, cID := range skippedClusters {
+		r.clusters[cID] = append(r.clusters[cID], contigID)
 	}
 
 	r.sortClusters()
-	fmt.Println(r.clusters)
+	// fmt.Println(r.clusters)
 	return
 }
 
 // findClusterLinkages
-func (r *Partitioner) findClusterLinkage(cID int) {
+func (r *Partitioner) findClusterLinkage(contigID int) []*linkage {
+	linkages := []*linkage{}
+	for i, cl := range r.clusters {
+		totalLinkage := int64(0)
+		clusterSize := len(cl)
 
+		// Calculate the average linkage between contig and the cluster
+		for _, id := range cl {
+			if contigID == id { // contig in this contig
+				clusterSize--
+			} else {
+				totalLinkage += r.matrix[contigID][id]
+			}
+		}
+		if totalLinkage > 0 {
+			linkages = append(linkages, &linkage{
+				avgLinkage: float64(totalLinkage) / float64(clusterSize),
+				cID:        i,
+			})
+		}
+	}
+	return linkages
 }
 
 // sortClusters reorder the cluster by total length
