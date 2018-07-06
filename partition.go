@@ -12,9 +12,7 @@ package allhic
 import (
 	"fmt"
 	"math"
-	"sort"
 	"strconv"
-	"strings"
 )
 
 // Partitioner converts the bamfile into a matrix of link counts
@@ -41,15 +39,7 @@ func (r *Partitioner) Run() {
 	r.skipRepeats()
 
 	clusters := r.Cluster()
-
-	for _, ids := range clusters {
-		names := make([]string, len(ids))
-		for i, id := range ids {
-			names[i] = r.contigs[id].name
-		}
-		sort.Strings(names)
-		fmt.Println(len(names), strings.Join(names, ","))
-	}
+	r.printClusters(clusters)
 
 	log.Notice("Success")
 }

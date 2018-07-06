@@ -9,11 +9,26 @@
 
 package allhic
 
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
+
 // merge is a generic type that stores the merges
 type merge struct {
 	a     int
 	b     int
 	score float64
+}
+
+// Clusters stores all the contig IDs per cluster
+type Clusters map[int][]int
+
+// clusterLen helps sorting based on the length of a cluster
+type clusterLen struct {
+	cID    int
+	length int
 }
 
 // Cluster performs the hierarchical clustering
@@ -177,17 +192,73 @@ func (r *Partitioner) Cluster() map[int][]int {
 		merges = newMerges
 	}
 
-	return SetClusters(clusterID)
+	clusters := r.setClusters(clusterID)
+	if NonInformativeRatio == 0 {
+		return r.sortClusters(clusters)
+	}
+
+	// NonInformativeRatio > 1
+	// fmt.Println(clusters)
+
+	return r.sortClusters(clusters)
 }
 
-// SetClusters assigns contigs into clusters per clusterID
-func SetClusters(clusterID []int) map[int][]int {
-	clusters := make(map[int][]int)
+// setClusters assigns contigs into clusters per clusterID
+// When there are contigs skipped (either SHORT or REPETITIVE), we assign the skipped contigs based
+// on how well they match non-skipped contigs. Each skipped contig needs to link to a cluster with
+// at least NonInformativeRatio times as many links as any other cluster.
+func (r *Partitioner) setClusters(clusterID []int) Clusters {
+	clusters := Clusters{}
 	for i, cID := range clusterID {
-		if i == cID || cID == -1 { // Singletons
+		if i == cID {
 			continue
 		}
 		clusters[cID] = append(clusters[cID], i)
 	}
+
+	if !(NonInformativeRatio == 0 || NonInformativeRatio > 1) {
+		log.Errorf("NonInformative Ratio needs to either 0 or > 1")
+	}
+
+	// Tentative clusters, now try to recover previously skipped contigs
+
 	return clusters
+}
+
+// sortClusters reorder the cluster by total length
+func (r *Partitioner) sortClusters(clusters Clusters) Clusters {
+	clusterLens := []*clusterLen{}
+	for cID, cl := range clusters {
+		c := &clusterLen{
+			cID:    cID,
+			length: 0,
+		}
+		for _, ci := range cl {
+			c.length += r.contigs[ci].length
+		}
+		clusterLens = append(clusterLens, c)
+	}
+
+	// Reorder the clusters based on the size
+	sort.Slice(clusterLens, func(i, j int) bool {
+		return clusterLens[i].length > clusterLens[j].length
+	})
+
+	newClusters := Clusters{}
+	for i, cl := range clusterLens {
+		newClusters[i] = clusters[cl.cID]
+	}
+	return newClusters
+}
+
+// printClusters shows the contents of the clusters
+func (r *Partitioner) printClusters(clusters Clusters) {
+	for _, ids := range clusters {
+		names := make([]string, len(ids))
+		for i, id := range ids {
+			names[i] = r.contigs[id].name
+		}
+		sort.Strings(names)
+		fmt.Println(len(names), strings.Join(names, ","))
+	}
 }
