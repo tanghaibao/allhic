@@ -154,7 +154,7 @@ func (r *Extracter) readFastaAndWriteRE() {
 	r.contigToIdx = map[string]int{}
 
 	fmt.Fprintf(w, "#Contig\tRECounts\tLength\n")
-	seq.ValidateSeq = false
+	seq.ValidateSeq = false // This flag makes parsing FASTA much faster
 
 	for {
 		rec, err := reader.Read()

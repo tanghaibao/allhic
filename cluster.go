@@ -10,7 +10,9 @@
 package allhic
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 )
@@ -40,8 +42,6 @@ type linkage struct {
 // Cluster performs the hierarchical clustering
 // This function is a re-implementation of the AHClustering() function in LACHESIS
 func (r *Partitioner) Cluster() {
-
-	// TODO: Skip contigs that are too small or irrelevant
 	// LACHESIS also skips contigs that are thought to be centromeric
 	G := r.matrix
 	nclusters := r.K
@@ -326,12 +326,24 @@ func (r *Partitioner) sortClusters() {
 
 // printClusters shows the contents of the clusters
 func (r *Partitioner) printClusters() {
-	for _, ids := range r.clusters {
+	clusterfile := RemoveExt(RemoveExt(r.Distfile)) + ".clusters.txt"
+	f, _ := os.Create(clusterfile)
+	defer f.Close()
+	w := bufio.NewWriter(f)
+
+	fmt.Fprintf(w, "#Group\tnContigs\tContigs\n")
+	for j := 0; j < len(r.clusters); j++ {
+		ids := r.clusters[j]
 		names := make([]string, len(ids))
 		for i, id := range ids {
 			names[i] = r.contigs[id].name
 		}
 		sort.Strings(names)
-		fmt.Println(len(names), strings.Join(names, ","))
+
+		fmt.Printf("g%d\t%d\t%s\n", j, len(names), strings.Join(names, ","))
+		fmt.Fprintf(w, "g%d\t%d\t%s\n", j, len(names), strings.Join(names, ","))
 	}
+	w.Flush()
+
+	log.Noticef("Write %d partitions to `%s`", len(r.clusters), clusterfile)
 }
