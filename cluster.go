@@ -33,7 +33,7 @@ type clusterLen struct {
 
 // Cluster performs the hierarchical clustering
 // This function is a re-implementation of the AHClustering() function in LACHESIS
-func (r *Partitioner) Cluster() map[int][]int {
+func (r *Partitioner) Cluster() {
 
 	// TODO: Skip contigs that are too small or irrelevant
 	// LACHESIS also skips contigs that are thought to be centromeric
@@ -192,22 +192,14 @@ func (r *Partitioner) Cluster() map[int][]int {
 		merges = newMerges
 	}
 
-	clusters := r.setClusters(clusterID)
-	if NonInformativeRatio == 0 {
-		return r.sortClusters(clusters)
-	}
-
-	// NonInformativeRatio > 1
-	// fmt.Println(clusters)
-
-	return r.sortClusters(clusters)
+	r.setClusters(clusterID)
 }
 
 // setClusters assigns contigs into clusters per clusterID
 // When there are contigs skipped (either SHORT or REPETITIVE), we assign the skipped contigs based
 // on how well they match non-skipped contigs. Each skipped contig needs to link to a cluster with
 // at least NonInformativeRatio times as many links as any other cluster.
-func (r *Partitioner) setClusters(clusterID []int) Clusters {
+func (r *Partitioner) setClusters(clusterID []int) {
 	clusters := Clusters{}
 	for i, cID := range clusterID {
 		if i == cID {
@@ -215,20 +207,41 @@ func (r *Partitioner) setClusters(clusterID []int) Clusters {
 		}
 		clusters[cID] = append(clusters[cID], i)
 	}
+	r.clusters = clusters
 
 	if !(NonInformativeRatio == 0 || NonInformativeRatio > 1) {
 		log.Errorf("NonInformative Ratio needs to either 0 or > 1")
 	}
 
-	// Tentative clusters, now try to recover previously skipped contigs
+	// Now try to recover previously skipped contigs
+	if NonInformativeRatio == 0 {
+		r.sortClusters()
+		return
+	}
 
-	return clusters
+	N := len(r.contigs)
+	// NonInformativeRatio > 1
+	// Loop through all skipped contigs. Determine the cluster with largest average linkage.
+	for i := 0; i < N; i++ {
+		if clusterID[i] != -1 {
+			continue
+		}
+	}
+
+	r.sortClusters()
+	fmt.Println(r.clusters)
+	return
+}
+
+// findClusterLinkages
+func (r *Partitioner) findClusterLinkage(cID int) {
+
 }
 
 // sortClusters reorder the cluster by total length
-func (r *Partitioner) sortClusters(clusters Clusters) Clusters {
+func (r *Partitioner) sortClusters() {
 	clusterLens := []*clusterLen{}
-	for cID, cl := range clusters {
+	for cID, cl := range r.clusters {
 		c := &clusterLen{
 			cID:    cID,
 			length: 0,
@@ -246,14 +259,14 @@ func (r *Partitioner) sortClusters(clusters Clusters) Clusters {
 
 	newClusters := Clusters{}
 	for i, cl := range clusterLens {
-		newClusters[i] = clusters[cl.cID]
+		newClusters[i] = r.clusters[cl.cID]
 	}
-	return newClusters
+	r.clusters = newClusters
 }
 
 // printClusters shows the contents of the clusters
-func (r *Partitioner) printClusters(clusters Clusters) {
-	for _, ids := range clusters {
+func (r *Partitioner) printClusters() {
+	for _, ids := range r.clusters {
 		names := make([]string, len(ids))
 		for i, id := range ids {
 			names[i] = r.contigs[id].name

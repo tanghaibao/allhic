@@ -24,6 +24,7 @@ type Partitioner struct {
 	contigToIdx map[string]int
 	matrix      [][]int64
 	longestRE   int
+	clusters    Clusters
 }
 
 // Run is the main function body of partition
@@ -38,8 +39,8 @@ func (r *Partitioner) Run() {
 	r.skipContigsWithFewREs()
 	r.skipRepeats()
 
-	clusters := r.Cluster()
-	r.printClusters(clusters)
+	r.Cluster()
+	r.printClusters()
 
 	log.Notice("Success")
 }
