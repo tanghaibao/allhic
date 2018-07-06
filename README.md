@@ -27,11 +27,11 @@ go install github.com/tanghaibao/allhic/cmd/allhic
 
 ## Usage
 
-### Prune
+### <kbd>Prune</kbd>
 
 Prune bamfile to remove weak links. WIP.
 
-### Extract
+### <kbd>Extract</kbd>
 
 Extract does a fair amount of preprocessing: 1) extract inter-contig links into a more compact form, specifically into `.clm`; 2) extract intra-contig links and build a distribution; 3) count up the restriction sites to be used in normalization (similar to LACHESIS); 4) bundles the inter-contig links into pairs of contigs.
 
@@ -39,15 +39,13 @@ Extract does a fair amount of preprocessing: 1) extract inter-contig links into 
 allhic extract tests/test.bam tests/test.fasta
 ```
 
-### Partition
+### <kbd>Partition</kbd>
 
 Given a target `k`, number of partitions, the goal of the partitioning
 is to separate all the contigs into separate clusters. As with all
 clustering algorithm, there is an optimization goal here. The
 LACHESIS algorithm is a hierarchical clustering algorithm using
-average links. ALLHIC uses a community detection method based on
-[Newman 2006](http://www.pnas.org/content/103/23/8577.full),
-using eigen decomposition of the modularity matrix.
+average links, which is the same method used by ALLHIC.
 
 ![networkbefore](script/graph-s.png)
 ![networkafter](script/graph-s.partitioned.png)
@@ -56,13 +54,13 @@ using eigen decomposition of the modularity matrix.
 allhic partition tests/test.counts_GATC.txt tests/test.pairs.txt
 ```
 
-### Optimize
+### <kbd>Optimize</kbd>
 
 Given a set of Hi-C contacts between contigs, as specified in the
 clmfile, reconstruct the highest scoring ordering and orientations
 for these contigs.
 
-Optimize uses Genetic Algorithm (GA) to search for the best scoring solution.
+Optimize uses Genetic Algorithm (GA) to search for the best scoring solution. GA has been successfully applied to genome scaffolding tasks in the past (see ALLMAPS; [Tang et al. *Genome Biology*, 2015](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-014-0573-1)).
 
 ![ga](tests/test-movie.gif)
 
@@ -70,7 +68,7 @@ Optimize uses Genetic Algorithm (GA) to search for the best scoring solution.
 allhic optimize tests/test.counts_GATC.txt tests/test.clm
 ```
 
-### Build
+### <kbd>Build</kbd>
 
 Build genome release. WIP.
 
