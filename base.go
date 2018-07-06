@@ -25,7 +25,7 @@ import (
 
 const (
 	// Version is the current version of ALLHIC
-	Version = "0.8.2"
+	Version = "0.8.3"
 	// LB is lower bound for GoldenArray
 	LB = 18
 	// UB is upper bound for GoldenArray
@@ -44,15 +44,11 @@ const (
 	MINSIZE = 10000
 	// GeometricBinSize is the max/min ratio for each bin
 	GeometricBinSize = 1.0442737824274138403219664787399
-	// MinInterLinks is the minimum number of links between two contigs to consider
-	MinInterLinks = 1
 	// MinLinkDist is the minimum link distance we care about
 	MinLinkDist = 1 << 11
 
 	// MaxLinkDist is the maximum link distance we care about
 	MaxLinkDist = 1 << 27
-	// EffLinkDist is the link distance where we are willing to accept contig pairs
-	EffLinkDist = 1 << 19
 	// BinNorm is a ratio to make the link density human readable
 	BinNorm = 1000000.0
 	// BigNorm is a big integer multiplier so we don't have to mess with float64

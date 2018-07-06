@@ -166,32 +166,6 @@ func (r *Partitioner) readRE() {
 		r.Contigsfile)
 }
 
-// ParseContigLines imports the contig infor into a slice of ContigInfo
-// ContigInfo stores the data struct of the contigfile
-// #Contig Length  Expected        Observed        LDE
-// jpcChr1.ctg249  25205   2.3     4       1.7391
-// jpcChr1.ctg344  82275   15.4    17      1.1068
-func (r *Partitioner) ParseContigLines() {
-	recs := ReadCSVLines(r.Contigsfile)
-	for _, rec := range recs {
-		name := rec[0]
-		length, _ := strconv.Atoi(rec[1])
-		if length > r.longestRE {
-			r.longestRE = length
-		}
-		nExpectedLinks, _ := strconv.ParseFloat(rec[2], 64)
-		nObservedLinks, _ := strconv.Atoi(rec[3])
-		lde, _ := strconv.ParseFloat(rec[4], 64)
-
-		ci := &ContigInfo{
-			name: name, length: length,
-			nExpectedLinks: nExpectedLinks, nObservedLinks: nObservedLinks,
-			lde: lde,
-		}
-		r.contigs = append(r.contigs, ci)
-	}
-}
-
 // ParseDist imports the edges of the contig into a slice of DistLine
 // DistLine stores the data structure of the distfile
 // #Contig1        Contig2 Length1 Length2 LDE1    LDE2    LDE     ObservedLinks   ExpectedLinksIfAdjacent
@@ -207,17 +181,13 @@ func (r *Partitioner) ParseDist() []ContigPair {
 		at, bt := rec[2], rec[3]
 		RE1, _ := strconv.Atoi(rec[4])
 		RE2, _ := strconv.Atoi(rec[5])
-		lde1, _ := strconv.ParseFloat(rec[6], 64)
-		lde2, _ := strconv.ParseFloat(rec[7], 64)
-		localLDE, _ := strconv.ParseFloat(rec[8], 64)
-		nObservedLinks, _ := strconv.Atoi(rec[9])
-		nExpectedLinks, _ := strconv.ParseFloat(rec[10], 64)
+		nObservedLinks, _ := strconv.Atoi(rec[6])
+		nExpectedLinks, _ := strconv.ParseFloat(rec[7], 64)
 
 		cp := ContigPair{
 			ai: ai, bi: bi,
 			at: at, bt: bt,
 			RE1: RE1, RE2: RE2,
-			lde1: lde1, lde2: lde2, localLDE: localLDE,
 			nObservedLinks: nObservedLinks, nExpectedLinks: nExpectedLinks,
 		}
 

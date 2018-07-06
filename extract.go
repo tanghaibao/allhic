@@ -17,8 +17,6 @@ import (
 	"math"
 	"os"
 	"sort"
-	"strconv"
-	"strings"
 
 	"github.com/biogo/hts/bam"
 	"github.com/shenwei356/bio/seq"
@@ -37,7 +35,6 @@ type Extracter struct {
 	contigToIdx     map[string]int
 	maxLinkDist     int
 	nBins           int
-	logFactorials   []float64
 	binStarts       []int
 	linkDensity     []float64
 	nLinks          []int
@@ -45,16 +42,25 @@ type Extracter struct {
 	binNorms        []int
 }
 
-// ContigInfo stores results calculated from FindEnrichmentOnContigs
+// ContigInfo stores results calculated from f
 type ContigInfo struct {
 	name           string
 	recounts       int
 	length         int
-	links          []int // only intra-links are counted
+	links          []int // only intra-links are included in this field
 	nExpectedLinks float64
 	nObservedLinks int
-	lde            float64
 	skip           bool
+}
+
+// ContigPair stores results calculated from findDistanceBetweenContigs
+type ContigPair struct {
+	ai, bi         int
+	at, bt         string
+	RE1, RE2       int
+	L1, L2         int
+	nObservedLinks int
+	nExpectedLinks float64
 }
 
 // uintLog2 calculates the integer log2 of a number
@@ -128,13 +134,11 @@ func (r *Extracter) BinSize(i int) int {
 // Run calls the distribution steps
 func (r *Extracter) Run() {
 	r.readFastaAndWriteRE("counts_" + r.RE + ".txt")
-	r.ExtractInterContigLinks()
-	r.ExtractIntraContigLinks()
-	r.Makebins()
-	r.WriteDistribution("distribution.txt")
-	r.FindEnrichmentOnContigs()
-	r.PreComputeLogFactorials()
-	r.FindDistanceBetweenContigs("distance.txt")
+	r.extractContigLinks()
+	r.makebins()
+	r.writeDistribution("distribution.txt")
+	r.calcIntraContigs()
+	r.calcInterContigs("distance.txt")
 }
 
 // readFastaAndWriteRE writes out the number of restriction fragments, one per line
@@ -176,10 +180,10 @@ func (r *Extracter) readFastaAndWriteRE(outfile string) {
 		totalCounts, totalBp/int64(totalCounts), outfile)
 }
 
-// Makebins makes geometric bins and count links that fall in each bin
+// makebins makes geometric bins and count links that fall in each bin
 // This heavily borrows the method form LACHESIS
 // https://github.com/shendurelab/LACHESIS/blob/master/src/LinkSizeExtracter.cc
-func (r *Extracter) Makebins() {
+func (r *Extracter) makebins() {
 	// Step 1: make geometrically sized bins
 	// We fit 16 bins into each power of 2
 	linkRange := math.Log2(float64(MaxLinkDist) / float64(MinLinkDist))
@@ -259,8 +263,8 @@ func (r *Extracter) Makebins() {
 	}
 }
 
-// WriteDistribution writes the link
-func (r *Extracter) WriteDistribution(outfile string) {
+// writeDistribution writes the link
+func (r *Extracter) writeDistribution(outfile string) {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
@@ -280,68 +284,30 @@ func (r ContigInfo) String() string {
 	return fmt.Sprintf("%s\t%d\t%d", r.name, r.recounts, r.length)
 }
 
-// FindEnrichmentOnContigs determine the local enrichment of links on this contig.
-func (r *Extracter) FindEnrichmentOnContigs() {
+// calcIntraContigs determine the local enrichment of links on this contig.
+func (r *Extracter) calcIntraContigs() {
 	for _, contig := range r.contigs {
 		L := contig.length
 		links := contig.links
 		nObservedLinks := len(links)
-		nExpectedLinks := r.FindExpectedIntraContigLinks(L, links)
-		var LDE float64
-		if nObservedLinks == 0 {
-			LDE = 0.0
-		} else {
-			LDE = float64(nObservedLinks) / sumf(nExpectedLinks)
-		}
-		// Cap the LDE value within [0.2, 5.0]
-		if LDE < 0.2 {
-			LDE = 0.2
-		} else if LDE > 5.0 {
-			LDE = 5.0
-		}
+		nExpectedLinks := r.findExpectedIntraContigLinks(L, links)
 		contig.nExpectedLinks = sumf(nExpectedLinks)
 		contig.nObservedLinks = nObservedLinks
-		contig.lde = LDE
 	}
-}
-
-// ContigPair stores results calculated from FindDistanceBetweenContigs
-type ContigPair struct {
-	ai, bi         int
-	at, bt         string
-	RE1, RE2       int
-	L1, L2         int
-	lde1, lde2     float64
-	localLDE       float64
-	nObservedLinks int
-	nExpectedLinks float64
-	mleDistance    int
-	logLikelihood  float64
-	score          float64
 }
 
 // String() outputs the string representation of ContigInfo
 func (r ContigPair) String() string {
-	return fmt.Sprintf("%d\t%d\t%s\t%s\t%d\t%d\t%.4f\t%.4f\t%.4f\t%d\t%.1f",
-		r.ai, r.bi, r.at, r.bt, r.RE1, r.RE2, r.lde1, r.lde2, r.localLDE,
+	return fmt.Sprintf("%d\t%d\t%s\t%s\t%d\t%d\t%d\t%.1f",
+		r.ai, r.bi, r.at, r.bt, r.RE1, r.RE2,
 		r.nObservedLinks, r.nExpectedLinks)
 }
 
-// FindDistanceBetweenContigs calculates the MLE of distance between all contigs
-func (r *Extracter) FindDistanceBetweenContigs(outfile string) {
+// calcInterContigs calculates the MLE of distance between all contigs
+func (r *Extracter) calcInterContigs(outfile string) {
 	clmfile := RemoveExt(r.Bamfile) + ".clm"
 	lines := ParseClmLines(clmfile)
 	contigPairs := make(map[[2]int]*ContigPair)
-	var L1, L2 int
-	var lde1, lde2, localLDE float64
-
-	longestContigSize := 0
-	for _, contig := range r.contigs {
-		if contig.length > longestContigSize {
-			longestContigSize = contig.length
-		}
-	}
-	longestContigSizeSquared := float64(longestContigSize) * float64(longestContigSize)
 
 	for i := 0; i < len(lines); i++ {
 		line := &lines[i]
@@ -353,29 +319,23 @@ func (r *Extracter) FindDistanceBetweenContigs(outfile string) {
 		cp, ok := contigPairs[pair]
 		if !ok {
 			ca, cb := r.contigs[ai], r.contigs[bi]
-			L1, L2 = ca.length, cb.length
-			lde1, lde2 = ca.lde, cb.lde
-			// localLDE is weighted average of LDEs of contig A and B
-			// Solve: lde1^L1 * lde2^L2 = x^(L1+L2)
-			localLDE = math.Exp((float64(L1)*math.Log(lde1) + float64(L2)*math.Log(lde2)) / float64(L1+L2))
+			L1, L2 := ca.length, cb.length
 			cp = &ContigPair{ai: ai, bi: bi, at: at, bt: bt,
 				RE1: ca.recounts, RE2: cb.recounts,
-				L1: ca.length, L2: cb.length,
-				lde1: ca.lde, lde2: cb.lde, localLDE: localLDE}
+				L1: L1, L2: L2}
+			cp.nExpectedLinks = sumf(r.findExpectedInterContigLinks(0, L1, L2))
+			cp.nObservedLinks = len(line.links)
 			contigPairs[pair] = cp
-			r.FindDistanceBetweenLinks(cp, line)
 		}
 	}
 
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
-	fmt.Fprintf(w, "#X\tY\tContig1\tContig2\tRE1\tRE2\tLDE1\tLDE2\tLDE"+
-		"\tObservedLinks\tExpectedLinksIfAdjacent\n")
+	fmt.Fprintf(w, "#X\tY\tContig1\tContig2\tRE1\tRE2\tObservedLinks\tExpectedLinksIfAdjacent\n")
 
 	allPairs := []*ContigPair{}
 	for _, c := range contigPairs {
-		c.score = float64(c.nObservedLinks) * longestContigSizeSquared / (float64(c.L1) * float64(c.L2))
 		allPairs = append(allPairs, c)
 	}
 	sort.Slice(allPairs, func(i, j int) bool {
@@ -389,73 +349,8 @@ func (r *Extracter) FindDistanceBetweenContigs(outfile string) {
 	log.Noticef("Contig pair analyses written to `%s`", outfile)
 }
 
-// FindDistanceBetweenLinks calculates the most likely inter-contig distance
-// Method credit to LACHESIS src code:
-// https://github.com/shendurelab/LACHESIS/blob/master/src/LinkSizeExtracter.cc
-func (r *Extracter) FindDistanceBetweenLinks(cp *ContigPair, line *CLMLine) {
-	L1, L2 := cp.L1, cp.L2
-	LDE := cp.localLDE
-	links := line.links
-
-	if L1 > L2 {
-		L1, L2 = L2, L1
-	}
-
-	bestLogLikelihood := math.Inf(-1)
-	bestD := MaxLinkDist
-	for i := 0; i < r.nBins; i++ {
-		D := r.binStarts[i]
-		logLikelihood := r.LogLikelihoodD(D, L1, L2, LDE, links)
-		if logLikelihood > bestLogLikelihood {
-			bestLogLikelihood = logLikelihood
-			bestD = D
-		}
-	}
-
-	if cp.logLikelihood == 0 || cp.logLikelihood < bestLogLikelihood {
-		cp.mleDistance, cp.logLikelihood = bestD, bestLogLikelihood
-		cp.nExpectedLinks = sumf(r.FindExpectedInterContigLinks(0, L1, L2, LDE))
-		cp.nObservedLinks = len(links)
-	}
-}
-
-// LogLikelihoodD calculates the log-likelihood given the distance between contigs D
-// This function gets called by FindDistanceBetweenLinks
-func (r *Extracter) LogLikelihoodD(D, L1, L2 int, LDE float64, links []int) float64 {
-	// Find expected number of links per bin
-	nExpectedLinks := r.FindExpectedInterContigLinks(D, L1, L2, LDE)
-	// nObservedLinks := make([]int, r.nBins)
-	// // Find actual number of links falling into each bin
-	// for _, link := range links {
-	// 	bin := r.LinkBin(link + D)
-	// 	if bin < 0 || bin >= r.nBins {
-	// 		continue
-	// 	}
-	// 	nObservedLinks[bin]++
-	// }
-
-	// Calculate the log likelihood of the observed link distribution
-	// The log likelihood of the data is sum of log likelihood of all bins where
-	// logLL = -m + k ln m - ln(k!)
-	// logLikelihood := 0.0
-	// for i := 0; i < r.nBins; i++ {
-	// 	m := nExpectedLinks[i]
-	// 	k := nObservedLinks[i]
-
-	// 	if m == 0 { // empty bin
-	// 		continue
-	// 	}
-	// 	logLikelihood += -m + float64(k)*math.Log(float64(m)) - r.logFactorials[k]
-	// }
-	m := sumf(nExpectedLinks)
-	k := len(links)
-	logLikelihood := -m + float64(k)*math.Log(float64(m)) - r.logFactorials[k]
-
-	return logLikelihood
-}
-
-// FindExpectedIntraContigLinks calculates the expected number of links within a contig
-func (r *Extracter) FindExpectedIntraContigLinks(L int, links []int) []float64 {
+// findExpectedIntraContigLinks calculates the expected number of links within a contig
+func (r *Extracter) findExpectedIntraContigLinks(L int, links []int) []float64 {
 	nExpectedLinks := make([]float64, r.nBins)
 
 	for i := 0; i < r.nBins; i++ {
@@ -478,8 +373,11 @@ func (r *Extracter) FindExpectedIntraContigLinks(L int, links []int) []float64 {
 	return nExpectedLinks
 }
 
-// FindExpectedInterContigLinks calculates the expected number of links between two contigs
-func (r *Extracter) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64) []float64 {
+// findExpectedInterContigLinks calculates the expected number of links between two contigs
+func (r *Extracter) findExpectedInterContigLinks(D, L1, L2 int) []float64 {
+	if L1 > L2 {
+		L1, L2 = L2, L1
+	}
 	nExpectedLinks := make([]float64, r.nBins)
 
 	for i := 0; i < r.nBins; i++ {
@@ -519,53 +417,22 @@ func (r *Extracter) FindExpectedInterContigLinks(D, L1, L2 int, LDE float64) []f
 			middleY := D + L1 + L2 - middleX
 			nObservableLinks += (right - left) * middleY
 		}
-		nExpectedLinks[i] = float64(nObservableLinks) * r.linkDensity[i] / BinNorm * LDE
+		nExpectedLinks[i] = float64(nObservableLinks) * r.linkDensity[i] / BinNorm
 	}
 
 	return nExpectedLinks
 }
 
-// ExtractIntraContigLinks populates links
-func (r *Extracter) ExtractIntraContigLinks() {
-	disfile := RemoveExt(r.Bamfile) + ".dis"
-	log.Noticef("Parse dist file `%s`", disfile)
-
-	file, _ := os.Open(disfile)
-	reader := bufio.NewReader(file)
-	r.totalIntraLinks = 0
-	for {
-		row, err := reader.ReadString('\n')
-		row = strings.TrimSpace(row)
-		if row == "" && err == io.EOF {
-			break
-		}
-		words := strings.Split(row, "\t")
-		contig := r.contigs[r.contigToIdx[words[0]]]
-		contig.links = []int{}
-		for _, link := range strings.Split(words[1], ",") {
-			ll, _ := strconv.Atoi(link)
-			if ll >= MinLinkDist {
-				contig.links = append(contig.links, ll)
-			}
-		}
-		r.totalIntraLinks++
-	}
-	log.Noticef("Imported %d intra-contig links", r.totalIntraLinks)
-}
-
-// ExtractInterContigLinks converts the BAM file to .clm and .ids
-func (r *Extracter) ExtractInterContigLinks() {
+// extractContigLinks converts the BAM file to .clm and .ids
+func (r *Extracter) extractContigLinks() {
 	fh, _ := os.Open(r.Bamfile)
 	prefix := RemoveExt(r.Bamfile)
-	disfile := prefix + ".dis"
 	clmfile := prefix + ".clm"
 
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
 	defer br.Close()
 
-	fdis, _ := os.Create(disfile)
-	wdis := bufio.NewWriter(fdis)
 	fclm, _ := os.Create(clmfile)
 	wclm := bufio.NewWriter(fclm)
 
@@ -648,11 +515,9 @@ func (r *Extracter) ExtractInterContigLinks() {
 		intraGroups++
 		// contig.links = unique(contig.links)
 		total += len(contig.links)
-		fmt.Fprintf(wdis, "%s\t%s\n", contig.name, arrayToString(contig.links, ","))
 	}
-	wdis.Flush()
-	log.Noticef("Extracted %d intra-contig link groups to `%s` (total = %d)",
-		intraGroups, disfile, total)
+	log.Noticef("Extracted %d intra-contig link groups (total = %d)",
+		intraGroups, total)
 
 	// Write inter-links to .clm file
 	total = 0
@@ -666,9 +531,6 @@ func (r *Extracter) ExtractInterContigLinks() {
 			}
 			// linksWithDir = unique(linksWithDir)
 			nLinks := len(linksWithDir)
-			if nLinks < MinInterLinks {
-				continue
-			}
 			if nLinks > maxLinks {
 				maxLinks = nLinks
 			}
@@ -683,13 +545,4 @@ func (r *Extracter) ExtractInterContigLinks() {
 	wclm.Flush()
 	log.Noticef("Extracted %d inter-contig groups to `%s` (total = %d, maxLinks = %d)",
 		len(contigPairs), clmfile, total, maxLinks)
-
-	r.logFactorials = make([]float64, maxLinks+1)
-}
-
-// PreComputeLogFactorials precomputes log factorials for calculation of log likelihood
-func (r *Extracter) PreComputeLogFactorials() {
-	for i := 2; i < len(r.logFactorials); i++ {
-		r.logFactorials[i] = r.logFactorials[i-1] + math.Log(float64(i))
-	}
 }

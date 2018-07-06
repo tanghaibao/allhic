@@ -9,8 +9,6 @@
 
 package allhic
 
-import "fmt"
-
 // Pruner processes the pruning step
 type Pruner struct {
 	Bamfile string
@@ -18,5 +16,6 @@ type Pruner struct {
 
 // Run calls the pruning steps
 func (r *Pruner) Run() {
-	fmt.Println(r.Bamfile)
+	log.Errorf("Prune function is still under development. Please use `./prune` for now.")
+	log.Errorf("Usage: ./prune -i Allele.ctg.table -b bam.list -r draft.asm.fasta")
 }
