@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/shenwei356/bio/seq"
-	"github.com/shenwei356/bio/seqio/fai"
 	"github.com/shenwei356/bio/seqio/fastx"
 	"github.com/shenwei356/xopen"
 )
@@ -84,8 +83,8 @@ func (r *AGP) Add(row string) {
 	r.lines = append(r.lines, line)
 }
 
-// BuildFasta builds target FASTA based on info from agpfile
-func BuildFasta(agpfile, fastafile string) {
+// buildFasta builds target FASTA based on info from agpfile
+func buildFasta(agpfile string, seqs map[string]*seq.Seq) {
 	agp := NewAGP(agpfile)
 	file, _ := os.Open(agpfile)
 
@@ -95,10 +94,6 @@ func BuildFasta(agpfile, fastafile string) {
 		agp.Add(scanner.Text())
 	}
 
-	// Compile the list of sequence chunks and join them
-	faidx, _ := fai.New(fastafile)
-	defer faidx.Close()
-
 	var buf bytes.Buffer
 	outFile := RemoveExt(agpfile) + ".chr.fasta"
 	outfh, _ := xopen.Wopen(outFile)
@@ -106,7 +101,7 @@ func BuildFasta(agpfile, fastafile string) {
 	for _, line := range agp.lines {
 		if line.object != prevObject {
 			if prevObject != "" {
-				WriteRecord(prevObject, buf, outfh)
+				writeRecord(prevObject, buf, outfh)
 			}
 			prevObject = line.object
 			buf.Reset()
@@ -114,28 +109,30 @@ func BuildFasta(agpfile, fastafile string) {
 		if line.isGap {
 			buf.Write(bytes.Repeat([]byte("N"), line.gapLength))
 		} else {
-			s, _ := faidx.SubSeq(line.componentID,
-				line.componentBeg, line.componentEnd)
-			if line.strand == '-' {
-				ns, _ := seq.NewSeq(seq.DNA, s)
-				ns.RevComInplace()
-				buf.Write(ns.Seq)
+			if s, ok := seqs[line.componentID]; ok {
+				// fmt.Printf("name: %s seq: %s\n", line.componentID, s.SubSeq(1, 10))
+				s = s.SubSeq(line.componentBeg, line.componentEnd)
+				if line.strand == '-' {
+					s.RevComInplace()
+				}
+				buf.Write(s.Seq)
 			} else {
-				buf.Write(s)
+				log.Errorf("Cannot locate %s", line.componentID)
 			}
 		}
 	}
 	// Last one
-	WriteRecord(prevObject, buf, outfh)
+	writeRecord(prevObject, buf, outfh)
 	buf.Reset()
 }
 
-// WriteRecord writes the FASTA record to the file
-func WriteRecord(object string, buf bytes.Buffer, outfh *xopen.Writer) {
+// writeRecord writes the FASTA record to the file
+func writeRecord(object string, buf bytes.Buffer, outfh *xopen.Writer) {
 	record, _ := fastx.NewRecordWithoutValidation(seq.DNA, []byte{}, []byte(object), buf.Bytes())
 	size := record.Seq.Length()
 	if size > LargeSequence {
 		log.Noticef("Write sequence %s (size = %d bp)", record.Name, size)
 	}
 	record.FormatToWriter(outfh, LineWidth)
+	outfh.Flush()
 }

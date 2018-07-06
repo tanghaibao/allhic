@@ -12,10 +12,12 @@ package allhic
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
-	"github.com/shenwei356/bio/seqio/fai"
+	"github.com/shenwei356/bio/seq"
+	"github.com/shenwei356/bio/seqio/fastx"
 )
 
 // Builder reconstructs the genome release AGP and FASTA files
@@ -35,25 +37,25 @@ type OOLine struct {
 
 // OO describes a scaffolding experiment and contains an array of OOLine
 type OO struct {
-	sizes   map[string]int
+	seqs    map[string]*seq.Seq
 	entries []OOLine
 }
 
 // getFastaSizes returns a dictionary of contig sizes
 func (r *OO) getFastaSizes(fastafile string) {
 	log.Noticef("Parse FASTA file `%s`", fastafile)
-	r.sizes = make(map[string]int)
-	faifile := fastafile + ".fai"
-	// Check if the .fai file is outdated
-	if !IsNewerFile(faifile, fastafile) {
-		os.Remove(faifile)
-	}
 
-	faidx, _ := fai.New(fastafile)
-	defer faidx.Close()
+	reader, _ := fastx.NewDefaultReader(fastafile)
+	seq.ValidateSeq = false
+	r.seqs = map[string]*seq.Seq{}
+	for {
+		rec, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
 
-	for name, rec := range faidx.Index {
-		r.sizes[name] = rec.Length
+		name := string(rec.Name)
+		r.seqs[name] = rec.Seq.Clone()
 	}
 }
 
@@ -130,7 +132,7 @@ func (r *Builder) Run() {
 // Build constructs molecule using component FASTA sequence
 func (r *Builder) Build(oo *OO) {
 	r.writeAGP(oo)
-	BuildFasta(r.AGPfile, r.Fastafile)
+	buildFasta(r.AGPfile, oo.seqs)
 }
 
 // parseLastTour reads tour from file
@@ -148,7 +150,7 @@ func (r *OO) parseLastTour(tourfile string) {
 		} else {
 			strand = '?'
 		}
-		r.Add("FINAL", tig, r.sizes[tig], strand)
+		r.Add("FINAL", tig, r.seqs[tig].Length(), strand)
 	}
 }
 
@@ -179,7 +181,7 @@ func (r *OO) ParseAllTours(tourfile string) {
 			} else {
 				strand = '?'
 			}
-			r.Add(name, tig, r.sizes[tig], strand)
+			r.Add(name, tig, r.seqs[tig].Length(), strand)
 		}
 	}
 }

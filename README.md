@@ -89,4 +89,3 @@ allhic build T4_Chr/{prunning.sub.tour,seq.fasta}
 
 - [x] Add restriction enzyme for better normalization of contig lengths
 - [ ] Add test suites
-- [ ] Speed up `build`
