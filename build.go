@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/shenwei356/bio/seqio/fai"
 )
@@ -21,6 +22,7 @@ import (
 type Builder struct {
 	Tourfile  string
 	Fastafile string
+	AGPfile   string
 }
 
 // OOLine describes a simple contig entry in a scaffolding experiment
@@ -37,8 +39,8 @@ type OO struct {
 	entries []OOLine
 }
 
-// GetFastaSizes returns a dictionary of contig sizes
-func (r *OO) GetFastaSizes(fastafile string) {
+// getFastaSizes returns a dictionary of contig sizes
+func (r *OO) getFastaSizes(fastafile string) {
 	log.Noticef("Parse FASTA file `%s`", fastafile)
 	r.sizes = make(map[string]int)
 	faifile := fastafile + ".fai"
@@ -55,11 +57,11 @@ func (r *OO) GetFastaSizes(fastafile string) {
 	}
 }
 
-// ReadFiles initializes OO object
-func (r *Builder) ReadFiles() *OO {
+// readFiles initializes OO object
+func (r *Builder) readFiles() *OO {
 	oo := new(OO)
-	oo.GetFastaSizes(r.Fastafile)
-	oo.ParseTour(r.Tourfile)
+	oo.getFastaSizes(r.Fastafile)
+	oo.parseLastTour(r.Tourfile)
 
 	return oo
 }
@@ -70,8 +72,9 @@ func (r *OO) Add(scaffold, ctg string, ctgsize int, strand byte) {
 	r.entries = append(r.entries, o)
 }
 
-// WriteAGP converts the simplistic OOLine into AGP format
-func (r *Builder) WriteAGP(oo *OO, filename string) {
+// writeAGP converts the simplistic OOLine into AGP format
+func (r *Builder) writeAGP(oo *OO) {
+	filename := r.AGPfile
 	gapSize := 100
 	gapType := "scaffold"
 	linkage := "yes"
@@ -120,23 +123,22 @@ func (r *Builder) WriteAGP(oo *OO, filename string) {
 
 // Run kicks off the Builder
 func (r *Builder) Run() {
-	oo := r.ReadFiles()
-	agpfile := RemoveExt(r.Tourfile) + ".agp"
-	r.WriteAGP(oo, agpfile)
-	r.Build(agpfile)
+	r.AGPfile = RemoveExt(r.Tourfile) + ".agp"
+	r.Build(r.readFiles())
 }
 
 // Build constructs molecule using component FASTA sequence
-func (r *Builder) Build(agpfile string) {
-	BuildFasta(agpfile, r.Fastafile)
+func (r *Builder) Build(oo *OO) {
+	r.writeAGP(oo)
+	BuildFasta(r.AGPfile, r.Fastafile)
 }
 
-// ParseTour reads tour from file
+// parseLastTour reads tour from file
 //
 // A tour file has the following format:
 // > name
 // contig1+ contig2- contig3?
-func (r *OO) ParseTour(tourfile string) {
+func (r *OO) parseLastTour(tourfile string) {
 	words := parseTourFile(tourfile)
 	var strand byte
 	for _, tig := range words {
@@ -146,6 +148,38 @@ func (r *OO) ParseTour(tourfile string) {
 		} else {
 			strand = '?'
 		}
-		r.Add("name", tig, r.sizes[tig], strand)
+		r.Add("FINAL", tig, r.sizes[tig], strand)
+	}
+}
+
+// ParseAllTours reads tour from file
+//
+// A tour file has the following format:
+// > name
+// contig1+ contig2- contig3?
+func (r *OO) ParseAllTours(tourfile string) {
+	log.Noticef("Parse tourfile `%s`", tourfile)
+
+	file, _ := os.Open(tourfile)
+	scanner := bufio.NewScanner(file)
+	var (
+		name   string
+		strand byte
+	)
+	for scanner.Scan() {
+		words := strings.Fields(scanner.Text())
+		if words[0][0] == '>' {
+			name = words[0][1:]
+			continue
+		}
+		for _, tig := range words {
+			at, ao := tig[:len(tig)-1], tig[len(tig)-1]
+			if ao == '+' || ao == '-' || ao == '?' {
+				tig, strand = at, ao
+			} else {
+				strand = '?'
+			}
+			r.Add(name, tig, r.sizes[tig], strand)
+		}
 	}
 }
