@@ -133,16 +133,17 @@ func (r *Extracter) BinSize(i int) int {
 
 // Run calls the distribution steps
 func (r *Extracter) Run() {
-	r.readFastaAndWriteRE("counts_" + r.RE + ".txt")
+	r.readFastaAndWriteRE()
 	r.extractContigLinks()
-	r.makebins()
-	r.writeDistribution("distribution.txt")
+	r.writeDistribution()
 	r.calcIntraContigs()
-	r.calcInterContigs("distance.txt")
+	r.calcInterContigs()
 }
 
 // readFastaAndWriteRE writes out the number of restriction fragments, one per line
-func (r *Extracter) readFastaAndWriteRE(outfile string) {
+func (r *Extracter) readFastaAndWriteRE() {
+	outfile := RemoveExt(r.Bamfile) + ".counts_" + r.RE + ".txt"
+
 	reader, _ := fastx.NewDefaultReader(r.Fastafile)
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
@@ -264,7 +265,10 @@ func (r *Extracter) makebins() {
 }
 
 // writeDistribution writes the link
-func (r *Extracter) writeDistribution(outfile string) {
+func (r *Extracter) writeDistribution() {
+	r.makebins()
+
+	outfile := RemoveExt(r.Bamfile) + ".distribution.txt"
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
@@ -304,7 +308,7 @@ func (r ContigPair) String() string {
 }
 
 // calcInterContigs calculates the MLE of distance between all contigs
-func (r *Extracter) calcInterContigs(outfile string) {
+func (r *Extracter) calcInterContigs() {
 	clmfile := RemoveExt(r.Bamfile) + ".clm"
 	lines := ParseClmLines(clmfile)
 	contigPairs := make(map[[2]int]*ContigPair)
@@ -329,6 +333,7 @@ func (r *Extracter) calcInterContigs(outfile string) {
 		}
 	}
 
+	outfile := RemoveExt(r.Bamfile) + ".pairs.txt"
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
