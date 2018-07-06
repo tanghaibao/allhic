@@ -589,8 +589,21 @@ func (r *Extracter) ExtractInterContigLinks() {
 			}
 			break
 		}
+		// Filtering: Unmapped | Secondary | QCFail | Duplicate | Supplementary
+		if rec.MapQ == 0 || rec.Flags&3844 != 0 {
+			continue
+		}
+
+		// Make sure we have these contig ids
 		at, bt := rec.Ref.Name(), rec.MateRef.Name()
-		ai, bi := r.contigToIdx[at], r.contigToIdx[bt]
+		ai, ok := r.contigToIdx[at]
+		if !ok {
+			continue
+		}
+		bi, ok := r.contigToIdx[bt]
+		if !ok {
+			continue
+		}
 
 		//         read1                                               read2
 		//     ---a-- X|----- dist = a2 ----|         |--- dist = b ---|X ------ b2 ------
