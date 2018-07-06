@@ -20,6 +20,7 @@ import (
 // Optimizer runs the order-and-orientation procedure, given a clmfile
 type Optimizer struct {
 	Clmfile   string
+	REfile    string
 	RunGA     bool
 	StartOver bool
 	Seed      int64
@@ -31,7 +32,7 @@ type Optimizer struct {
 
 // Run kicks off the Optimizer
 func (r *Optimizer) Run() {
-	clm := NewCLM(r.Clmfile)
+	clm := NewCLM(r.Clmfile, r.REfile)
 	tourfile := RemoveExt(r.Clmfile) + ".tour"
 	shuffle := false
 

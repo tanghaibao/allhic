@@ -13,7 +13,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/shenwei356/bio/seqio/fai"
 )
@@ -138,28 +137,15 @@ func (r *Builder) Build(agpfile string) {
 // > name
 // contig1+ contig2- contig3?
 func (r *OO) ParseTour(tourfile string) {
-	log.Noticef("Parse tourfile `%s`", tourfile)
-
-	file, _ := os.Open(tourfile)
-	scanner := bufio.NewScanner(file)
-	var (
-		name   string
-		strand byte
-	)
-	for scanner.Scan() {
-		words := strings.Fields(scanner.Text())
-		if words[0][0] == '>' {
-			name = words[0][1:]
-			continue
+	words := parseTourFile(tourfile)
+	var strand byte
+	for _, tig := range words {
+		at, ao := tig[:len(tig)-1], tig[len(tig)-1]
+		if ao == '+' || ao == '-' || ao == '?' {
+			tig, strand = at, ao
+		} else {
+			strand = '?'
 		}
-		for _, tig := range words {
-			at, ao := tig[:len(tig)-1], tig[len(tig)-1]
-			if ao == '+' || ao == '-' || ao == '?' {
-				tig, strand = at, ao
-			} else {
-				strand = '?'
-			}
-			r.Add(name, tig, r.sizes[tig], strand)
-		}
+		r.Add("name", tig, r.sizes[tig], strand)
 	}
 }

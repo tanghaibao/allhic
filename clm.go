@@ -14,7 +14,6 @@ import (
 	"io"
 	"math"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,9 +30,8 @@ import (
 // tig00030676- tig00077819+       7       118651 91877 91877 209149 125906 146462 146462
 // tig00030676- tig00077819-       7       108422 157204 157204 137924 142611 75169 75169
 type CLM struct {
-	Name             string
+	REfile           string
 	Clmfile          string
-	Idsfile          string
 	Tigs             []TigF
 	Tour             Tour
 	Signs            []byte
@@ -93,11 +91,10 @@ type Tour struct {
 }
 
 // NewCLM is the constructor for CLM
-func NewCLM(Clmfile string) *CLM {
+func NewCLM(Clmfile, REfile string) *CLM {
 	p := new(CLM)
-	p.Name = RemoveExt(path.Base(Clmfile))
+	p.REfile = REfile
 	p.Clmfile = Clmfile
-	p.Idsfile = RemoveExt(Clmfile) + ".ids"
 	p.tigToIdx = make(map[string]int)
 	p.contacts = make(map[Pair]Contact)
 	p.orientedContacts = make(map[OrientedPair]GArray)
@@ -115,14 +112,14 @@ func NewCLM(Clmfile string) *CLM {
 // tig00035238     46779   recover
 // tig00030900     119291
 func (r *CLM) ParseIds() {
-	file, _ := os.Open(r.Idsfile)
-	log.Noticef("Parse idsfile `%s`", r.Idsfile)
+	file, _ := os.Open(r.REfile)
+	log.Noticef("Parse idsfile `%s`", r.REfile)
 	scanner := bufio.NewScanner(file)
 	idx := 0
 	for scanner.Scan() {
 		words := strings.Fields(scanner.Text())
 		tig := words[0]
-		size, _ := strconv.Atoi(words[1])
+		size, _ := strconv.Atoi(words[len(words)-1])
 		r.Tigs = append(r.Tigs, TigF{idx, tig, size, true})
 		r.tigToIdx[tig] = idx
 		idx++

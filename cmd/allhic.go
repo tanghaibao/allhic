@@ -135,14 +135,14 @@ of the contig linkage graph.
 			Name:  "partition",
 			Usage: "Separate bamfile into k groups",
 			UsageText: `
-	allhic partition enrichment.txt distance.txt k [options]
+	allhic partition counts_RE.txt pairs.txt k [options]
 
 Partition function:
 Given a target k, number of partitions, the goal of the partitioning is to
 separate all the contigs into separate clusters. As with all clustering
 algorithm, there is an optimization goal here. The LACHESIS algorithm is
-a hierarchical clustering algorithm using average links. The distfile can be
-generated with the "extract" sub-command.
+a hierarchical clustering algorithm using average links. The two input files
+can be generated with the "extract" sub-command.
 `,
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) < 3 {
@@ -162,7 +162,7 @@ generated with the "extract" sub-command.
 			Name:  "optimize",
 			Usage: "Order-and-orient tigs in a group",
 			UsageText: `
-	allhic optimize clmfile [options]
+	allhic optimize counts_RE.txt clmfile [options]
 
 Optimize function:
 Given a set of Hi-C contacts between contigs, as specified in the
@@ -200,19 +200,21 @@ for these contigs.
 				},
 			},
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 1 {
+				if len(c.Args()) < 2 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify clmfile", 1)
 				}
 
-				clmfile := c.Args().Get(0)
+				refile := c.Args().Get(0)
+				clmfile := c.Args().Get(1)
 				runGA := !c.Bool("skipGA")
 				startOver := c.Bool("startOver")
 				seed := c.Int64("seed")
 				npop := c.Int("npop")
 				ngen := c.Int("ngen")
 				mutpb := c.Float64("mutpb")
-				p := allhic.Optimizer{Clmfile: clmfile, RunGA: runGA, StartOver: startOver,
+				p := allhic.Optimizer{REfile: refile, Clmfile: clmfile,
+					RunGA: runGA, StartOver: startOver,
 					Seed: seed, NPop: npop, NGen: ngen, MutProb: mutpb}
 				p.Run()
 				return nil
