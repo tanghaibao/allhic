@@ -13,7 +13,7 @@ package allhic
 type merge struct {
 	a     int
 	b     int
-	score int64
+	score float64
 }
 
 // Cluster performs the hierarchical clustering
@@ -24,37 +24,50 @@ func (r *Partitioner) Cluster() map[int][]int {
 	// LACHESIS also skips contigs that are thought to be centromeric
 	G := r.matrix
 	nclusters := r.K
-	N := len(G)
-	log.Noticef("Clustering starts with %d contigs with target of %d clusters",
-		N, nclusters)
+	N := len(r.contigs)
 
 	// Auxiliary data structures to facilitate cluster merging
 	clusterID := make([]int, N)
 	clusterSize := make([]int, 2*N)
-	clusterActive := make([]bool, 2*N)
+	clusterExists := make([]bool, 2*N)
 	nonSingletonClusters := 0
 
+	nContigsSkipped := 0
 	// Initially all contigs in their own cluster
-	for i := 0; i < N; i++ {
+	for i, contig := range r.contigs {
+		if contig.skip {
+			clusterID[i] = -1
+			nContigsSkipped++
+			continue
+		}
 		clusterID[i] = i
 		clusterSize[i] = 1
-		clusterActive[i] = true
+		clusterExists[i] = true
 	}
+	nNonSkipped := N - nContigsSkipped
+	if nNonSkipped == 0 {
+		log.Noticef("There are no informative contigts for clustering. Contigs are either SHORT or REPETITVE.")
+	}
+	log.Noticef("Clustering starts with %d (%d informative) contigs with target of %d clusters",
+		N, nNonSkipped, nclusters)
 
 	// mergeScores has all possible pairwise merge scores
-	// We keep a doubly-linked list containing all potential merges
+	// We keep a slice containing all potential merges. Best to use a priority queue.
 	// The original LACHESIS implementation used a C++ multimap with its use similar
 	// to a priority queue, however, the performance benefit is not obvious since we
 	// need to perform updates to all merges (remove old merges and insert new merges)
 	merges := []*merge{}
 
 	for i := 0; i < N; i++ {
+		if r.contigs[i].skip {
+			continue
+		}
 		for j := i + 1; j < N; j++ {
-			if G[i][j] > MinAvgLinkage {
+			if !r.contigs[j].skip && G[i][j] > MinAvgLinkage {
 				merges = append(merges, &merge{
 					a:     i,
 					b:     j,
-					score: G[i][j],
+					score: float64(G[i][j]),
 				})
 			}
 		}
@@ -67,7 +80,6 @@ func (r *Partitioner) Cluster() map[int][]int {
 			log.Notice("No more merges to do since the queue is empty")
 			break
 		}
-		// log.Noticef("Inspecting %d potential merges", len(merges))
 		bestMerge := merges[0]
 		// Step 1. Find the pairs of the clusters with the highest merge score
 		for _, merge := range merges {
@@ -79,9 +91,9 @@ func (r *Partitioner) Cluster() map[int][]int {
 		// Step 2. Merge the contig pair
 		newClusterID := N + nMerges
 
-		clusterActive[bestMerge.a] = false
-		clusterActive[bestMerge.b] = false
-		clusterActive[newClusterID] = true
+		clusterExists[bestMerge.a] = false
+		clusterExists[bestMerge.b] = false
+		clusterExists[newClusterID] = true
 		clusterSize[newClusterID] = clusterSize[bestMerge.a] + clusterSize[bestMerge.b]
 		if bestMerge.a < N {
 			nonSingletonClusters++
@@ -105,7 +117,7 @@ func (r *Partitioner) Cluster() map[int][]int {
 		// Remove all used clusters
 		newMerges := []*merge{}
 		for _, merge := range merges {
-			if clusterActive[merge.a] && clusterActive[merge.b] {
+			if clusterExists[merge.a] && clusterExists[merge.b] {
 				newMerges = append(newMerges, merge)
 			} else {
 				// fmt.Println("Ignore", merge)
@@ -119,6 +131,9 @@ func (r *Partitioner) Cluster() map[int][]int {
 			if cID == newClusterID { // No need to calculate linkages within cluster
 				continue
 			}
+			if cID == -1 { // This happens if contig is skipped
+				continue
+			}
 			for _, j := range newCluster {
 				totalLinkageByCluster[cID] += G[i][j]
 			}
@@ -128,12 +143,12 @@ func (r *Partitioner) Cluster() map[int][]int {
 			if totalLinkageByCluster[i] <= 0 {
 				continue
 			}
-			if !clusterActive[i] {
+			if !clusterExists[i] {
 				log.Errorf("Cluster %d does not exist", i)
 			}
 			// Average linkage
-			avgLinkage := totalLinkageByCluster[i] / int64(clusterSize[i]) /
-				int64(clusterSize[newClusterID])
+			avgLinkage := float64(totalLinkageByCluster[i]) / float64(clusterSize[i]) /
+				float64(clusterSize[newClusterID])
 
 			if avgLinkage < MinAvgLinkage {
 				continue
@@ -156,15 +171,11 @@ func (r *Partitioner) Cluster() map[int][]int {
 				break
 			}
 		}
-		log.Noticef("Merge #%d: Clusters %d + %d -> %d, Linkage = %d",
+		log.Noticef("Merge #%d: Clusters\t%d + %d -> %d, Linkage = %g",
 			nMerges, bestMerge.a, bestMerge.b, newClusterID, bestMerge.score)
 
 		merges = newMerges
 	}
-
-	// fmt.Println(clusterID)
-	// fmt.Println(clusterActive)
-	// fmt.Println(clusterSize)
 
 	return SetClusters(clusterID)
 }
@@ -173,7 +184,7 @@ func (r *Partitioner) Cluster() map[int][]int {
 func SetClusters(clusterID []int) map[int][]int {
 	clusters := make(map[int][]int)
 	for i, cID := range clusterID {
-		if i == cID { // Singletons
+		if i == cID || cID == -1 { // Singletons
 			continue
 		}
 		clusters[cID] = append(clusters[cID], i)

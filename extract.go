@@ -165,7 +165,7 @@ func (r *Extracter) readFastaAndWriteRE(outfile string) {
 		fmt.Fprintf(w, "%s\t%d\t%d\n", name, count, length)
 		contig := &ContigInfo{
 			name:     name,
-			recounts: count,
+			recounts: count, // To account for contigs with 0 RE sites
 			length:   length,
 		}
 		r.contigToIdx[name] = len(r.contigs)
@@ -542,7 +542,7 @@ func (r *Extracter) ExtractIntraContigLinks() {
 		words := strings.Split(row, "\t")
 		contig := r.contigs[r.contigToIdx[words[0]]]
 		contig.links = []int{}
-		for _, link := range strings.Split(words[3], ",") {
+		for _, link := range strings.Split(words[1], ",") {
 			ll, _ := strconv.Atoi(link)
 			if ll >= MinLinkDist {
 				contig.links = append(contig.links, ll)
@@ -635,7 +635,7 @@ func (r *Extracter) ExtractInterContigLinks() {
 		intraGroups++
 		// contig.links = unique(contig.links)
 		total += len(contig.links)
-		fmt.Fprintf(wdis, "%s\t%s\n", contig, arrayToString(contig.links, ","))
+		fmt.Fprintf(wdis, "%s\t%s\n", contig.name, arrayToString(contig.links, ","))
 	}
 	wdis.Flush()
 	log.Noticef("Extracted %d intra-contig link groups to `%s` (total = %d)",

@@ -89,7 +89,7 @@ func (r *Partitioner) skipRepeats() {
 	N := len(r.contigs)
 	nLinks := make([]int64, N)
 	for i := 0; i < N; i++ {
-		for j := i; j < N; j++ {
+		for j := i + 1; j < N; j++ {
 			counts := r.matrix[i][j]
 			totalLinks += counts
 			nLinks[i] += counts
@@ -152,20 +152,6 @@ func (r *Partitioner) MakeMatrix(edges []ContigPair) [][]int64 {
 	return M
 }
 
-// FilterEdges implements rules to keep edges between close contigs and remove distant or weak contig pairs
-func FilterEdges(edges []ContigPair) []ContigPair {
-	var goodEdges []ContigPair
-
-	for _, e := range edges {
-		if e.mleDistance >= EffLinkDist {
-			continue
-		}
-		goodEdges = append(goodEdges, e)
-	}
-
-	return goodEdges
-}
-
 // readRE reads in a three-column tab-separated file
 // #Contig    REcounts    Length
 func (r *Partitioner) readRE() {
@@ -174,7 +160,6 @@ func (r *Partitioner) readRE() {
 	for _, rec := range recs {
 		name := rec[0]
 		recounts, _ := strconv.Atoi(rec[1])
-		recounts++ // Prevent some contig to have 0 restriction fragments
 		length, _ := strconv.Atoi(rec[2])
 		ci := &ContigInfo{
 			name:     name,
@@ -244,7 +229,6 @@ func (r *Partitioner) ParseDist() []ContigPair {
 			lde1: lde1, lde2: lde2, localLDE: localLDE,
 			nObservedLinks: nObservedLinks, nExpectedLinks: nExpectedLinks,
 		}
-		// fmt.Println(cp)
 
 		edges = append(edges, cp)
 	}
