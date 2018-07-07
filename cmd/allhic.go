@@ -47,6 +47,28 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
+			Name:  "prune",
+			Usage: "Prune bamfile to remove weak links",
+			UsageText: `
+	allhic prune bamfile [options]
+
+Prune function:
+Given a bamfile, the goal of the pruning step is to remove all inter-allelic
+links, then it is possible to reconstruct allele-separated assemblies.
+`,
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) < 1 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify bamfile", 1)
+				}
+
+				bamfile := c.Args().Get(0)
+				p := allhic.Pruner{Bamfile: bamfile}
+				p.Run()
+				return nil
+			},
+		},
+		{
 			Name:  "extract",
 			Usage: "Extract Hi-C link size distribution",
 			UsageText: `
@@ -78,28 +100,6 @@ also prepares for the latter steps of ALLHIC.
 				return nil
 			},
 		},
-		{
-			Name:  "prune",
-			Usage: "Prune bamfile to remove weak links",
-			UsageText: `
-	allhic prune bamfile [options]
-
-Prune function:
-Given a bamfile, the goal of the pruning step is to remove all inter-allelic
-links, then it is possible to reconstruct allele-separated assemblies.
-`,
-			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 1 {
-					cli.ShowSubcommandHelp(c)
-					return cli.NewExitError("Must specify bamfile", 1)
-				}
-
-				bamfile := c.Args().Get(0)
-				p := allhic.Pruner{Bamfile: bamfile}
-				p.Run()
-				return nil
-			},
-		},
 		// 		{
 		// 			Name:  "anchor",
 		// 			Usage: "Anchor contigs based on an iterative merging method",
@@ -111,13 +111,6 @@ links, then it is possible to reconstruct allele-separated assemblies.
 		// to the method used in 3D-DNA. The method is based on maximum weight matching
 		// of the contig linkage graph.
 		// `,
-		// 			Flags: []cli.Flag{
-		// 				cli.StringFlag{
-		// 					Name:  "tour",
-		// 					Usage: "Initiate paths using existing tourfile",
-		// 					Value: "",
-		// 				},
-		// 			},
 		// 			Action: func(c *cli.Context) error {
 		// 				if len(c.Args()) < 1 {
 		// 					cli.ShowSubcommandHelp(c)
@@ -125,8 +118,7 @@ links, then it is possible to reconstruct allele-separated assemblies.
 		// 				}
 
 		// 				bamfile := c.Args().Get(0)
-		// 				tourfile := c.String("tour")
-		// 				p := allhic.Anchorer{Bamfile: bamfile, Tourfile: tourfile}
+		// 				p := allhic.Anchorer{Bamfile: bamfile}
 		// 				p.Run()
 		// 				return nil
 		// 			},

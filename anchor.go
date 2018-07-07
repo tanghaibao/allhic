@@ -94,21 +94,15 @@ func (r *Anchorer) Run() {
 	// Prepare the paths to run
 	nIterations := 1
 	r.ExtractInterContigLinks()
-
-	if r.Tourfile != "" { // Use existing tourfile (just for dumping a matrix)
-		r.parseTourFile(r.Tourfile)
-		r.printTour(os.Stdout, "ANCHORER")
-	} else {
-		flanksize := int64(LIMIT)
-		paths := r.makeTrivialPaths(r.contigs, flanksize)
-		for i := 0; i < nIterations; i++ {
-			r.iterativeGraphMerge(paths, flanksize)
-			// Attempt to split bad joins
-			// r.makeContigStarts()
-			// piler := r.inspectGaps(LinkDist)
-			// countCutoff := r.findCountCutoff(piler)
-			// paths = r.splitPath(piler, countCutoff, flanksize)
-		}
+	flanksize := int64(LIMIT)
+	paths := r.makeTrivialPaths(r.contigs, flanksize)
+	for i := 0; i < nIterations; i++ {
+		r.iterativeGraphMerge(paths, flanksize)
+		// Attempt to split bad joins
+		// r.makeContigStarts()
+		// piler := r.inspectGaps(LinkDist)
+		// countCutoff := r.findCountCutoff(piler)
+		// paths = r.splitPath(piler, countCutoff, flanksize)
 	}
 
 	// Serialize to disk for plotting
