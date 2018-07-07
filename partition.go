@@ -30,13 +30,32 @@ type Partitioner struct {
 // Run is the main function body of partition
 func (r *Partitioner) Run() {
 	r.readRE()
-	r.makeMatrix()
 	r.skipContigsWithFewREs()
-	r.skipRepeats()
-	r.Cluster()
+	if r.K == 1 {
+		r.makeTrivialClusters()
+	} else {
+		r.makeMatrix()
+		r.skipRepeats()
+		r.Cluster()
+	}
 	r.printClusters()
-
 	log.Notice("Success")
+}
+
+// makeTrivialClusters make a single cluster containing all contigs
+// except the really short ones
+func (r *Partitioner) makeTrivialClusters() {
+	contigs := []int{}
+	for i, contig := range r.contigs {
+		if contig.skip {
+			continue
+		}
+		contigs = append(contigs, i)
+	}
+	clusters := Clusters{
+		0: contigs,
+	}
+	r.clusters = clusters
 }
 
 // skipContigsWithFewREs skip contigs with fewere than MinREs
@@ -160,8 +179,8 @@ func (r *Partitioner) readRE() {
 	for i, contig := range r.contigs {
 		r.contigToIdx[contig.name] = i
 	}
-	log.Noticef("Loading contig RE lengths for normalization from `%s`",
-		r.Contigsfile)
+	log.Noticef("Loaded %d contig RE lengths for normalization from `%s`",
+		len(r.contigs), r.Contigsfile)
 }
 
 // parseDist imports the edges of the contig into a slice of DistLine

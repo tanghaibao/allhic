@@ -19,15 +19,17 @@ import (
 
 // Optimizer runs the order-and-orientation procedure, given a clmfile
 type Optimizer struct {
-	Clmfile   string
-	REfile    string
-	RunGA     bool
-	StartOver bool
-	Seed      int64
-	NPop      int
-	NGen      int
-	MutProb   float64
-	CrossProb float64
+	Clmfile      string
+	REfile       string
+	Clustersfile string
+	Group        int
+	RunGA        bool
+	StartOver    bool
+	Seed         int64
+	NPop         int
+	NGen         int
+	MutProb      float64
+	CrossProb    float64
 }
 
 // Run kicks off the Optimizer
