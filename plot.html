@@ -149,17 +149,17 @@ function getMatrix(array) {
 // plotHeatMap does the plotting in d3
 // Borrowed heavily from: https://bost.ocks.org/mike/shuffle/compare.html
 function plotHeatMap(array) {
-    console.log(array);
+    // console.log(array);
 
-    var margin = {top: 20.5, right: -.5, bottom: 9.5, left: 20.5},
-    width = 720,
-    height = 720;
+    var margin = {top: 40, right: 10, bottom: 10, left: 40},
+    width = 800,
+    height = 800;
 
     var matrix = getMatrix(array);
     var n = matrix.length,
         m = 10000
 
-    console.log(matrix);
+    // console.log(matrix);
 
     var x = d3.scaleBand()
         .domain(d3.range(n))
@@ -198,12 +198,14 @@ function plotHeatMap(array) {
     // row.append("line")
     //     .attr("x2", width);
 
+    let axisFormat = (d, i) => (i % 20) == 0 ? i : "";
+
     row.append("text")
         .attr("x", -6)
         .attr("y", x.bandwidth() / 2)
         .attr("dy", "0.32em")
         .attr("text-anchor", "end")
-        .text(function(d, i) { return i; });
+        .text(axisFormat);
 
     var column = svg.selectAll(".column")
     .data(matrix)
@@ -219,7 +221,7 @@ function plotHeatMap(array) {
         .attr("y", x.bandwidth() / 2)
         .attr("dy", "0.32em")
         .attr("text-anchor", "start")
-        .text(function(d, i) { return i; });
+        .text(axisFormat);
 
     row.selectAll(".cell")
       .data(function(d, i) { return matrix[i]; })
