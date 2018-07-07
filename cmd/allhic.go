@@ -100,37 +100,37 @@ links, then it is possible to reconstruct allele-separated assemblies.
 				return nil
 			},
 		},
-		{
-			Name:  "anchor",
-			Usage: "Anchor contigs based on an iterative merging method",
-			UsageText: `
-	allhic anchor bamfile [options]
+		// 		{
+		// 			Name:  "anchor",
+		// 			Usage: "Anchor contigs based on an iterative merging method",
+		// 			UsageText: `
+		// 	allhic anchor bamfile [options]
 
-Anchor function:
-Given a bamfile, we anchor contigs based on an iterative merging method similar
-to the method used in 3D-DNA. The method is based on maximum weight matching
-of the contig linkage graph.
-`,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "tour",
-					Usage: "Initiate paths using existing tourfile",
-					Value: "",
-				},
-			},
-			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 1 {
-					cli.ShowSubcommandHelp(c)
-					return cli.NewExitError("Must specify bamfile", 1)
-				}
+		// Anchor function:
+		// Given a bamfile, we anchor contigs based on an iterative merging method similar
+		// to the method used in 3D-DNA. The method is based on maximum weight matching
+		// of the contig linkage graph.
+		// `,
+		// 			Flags: []cli.Flag{
+		// 				cli.StringFlag{
+		// 					Name:  "tour",
+		// 					Usage: "Initiate paths using existing tourfile",
+		// 					Value: "",
+		// 				},
+		// 			},
+		// 			Action: func(c *cli.Context) error {
+		// 				if len(c.Args()) < 1 {
+		// 					cli.ShowSubcommandHelp(c)
+		// 					return cli.NewExitError("Must specify bamfile", 1)
+		// 				}
 
-				bamfile := c.Args().Get(0)
-				tourfile := c.String("tour")
-				p := allhic.Anchorer{Bamfile: bamfile, Tourfile: tourfile}
-				p.Run()
-				return nil
-			},
-		},
+		// 				bamfile := c.Args().Get(0)
+		// 				tourfile := c.String("tour")
+		// 				p := allhic.Anchorer{Bamfile: bamfile, Tourfile: tourfile}
+		// 				p.Run()
+		// 				return nil
+		// 			},
+		// 		},
 		{
 			Name:  "partition",
 			Usage: "Separate bamfile into k groups",
@@ -246,6 +246,30 @@ into a FASTA genome release.
 				tourfile := c.Args().Get(0)
 				fastafile := c.Args().Get(1)
 				p := allhic.Builder{Tourfile: tourfile, Fastafile: fastafile}
+				p.Run()
+				return nil
+			},
+		},
+		{
+			Name:  "plot",
+			Usage: "Extract matrix of link counts and plot heatmap",
+			UsageText: `
+	allhic anchor bamfile tourfile [options]
+
+Anchor function:
+Given a bamfile, we extract matrix of link counts and plot heatmap.
+`,
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) < 2 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify bamfile", 1)
+				}
+
+				bamfile := c.Args().Get(0)
+				tourfile := c.Args().Get(1)
+				p := allhic.Plotter{
+					Anchor: &allhic.Anchorer{Bamfile: bamfile, Tourfile: tourfile},
+				}
 				p.Run()
 				return nil
 			},
