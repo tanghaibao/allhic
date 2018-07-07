@@ -151,7 +151,7 @@ function getMatrix(array) {
 function plotHeatMap(array) {
     // console.log(array);
 
-    var margin = {top: 40, right: 10, bottom: 10, left: 40},
+    var margin = {top: 40, right: 40, bottom: 40, left: 40},
     width = 800,
     height = 800;
 
@@ -160,7 +160,6 @@ function plotHeatMap(array) {
         m = 10000
 
     // console.log(matrix);
-
     var x = d3.scaleBand()
         .domain(d3.range(n))
         .range([0, width]);
@@ -169,10 +168,12 @@ function plotHeatMap(array) {
         .domain([0, 5])
         .clamp(true);
 
+    let sWidth = width + margin.left + margin.right
+    let sHeight = height + margin.top + margin.bottom
     var svg = d3.select("#canvas").append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .style("margin-left", -margin.left + "px")
+        .attr("width", sWidth)
+        .attr("height", sHeight)
+        // .style("margin-left", -margin.left + "px")
     .append("g")
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
@@ -197,6 +198,14 @@ function plotHeatMap(array) {
 
     // row.append("line")
     //     .attr("x2", width);
+
+    // X-axis label
+    svg.append("text")
+        .attr("x", sWidth / 2)
+        .attr("y", height + 20)
+        .attr("fill", "lightslategray")
+        .attr("text-anchor", "middle")
+        .text("Bins (250kb per bin)")
 
     let axisFormat = (d, i) => (i % 20) == 0 ? i : "";
 

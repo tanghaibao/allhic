@@ -70,7 +70,11 @@ allhic optimize tests/test.counts_GATC.txt tests/test.clm
 
 ### <kbd>Build</kbd>
 
-Build genome release. WIP.
+Build genome release, including a `.agp` output and a `.fasta` output.
+
+### <kbd>Plot</kbd>
+
+Use [d3.js](https://d3js.org/) to visualize the heatmap.
 
 ## Pipeline
 
@@ -88,7 +92,8 @@ allhic build T4_Chr/{prunning.sub.tour,seq.fasta}
 - [x] Add restriction enzyme for better normalization of contig lengths
 - [ ] Translate "prune" from C++ code to golang
 - [ ] Add partition split inside "partition"
-- [ ] Isolate matrix generation to "plot"
+- [x] Isolate matrix generation to "plot"
+- [ ] Add dot plot to "plot"
 - [ ] Add "pipeline" to simplify execution
 - [ ] Use clustering when k = 1
 - [ ] Compare numerical output with Lachesis
