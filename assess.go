@@ -35,28 +35,15 @@ const probCutoff = .95
 // Step 3. Normalize the likelihood to get the posterior probability (implicit assumption)
 //         of equal prior probability for each contig
 type Assesser struct {
-	Bamfile          string
-	Bedfile          string
-	Seqid            string
-	Seqsize          int
-	nBins            int
-	nLinks           []int
-	binNorms         []int
-	linkDensity      []float64
-	linkDensityModel *LinkDensityModel
-	binStarts        []int
-	contigs          []BedLine
-	intraLinks       []int   // Contig link sizes for all intra-contig links
-	interLinksFwd    [][]int // Contig link sizes assuming same dir
-	interLinksRev    [][]int // Contig link sizes assuming other dir
-	postprob         []float64
-}
-
-// LinkDensityModel is a power-law model Y = A * X ^ B, stores co-efficients
-// this density than needs to multiply C - X to make it a probability distribution
-// where C is chromosome length
-type LinkDensityModel struct {
-	A, B float64
+	Bamfile       string
+	Bedfile       string
+	Seqid         string
+	seq           *ContigInfo
+	model         *LinkDensityModel
+	contigs       []BedLine
+	interLinksFwd [][]int // Contig link sizes assuming same dir
+	interLinksRev [][]int // Contig link sizes assuming other dir
+	postprob      []float64
 }
 
 // BedLine stores the information from each line in the bedfile
@@ -70,32 +57,30 @@ type BedLine struct {
 
 // Run calls the Assessor
 func (r *Assesser) Run() {
-	r.ReadBed()
-	r.ExtractContigLinks()
-	r.Makebins()
-	r.WriteDistribution(r.Seqid + ".distribution.txt")
-	r.ComputePosteriorProb()
-	r.WritePostProb(r.Seqid + ".postprob.txt")
+	r.readBed()
+	r.extractContigLinks()
+	r.makeModel(r.Seqid + ".distribution.txt")
+	r.computePosteriorProb()
+	r.writePostProb(r.Seqid + ".postprob.txt")
 }
 
-// WriteDistribution writes the link size distribution to file
-func (r *Assesser) WriteDistribution(outfile string) {
-	f, _ := os.Create(outfile)
-	w := bufio.NewWriter(f)
-	defer f.Close()
-
-	fmt.Fprintf(w, "#Bin\tBinStart\tBinSize\tNumLinks\tTotalSize\tLinkDensity\n")
-	for i := 0; i < r.nBins; i++ {
-		fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%.4g\n",
-			i, r.binStarts[i], r.BinSize(i), r.nLinks[i], r.binNorms[i], r.linkDensity[i])
+// makeModel computes the norms and bins separately to derive an empirical link size
+// distribution, then power law is inferred for extrapolating higher values
+func (r *Assesser) makeModel(outfile string) {
+	contigSizes := []int{}
+	for _, contig := range r.contigs {
+		contigSizes = append(contigSizes, contig.size)
 	}
-
-	w.Flush()
-	log.Noticef("Link size distribution written to `%s`", outfile)
+	m := NewLinkDensityModel()
+	m.makeBins()
+	m.makeNorms(contigSizes)
+	m.countBinDensities([]*ContigInfo{r.seq})
+	m.writeDistribution(outfile)
+	r.model = m
 }
 
-// WritePostProb writes the final posterior probability to file
-func (r *Assesser) WritePostProb(outfile string) {
+// writePostProb writes the final posterior probability to file
+func (r *Assesser) writePostProb(outfile string) {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
@@ -110,8 +95,8 @@ func (r *Assesser) WritePostProb(outfile string) {
 	log.Noticef("Posterior probability written to `%s`", outfile)
 }
 
-// ReadBed parses the bedfile to extract the start and stop for all the contigs
-func (r *Assesser) ReadBed() {
+// readBed parses the bedfile to extract the start and stop for all the contigs
+func (r *Assesser) readBed() {
 	fh, err := os.Open(r.Bedfile)
 	if err != nil {
 		log.Errorf("bedfile `%s` does not exist", r.Bedfile)
@@ -154,21 +139,29 @@ func checkInRange(pos, start, end int) bool {
 	return start <= pos && pos < end
 }
 
-// ExtractContigLinks builds the probability distribution of link sizes
-func (r *Assesser) ExtractContigLinks() {
+// extractContigLinks builds the probability distribution of link sizes
+func (r *Assesser) extractContigLinks() {
 	fh, _ := os.Open(r.Bamfile)
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
 	defer br.Close()
 
 	// We need the size of the SeqId to compute expected number of links
+	var s *ContigInfo
 	refs := br.Header().Refs()
 	for _, ref := range refs {
 		if ref.Name() == r.Seqid {
-			r.Seqsize = ref.Len()
+			s = &ContigInfo{
+				name:   ref.Name(),
+				length: ref.Len(),
+				links:  []int{},
+			}
+			r.seq = s
+			break
 		}
 	}
-	log.Noticef("Seq `%s` has size %d", r.Seqid, r.Seqsize)
+
+	log.Noticef("Seq `%s` has size %d", s.name, s.length)
 
 	// Import links into pairs of contigs
 	r.interLinksFwd = make([][]int, len(r.contigs))
@@ -215,10 +208,11 @@ func (r *Assesser) ExtractContigLinks() {
 			nSkippedTooShort++
 			continue
 		}
+
 		// For intra-contig link it's easy, just store the distance between two ends
 		// An intra-contig link
 		if checkInRange(b, r.contigs[ci].start, r.contigs[ci].end) {
-			r.intraLinks = append(r.intraLinks, link)
+			r.seq.links = append(r.seq.links, link)
 			nIntraLinks++
 			continue
 		}
@@ -240,146 +234,6 @@ func (r *Assesser) ExtractContigLinks() {
 		nIntraLinks, nInterLinks, nSkippedTooShort)
 }
 
-// linkBin takes a link distance and convert to a binID
-func linkBin(dist int) int {
-	if dist < MinLinkDist {
-		return -1
-	}
-	distOverMin := dist / MinLinkDist
-	log2i := uintLog2(uint(distOverMin))
-	log2f := uintLog2Frac(float64(dist) / float64(int(MinLinkDist)<<log2i))
-	return int(16*log2i + log2f)
-}
-
-// BinSize returns the size of each bin
-func (r *Assesser) BinSize(i int) int {
-	return r.binStarts[i+1] - r.binStarts[i]
-}
-
-// Makebins makes geometric bins and count links that fall in each bin
-// This heavily borrows the method form LACHESIS
-// https://github.com/shendurelab/LACHESIS/blob/master/src/LinkSizeExtracter.cc
-func (r *Assesser) Makebins() {
-	// Step 1: make geometrically sized bins
-	// We fit 16 bins into each power of 2
-	linkRange := math.Log2(float64(MaxLinkDist) / float64(MinLinkDist))
-	nBins := int(math.Ceil(linkRange * 16))
-
-	maxLinkDist := math.MinInt32
-	for _, link := range r.intraLinks {
-		if link > maxLinkDist {
-			maxLinkDist = link
-		}
-	}
-
-	for i := 0; 16*i <= nBins; i++ {
-		jpower := 1.0
-		for j := 0; j < 16 && 16*i+j <= nBins; j++ {
-			binStart := MinLinkDist << uint(i)
-			r.binStarts = append(r.binStarts, int(float64(binStart)*jpower))
-			jpower *= GeometricBinSize
-		}
-	}
-
-	// Step 2: calculate assayable sequence length
-	// Find the length of assayable intra-contig sequence in each bin
-	intraContigLinkRange := math.Log2(float64(maxLinkDist) / float64(MinLinkDist))
-	nIntraContigBins := int(math.Ceil(intraContigLinkRange * 16))
-
-	binNorms := make([]int, nBins)
-	nLinks := make([]int, nBins)
-	for _, contig := range r.contigs {
-		for j := 0; j < nIntraContigBins; j++ {
-			z := contig.size - r.binStarts[j]
-			if z < 0 {
-				break
-			}
-			binNorms[j] += z
-		}
-	}
-
-	// Step 3: loop through all links and tabulate the counts
-	for _, link := range r.intraLinks {
-		bin := linkBin(link)
-		if bin == -1 {
-			continue
-		}
-		nLinks[bin]++
-	}
-
-	// Step 4: normalize to calculate link density
-	r.linkDensity = make([]float64, nBins)
-	for i := 0; i < nIntraContigBins; i++ {
-		r.linkDensity[i] = float64(nLinks[i]) / float64(binNorms[i]) / float64(r.BinSize(i))
-	}
-
-	// Step 5: in LACHESIS, we assume the distribution approximates 1/x
-	// for large x. This is not accurate. We should instead infer a power law
-	// distribution.
-	topBin := nIntraContigBins - 1
-	nTopLinks := 0
-	nTopLinksNeeded := len(r.intraLinks) / 100
-	for ; nTopLinks < nTopLinksNeeded; topBin-- {
-		nTopLinks += nLinks[topBin]
-	}
-
-	Xs := []int{}
-	Ys := []float64{}
-	for i := 0; i < topBin; i++ {
-		Xs = append(Xs, r.binStarts[i])
-		Ys = append(Ys, r.linkDensity[i])
-	}
-	r.fitPowerLaw(Xs, Ys)
-
-	// Overwrite the values of last few bins, or a bin with na values
-	for i := 0; i < nBins; i++ {
-		if r.linkDensity[i] == 0 || i >= topBin {
-			r.linkDensity[i] = r.transformPowerLaw(r.binStarts[i])
-		}
-	}
-
-	// Save up for exporting to file
-	r.nBins = nBins
-	r.binNorms = binNorms
-	r.nLinks = nLinks
-}
-
-// fitPowerLaw fits power law distribution
-// See reference: http://mathworld.wolfram.com/LeastSquaresFittingPowerLaw.html
-// Assumes the form Y = A * X^B, returns (A, B), the coefficients
-func (r *Assesser) fitPowerLaw(Xs []int, Ys []float64) {
-	SumLogXLogY, SumLogXLogX, SumLogX, SumLogY := 0.0, 0.0, 0.0, 0.0
-	n := len(Xs)
-	for i := 0; i < n; i++ {
-		logXs, logYs := math.Log(float64(Xs[i])), math.Log(Ys[i])
-		SumLogXLogY += logXs * logYs
-		SumLogXLogX += logXs * logXs
-		SumLogX += logXs
-		SumLogY += logYs
-	}
-
-	B := (float64(n)*SumLogXLogY - SumLogX*SumLogY) / (float64(n)*SumLogXLogX - SumLogX*SumLogX)
-	A := math.Exp((SumLogY - B*SumLogX) / float64(n))
-	r.linkDensityModel = &LinkDensityModel{
-		A: A, B: B,
-	}
-
-	log.Noticef("Power law Y = %.4f * X ^ %.4f", A, B)
-}
-
-// transformPowerLaw interpolate probability value given a link size
-func (r *Assesser) transformPowerLaw(X int) float64 {
-	return r.linkDensityModel.A * math.Pow(float64(X), r.linkDensityModel.B)
-}
-
-// transformLogProb calculates the probability given a link size
-func (r *Assesser) tranformLogProb(X int) float64 {
-	// The following two version have subtle differences, first one is more accurate, but
-	// in reality the difference seems to be neglible
-	// return math.Log(float64(r.Seqsize-X)) + r.linkDensityModel.B*math.Log(float64(X))
-	return r.linkDensityModel.B * math.Log(float64(X))
-}
-
 // ComputeLikelihood computes the likelihood of link sizes assuming + orientation
 // and - orientation, respectively
 func (r *Assesser) computeLikelihood(links []int) float64 {
@@ -389,7 +243,7 @@ func (r *Assesser) computeLikelihood(links []int) float64 {
 		// 	link = MinLinkDist
 		// }
 		// bin := linkBin(link)
-		sumLogP += r.tranformLogProb(link)
+		sumLogP += r.model.tranformLogProb(link)
 	}
 	return sumLogP
 }
@@ -411,8 +265,8 @@ func posteriorProbability(L1, L2 float64) float64 {
 	return p1 / (p1 + p2)
 }
 
-// ComputePosteriorProb computes the posterior probability of the orientations
-func (r *Assesser) ComputePosteriorProb() {
+// computePosteriorProb computes the posterior probability of the orientations
+func (r *Assesser) computePosteriorProb() {
 	nFwdBetter := 0
 	nRevBetter := 0
 	nHighConf := 0

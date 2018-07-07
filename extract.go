@@ -26,6 +26,10 @@ import (
 var b = [...]uint{0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000}
 var s = [...]uint{1, 2, 4, 8, 16}
 
+// We fit 16 bins into each power of 2
+var linkRange = math.Log2(float64(MaxLinkDist) / float64(MinLinkDist))
+var nBins = int(math.Ceil(linkRange * 16))
+
 // Extracter processes the distribution step
 type Extracter struct {
 	Bamfile         string
@@ -33,13 +37,8 @@ type Extracter struct {
 	RE              string
 	contigs         []*ContigInfo
 	contigToIdx     map[string]int
-	maxLinkDist     int
-	nBins           int
-	binStarts       []int
-	linkDensity     []float64
-	nLinks          []int
+	model           *LinkDensityModel
 	totalIntraLinks int
-	binNorms        []int
 }
 
 // ContigInfo stores results calculated from f
@@ -61,6 +60,18 @@ type ContigPair struct {
 	L1, L2         int
 	nObservedLinks int
 	nExpectedLinks float64
+}
+
+// String outputs the string representation of ContigInfo
+func (r ContigInfo) String() string {
+	return fmt.Sprintf("%s\t%d\t%d", r.name, r.recounts, r.length)
+}
+
+// String outputs the string representation of ContigInfo
+func (r ContigPair) String() string {
+	return fmt.Sprintf("%d\t%d\t%s\t%s\t%d\t%d\t%d\t%.1f",
+		r.ai, r.bi, r.at, r.bt, r.RE1, r.RE2,
+		r.nObservedLinks, r.nExpectedLinks)
 }
 
 // uintLog2 calculates the integer log2 of a number
@@ -115,29 +126,28 @@ func uintLog2Frac(x float64) uint {
 	return l
 }
 
-// LinkBin takes a link distance and convert to a binID
-func (r *Extracter) LinkBin(dist int) int {
-	if dist < MinLinkDist {
-		return -1
-	}
-	distOverMin := dist / MinLinkDist
-	log2i := uintLog2(uint(distOverMin))
-	log2f := uintLog2Frac(float64(dist) / float64(int(MinLinkDist)<<log2i))
-	return int(16*log2i + log2f)
-}
-
-// BinSize returns the size of each bin
-func (r *Extracter) BinSize(i int) int {
-	return r.binStarts[i+1] - r.binStarts[i]
-}
-
 // Run calls the distribution steps
 func (r *Extracter) Run() {
 	r.readFastaAndWriteRE()
 	r.extractContigLinks()
-	r.writeDistribution()
+	r.makeModel(RemoveExt(r.Bamfile) + ".distribution.txt")
 	r.calcIntraContigs()
 	r.calcInterContigs()
+}
+
+// makeModel computes the norms and bins separately to derive an empirical link size
+// distribution, then power law is inferred for extrapolating higher values
+func (r *Extracter) makeModel(outfile string) {
+	contigSizes := []int{}
+	for _, contig := range r.contigs {
+		contigSizes = append(contigSizes, contig.length)
+	}
+	m := NewLinkDensityModel()
+	m.makeBins()
+	m.makeNorms(contigSizes)
+	m.countBinDensities(r.contigs)
+	m.writeDistribution(outfile)
+	r.model = m
 }
 
 // readFastaAndWriteRE writes out the number of restriction fragments, one per line
@@ -181,113 +191,6 @@ func (r *Extracter) readFastaAndWriteRE() {
 		totalCounts, totalBp/int64(totalCounts), outfile)
 }
 
-// makebins makes geometric bins and count links that fall in each bin
-// This heavily borrows the method form LACHESIS
-// https://github.com/shendurelab/LACHESIS/blob/master/src/LinkSizeExtracter.cc
-func (r *Extracter) makebins() {
-	// Step 1: make geometrically sized bins
-	// We fit 16 bins into each power of 2
-	linkRange := math.Log2(float64(MaxLinkDist) / float64(MinLinkDist))
-	nBins := int(math.Ceil(linkRange * 16))
-	r.nBins = nBins
-
-	r.maxLinkDist = math.MinInt32
-	for _, contig := range r.contigs {
-		for _, link := range contig.links {
-			if link > r.maxLinkDist {
-				r.maxLinkDist = link
-			}
-		}
-	}
-
-	for i := 0; 16*i <= nBins; i++ {
-		jpower := 1.0
-		for j := 0; j < 16 && 16*i+j <= nBins; j++ {
-			binStart := MinLinkDist << uint(i)
-			r.binStarts = append(r.binStarts, int(float64(binStart)*jpower))
-			jpower *= GeometricBinSize
-		}
-	}
-
-	// Step 2: calculate assayable sequence length
-	// Find the length of assayable intra-contig sequence in each bin
-	intraContigLinkRange := math.Log2(float64(r.maxLinkDist) / float64(MinLinkDist))
-	nIntraContigBins := int(math.Ceil(intraContigLinkRange * 16))
-
-	r.binNorms = make([]int, nBins)
-	r.nLinks = make([]int, nBins)
-	r.totalIntraLinks = 0
-	for _, contig := range r.contigs {
-		for j := 0; j < nIntraContigBins; j++ {
-			z := contig.length - r.binStarts[j]
-			if z < 0 {
-				break
-			}
-			r.binNorms[j] += z
-		}
-		// Step 3: loop through all links and tabulate the counts
-		for _, link := range contig.links {
-			bin := r.LinkBin(link)
-			if bin == -1 {
-				continue
-			}
-			r.nLinks[bin]++
-			r.totalIntraLinks++
-		}
-	}
-
-	// Step 4: normalize to calculate link density
-	r.linkDensity = make([]float64, nBins)
-	for i := 0; i < nIntraContigBins; i++ {
-		r.linkDensity[i] = float64(r.nLinks[i]) * BinNorm / float64(r.binNorms[i]) / float64(r.BinSize(i))
-	}
-
-	// Step 5: assume the distribution approximates 1/x for large x
-	topBin := nIntraContigBins - 1
-	nTopLinks := 0
-	nTopLinksNeeded := r.totalIntraLinks / 100
-	for ; nTopLinks < nTopLinksNeeded; topBin-- {
-		nTopLinks += r.nLinks[topBin]
-	}
-
-	avgLinkDensity := 0.0
-	for i := topBin; i < nIntraContigBins; i++ {
-		avgLinkDensity += r.linkDensity[i] * float64(r.BinSize(i))
-	}
-	avgLinkDensity /= float64(nIntraContigBins - topBin)
-
-	// Overwrite the values of last few bins, or a bin with na values
-	for i := 0; i < nBins; i++ {
-		if r.linkDensity[i] == 0 || i >= topBin {
-			r.linkDensity[i] = avgLinkDensity / float64(r.BinSize(i))
-		}
-	}
-}
-
-// writeDistribution writes the link
-func (r *Extracter) writeDistribution() {
-	r.makebins()
-
-	outfile := RemoveExt(r.Bamfile) + ".distribution.txt"
-	f, _ := os.Create(outfile)
-	w := bufio.NewWriter(f)
-	defer f.Close()
-
-	fmt.Fprintf(w, "#Bin\tBinStart\tBinSize\tNumLinks\tTotalSize\tLinkDensity\n")
-	for i := 0; i < r.nBins; i++ {
-		fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%.4g\n",
-			i, r.binStarts[i], r.BinSize(i), r.nLinks[i], r.binNorms[i], r.linkDensity[i])
-	}
-
-	w.Flush()
-	log.Noticef("Link size distribution written to `%s`", outfile)
-}
-
-// String() outputs the string representation of ContigInfo
-func (r ContigInfo) String() string {
-	return fmt.Sprintf("%s\t%d\t%d", r.name, r.recounts, r.length)
-}
-
 // calcIntraContigs determine the local enrichment of links on this contig.
 func (r *Extracter) calcIntraContigs() {
 	for _, contig := range r.contigs {
@@ -298,13 +201,6 @@ func (r *Extracter) calcIntraContigs() {
 		contig.nExpectedLinks = sumf(nExpectedLinks)
 		contig.nObservedLinks = nObservedLinks
 	}
-}
-
-// String() outputs the string representation of ContigInfo
-func (r ContigPair) String() string {
-	return fmt.Sprintf("%d\t%d\t%s\t%s\t%d\t%d\t%d\t%.1f",
-		r.ai, r.bi, r.at, r.bt, r.RE1, r.RE2,
-		r.nObservedLinks, r.nExpectedLinks)
 }
 
 // calcInterContigs calculates the MLE of distance between all contigs
@@ -356,11 +252,12 @@ func (r *Extracter) calcInterContigs() {
 
 // findExpectedIntraContigLinks calculates the expected number of links within a contig
 func (r *Extracter) findExpectedIntraContigLinks(L int, links []int) []float64 {
-	nExpectedLinks := make([]float64, r.nBins)
+	nExpectedLinks := make([]float64, nBins)
+	m := r.model
 
-	for i := 0; i < r.nBins; i++ {
-		binStart := r.binStarts[i]
-		binStop := r.binStarts[i+1]
+	for i := 0; i < nBins; i++ {
+		binStart := m.binStarts[i]
+		binStop := m.binStarts[i+1]
 
 		if binStart >= L {
 			break
@@ -372,7 +269,7 @@ func (r *Extracter) findExpectedIntraContigLinks(L int, links []int) []float64 {
 		middleY := L - middleX
 		nObservableLinks := (right - left) * middleY
 
-		nExpectedLinks[i] = float64(nObservableLinks) * r.linkDensity[i] / BinNorm
+		nExpectedLinks[i] = float64(nObservableLinks) * m.linkDensity[i]
 	}
 
 	return nExpectedLinks
@@ -383,11 +280,12 @@ func (r *Extracter) findExpectedInterContigLinks(D, L1, L2 int) []float64 {
 	if L1 > L2 {
 		L1, L2 = L2, L1
 	}
-	nExpectedLinks := make([]float64, r.nBins)
+	nExpectedLinks := make([]float64, nBins)
+	m := r.model
 
-	for i := 0; i < r.nBins; i++ {
-		binStart := r.binStarts[i]
-		binStop := r.binStarts[i+1]
+	for i := 0; i < nBins; i++ {
+		binStart := m.binStarts[i]
+		binStop := m.binStarts[i+1]
 
 		if binStop <= D {
 			continue
@@ -422,7 +320,7 @@ func (r *Extracter) findExpectedInterContigLinks(D, L1, L2 int) []float64 {
 			middleY := D + L1 + L2 - middleX
 			nObservableLinks += (right - left) * middleY
 		}
-		nExpectedLinks[i] = float64(nObservableLinks) * r.linkDensity[i] / BinNorm
+		nExpectedLinks[i] = float64(nObservableLinks) * m.linkDensity[i]
 	}
 
 	return nExpectedLinks

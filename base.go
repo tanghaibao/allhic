@@ -49,8 +49,6 @@ const (
 
 	// MaxLinkDist is the maximum link distance we care about
 	MaxLinkDist = 1 << 27
-	// BinNorm is a ratio to make the link density human readable
-	BinNorm = 1000000.0
 	// BigNorm is a big integer multiplier so we don't have to mess with float64
 	BigNorm = int64(1000000000000)
 	// EPS is that Q must be larger than this value, used in cluster.go
