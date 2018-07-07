@@ -133,6 +133,7 @@ func (r *Extracter) Run() {
 	r.makeModel(RemoveExt(r.Bamfile) + ".distribution.txt")
 	r.calcIntraContigs()
 	r.calcInterContigs()
+	log.Notice("Success")
 }
 
 // makeModel computes the norms and bins separately to derive an empirical link size

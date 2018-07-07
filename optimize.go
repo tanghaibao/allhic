@@ -24,7 +24,7 @@ type Optimizer struct {
 	Clustersfile string
 	Group        int
 	RunGA        bool
-	StartOver    bool
+	Resume       bool
 	Seed         int64
 	NPop         int
 	NGen         int
@@ -35,25 +35,25 @@ type Optimizer struct {
 // Run kicks off the Optimizer
 func (r *Optimizer) Run() {
 	clm := NewCLM(r.Clmfile, r.REfile)
-	tourfile := RemoveExt(r.Clmfile) + ".tour"
-	shuffle := false
+	tourfile := fmt.Sprintf("%s.g%d.tour", RemoveExt(r.Clmfile), r.Group)
 
 	// Load tourfile if it exists
-	if _, err := os.Stat(tourfile); !r.StartOver && err == nil {
-		log.Noticef("Found existing tour file")
+	if _, err := os.Stat(tourfile); r.Resume && err == nil {
+		log.Noticef("Found existing tour file `%s`", tourfile)
 		clm.parseTourFile(tourfile)
-		clm.printTour(os.Stdout, clm.Tour, "INIT")
 		// Rename the tour file
 		backupTourFile := tourfile + ".sav"
 		os.Rename(tourfile, backupTourFile)
 		log.Noticef("Backup `%s` to `%s`", tourfile, backupTourFile)
 	} else {
-		shuffle = true
+		clm.parseClustersFile(r.Clustersfile, r.Group)
 	}
 
+	shuffle := false // If one wants randomized initialization, set this to true
 	clm.Activate(shuffle)
 
 	// tourfile logs the intermediate configurations
+	log.Noticef("Optimization history logged to `%s`", tourfile)
 	fwtour, _ := os.Create(tourfile)
 	defer fwtour.Close()
 	clm.printTour(fwtour, clm.Tour, "INIT")
@@ -112,16 +112,21 @@ func parseTourFile(filename string) []string {
 	return words
 }
 
-// parseTourFile parses tour file
-// Only the last line is retained anc onverted into a Tour
-func (r *CLM) parseTourFile(filename string) {
-	words := parseTourFile(filename)
-	tigs := []Tig{}
+// prepareTour prepares a boilerplate for an empty tour
+func (r *CLM) prepareTour() {
 	r.Signs = make([]byte, len(r.Tigs))
 	for _, tig := range r.Tigs {
 		tig.IsActive = false
 	}
+}
 
+// parseTourFile parses tour file
+// Only the last line is retained anc onverted into a Tour
+func (r *CLM) parseTourFile(filename string) {
+	words := parseTourFile(filename)
+	r.prepareTour()
+
+	tigs := []Tig{}
 	for _, word := range words {
 		tigName, tigOrientation := word[:len(word)-1], word[len(word)-1]
 		idx, ok := r.tigToIdx[tigName]
@@ -133,9 +138,34 @@ func (r *CLM) parseTourFile(filename string) {
 			Idx: idx,
 		})
 		r.Signs[idx] = tigOrientation
-		r.Tour.Tigs = tigs
 		r.Tigs[idx].IsActive = true
 	}
+	r.Tour.Tigs = tigs
+	r.printTour(os.Stdout, r.Tour, "INIT")
+}
+
+// parseClustersFile parses clusters file
+func (r *CLM) parseClustersFile(clustersfile string, group int) {
+	recs := ReadCSVLines(clustersfile)
+	r.prepareTour()
+
+	rec := recs[group]
+	names := strings.Split(rec[2], " ")
+	tigs := []Tig{}
+	for _, tigName := range names {
+		idx, ok := r.tigToIdx[tigName]
+		if !ok {
+			log.Errorf("Contig %s not found!", tigName)
+			continue
+		}
+		tigs = append(tigs, Tig{
+			Idx: idx,
+		})
+		r.Signs[idx] = '+'
+		r.Tigs[idx].IsActive = true
+	}
+	r.Tour.Tigs = tigs
+	r.printTour(os.Stdout, r.Tour, "INIT")
 }
 
 // printTour logs the current tour to file

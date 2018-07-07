@@ -175,7 +175,7 @@ func (r *Partitioner) readRE() {
 		}
 		r.contigs = append(r.contigs, ci)
 	}
-	r.contigToIdx = make(map[string]int)
+	r.contigToIdx = map[string]int{}
 	for i, contig := range r.contigs {
 		r.contigToIdx[contig.name] = i
 	}

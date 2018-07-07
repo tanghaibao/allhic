@@ -62,6 +62,7 @@ func (r *Assesser) Run() {
 	r.makeModel(r.Seqid + ".distribution.txt")
 	r.computePosteriorProb()
 	r.writePostProb(r.Seqid + ".postprob.txt")
+	log.Notice("Success")
 }
 
 // makeModel computes the norms and bins separately to derive an empirical link size

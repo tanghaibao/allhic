@@ -127,6 +127,7 @@ func (r *Builder) writeAGP(oo *OO) {
 func (r *Builder) Run() {
 	r.AGPfile = RemoveExt(r.Tourfile) + ".agp"
 	r.Build(r.readFiles())
+	log.Notice("Success")
 }
 
 // Build constructs molecule using component FASTA sequence

@@ -32,7 +32,7 @@ import (
 type CLM struct {
 	REfile           string
 	Clmfile          string
-	Tigs             []TigF
+	Tigs             []*TigF
 	Tour             Tour
 	Signs            []byte
 	tigToIdx         map[string]int          // From name of the tig to the idx of the Tigs array
@@ -120,7 +120,7 @@ func (r *CLM) ParseIds() {
 		words := strings.Fields(scanner.Text())
 		tig := words[0]
 		size, _ := strconv.Atoi(words[len(words)-1])
-		r.Tigs = append(r.Tigs, TigF{idx, tig, size, true})
+		r.Tigs = append(r.Tigs, &TigF{idx, tig, size, false})
 		r.tigToIdx[tig] = idx
 		idx++
 	}

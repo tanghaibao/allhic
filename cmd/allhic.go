@@ -179,8 +179,8 @@ on a cluster).
 					Usage: "Skip GA step",
 				},
 				cli.BoolFlag{
-					Name:  "startOver",
-					Usage: "Do not resume from existing tour file",
+					Name:  "resume",
+					Usage: "Resume from existing tour file",
 				},
 				cli.Int64Flag{
 					Name:  "seed",
@@ -214,14 +214,14 @@ on a cluster).
 				clustersfile := c.Args().Get(2)
 				group, _ := strconv.Atoi(c.Args().Get(3))
 				runGA := !c.Bool("skipGA")
-				startOver := c.Bool("startOver")
+				resume := c.Bool("resume")
 				seed := c.Int64("seed")
 				npop := c.Int("npop")
 				ngen := c.Int("ngen")
 				mutpb := c.Float64("mutpb")
 				p := allhic.Optimizer{REfile: refile, Clmfile: clmfile,
 					Clustersfile: clustersfile, Group: group,
-					RunGA: runGA, StartOver: startOver,
+					RunGA: runGA, Resume: resume,
 					Seed: seed, NPop: npop, NGen: ngen, MutProb: mutpb}
 				p.Run()
 				return nil
