@@ -168,11 +168,9 @@ function plotHeatMap(array) {
         .domain([0, 5])
         .clamp(true);
 
-    let sWidth = width + margin.left + margin.right
-    let sHeight = height + margin.top + margin.bottom
     var svg = d3.select("#canvas").append("svg")
-        .attr("width", sWidth)
-        .attr("height", sHeight)
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
         // .style("margin-left", -margin.left + "px")
     .append("g")
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
@@ -201,7 +199,7 @@ function plotHeatMap(array) {
 
     // X-axis label
     svg.append("text")
-        .attr("x", sWidth / 2)
+        .attr("x", width / 2)
         .attr("y", height + 20)
         .attr("fill", "lightslategray")
         .attr("text-anchor", "middle")

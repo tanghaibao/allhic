@@ -151,7 +151,7 @@ func (r *Extracter) makeModel(outfile string) {
 	r.model = m
 }
 
-// writeRE write a RE file
+// writeRE write a RE file and report statistics
 func writeRE(outfile string, contigs []*ContigInfo) {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
@@ -165,8 +165,8 @@ func writeRE(outfile string, contigs []*ContigInfo) {
 		fmt.Fprintf(w, "%s\n", contig)
 	}
 	w.Flush()
-	log.Noticef("RE counts (total: %d, avg 1 per %d bp) written to `%s`",
-		totalCounts, totalBp/int64(totalCounts), outfile)
+	log.Noticef("RE counts in %d contigs (total: %d, avg 1 per %d bp) written to `%s`",
+		len(contigs), totalCounts, totalBp/int64(totalCounts), outfile)
 }
 
 // readFastaAndWriteRE writes out the number of restriction fragments, one per line

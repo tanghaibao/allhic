@@ -31,13 +31,13 @@ type Partitioner struct {
 func (r *Partitioner) Run() {
 	r.readRE()
 	r.skipContigsWithFewREs()
-	if r.K == 1 {
-		r.makeTrivialClusters()
-	} else {
-		r.makeMatrix()
-		r.skipRepeats()
-		r.Cluster()
-	}
+	// if r.K == 1 {
+	// 	r.makeTrivialClusters()
+	// } else {
+	r.makeMatrix()
+	r.skipRepeats()
+	r.Cluster()
+	// }
 	r.printClusters()
 	r.splitRE()
 	log.Notice("Success")
@@ -192,7 +192,7 @@ func (r *Partitioner) splitRE() {
 		for _, idx := range cl {
 			contigs = append(contigs, r.contigs[idx])
 		}
-		outfile := fmt.Sprintf("%s.g%d.txt", RemoveExt(r.Contigsfile), j)
+		outfile := fmt.Sprintf("%s.%dg%d.txt", RemoveExt(r.Contigsfile), r.K, j+1)
 		writeRE(outfile, contigs)
 	}
 }

@@ -340,8 +340,8 @@ func (r *Partitioner) printClusters() {
 		}
 		sort.Strings(names)
 
-		fmt.Printf("g%d\t%d\t%s\n", j, len(names), strings.Join(names, " "))
-		fmt.Fprintf(w, "g%d\t%d\t%s\n", j, len(names), strings.Join(names, " "))
+		fmt.Printf("%dg%d\t%d\t%s\n", r.K, j+1, len(names), strings.Join(names, " "))
+		fmt.Fprintf(w, "%dg%d\t%d\t%s\n", r.K, j+1, len(names), strings.Join(names, " "))
 	}
 	w.Flush()
 

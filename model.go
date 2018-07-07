@@ -143,6 +143,9 @@ func (r *LinkDensityModel) countBinDensities(contigs []*ContigInfo) {
 	Xs := []int{}
 	Ys := []float64{}
 	for i := 0; i < topBin; i++ {
+		if r.nLinks[i] == 0 { // This will trigger nan in regression
+			continue
+		}
 		Xs = append(Xs, r.binStarts[i])
 		Ys = append(Ys, r.linkDensity[i])
 	}

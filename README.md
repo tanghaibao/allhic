@@ -47,8 +47,8 @@ clustering algorithm, there is an optimization goal here. The
 LACHESIS algorithm is a hierarchical clustering algorithm using
 average links, which is the same method used by ALLHIC.
 
-![networkbefore](script/graph-s.png)
-![networkafter](script/graph-s.partitioned.png)
+![networkbefore](images/graph-s.png)
+![networkafter](images/graph-s.partitioned.png)
 
 ```console
 allhic partition tests/test.counts_GATC.txt tests/test.pairs.txt
@@ -62,7 +62,7 @@ for these contigs.
 
 Optimize uses Genetic Algorithm (GA) to search for the best scoring solution. GA has been successfully applied to genome scaffolding tasks in the past (see ALLMAPS; [Tang et al. *Genome Biology*, 2015](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-014-0573-1)).
 
-![ga](tests/test-movie.gif)
+![ga](images/test-movie.gif)
 
 ```console
 allhic optimize tests/test.counts_GATC.g0.txt tests/test.clm
@@ -77,6 +77,8 @@ Build genome release, including a `.agp` output and a `.fasta` output.
 
 Use [d3.js](https://d3js.org/) to visualize the heatmap.
 
+![allhicplot](images/allhic-plot-s.png)
+
 ## Pipeline
 
 Following the 4 steps of `prune`, `extract`, `partition`, `optimize`
@@ -84,20 +86,20 @@ Following the 4 steps of `prune`, `extract`, `partition`, `optimize`
 ```console
 allhic extract T4_Chr1/{prunning.sub.bam,seq.fasta}
 allhic partition T4_Chr1/{prunning.sub.counts_GATC.txt,prunning.sub.pairs.txt} 2
-allhic optimize T4_Chr1/{prunning.sub.counts_GATC.g0.txt,prunning.sub.clm}
-allhic optimize T4_Chr1/{prunning.sub.counts_GATC.g1.txt,prunning.sub.clm}
+allhic optimize T4_Chr1/{prunning.sub.counts_GATC.2g1.txt,prunning.sub.clm}
+allhic optimize T4_Chr1/{prunning.sub.counts_GATC.2g2.txt,prunning.sub.clm}
 allhic build T4_Chr/{prunning.sub.tour,seq.fasta}
 ```
 
 ## WIP features
 
 - [x] Add restriction enzyme for better normalization of contig lengths
-- [ ] Translate "prune" from C++ code to golang
-- [ ] Add partition split inside "partition"
+- [x] Add partition split inside "partition"
+- [x] Use clustering when k = 1
 - [x] Isolate matrix generation to "plot"
 - [ ] Add dot plot to "plot"
 - [ ] Add "pipeline" to simplify execution
-- [ ] Use clustering when k = 1
 - [ ] Compare numerical output with Lachesis
 - [ ] Improve Ler0 results
+- [ ] Translate "prune" from C++ code to golang
 - [ ] Add test suites
