@@ -86,4 +86,11 @@ allhic build T4_Chr/{prunning.sub.tour,seq.fasta}
 ## WIP features
 
 - [x] Add restriction enzyme for better normalization of contig lengths
+- [ ] Translate "prune" from C++ code to golang
+- [ ] Add partition split inside "partition"
+- [ ] Isolate matrix generation to "plot"
+- [ ] Add "pipeline" to simplify execution
+- [ ] Use clustering when k = 1
+- [ ] Compare numerical output with Lachesis
+- [ ] Improve Ler0 results
 - [ ] Add test suites
