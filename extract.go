@@ -151,21 +151,34 @@ func (r *Extracter) makeModel(outfile string) {
 	r.model = m
 }
 
-// readFastaAndWriteRE writes out the number of restriction fragments, one per line
-func (r *Extracter) readFastaAndWriteRE() {
-	outfile := RemoveExt(r.Bamfile) + ".counts_" + r.RE + ".txt"
-
-	reader, _ := fastx.NewDefaultReader(r.Fastafile)
+// writeRE write a RE file
+func writeRE(outfile string, contigs []*ContigInfo) {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
 	totalCounts := 0
 	totalBp := int64(0)
+	fmt.Fprintf(w, "#Contig\tRECounts\tLength\n")
+	for _, contig := range contigs {
+		totalCounts += contig.recounts
+		totalBp += int64(contig.length)
+		fmt.Fprintf(w, "%s\n", contig)
+	}
+	w.Flush()
+	log.Noticef("RE counts (total: %d, avg 1 per %d bp) written to `%s`",
+		totalCounts, totalBp/int64(totalCounts), outfile)
+}
+
+// readFastaAndWriteRE writes out the number of restriction fragments, one per line
+func (r *Extracter) readFastaAndWriteRE() {
+	outfile := RemoveExt(r.Bamfile) + ".counts_" + r.RE + ".txt"
+	reader, _ := fastx.NewDefaultReader(r.Fastafile)
+	seq.ValidateSeq = false // This flag makes parsing FASTA much faster
+
 	r.contigs = []*ContigInfo{}
 	r.contigToIdx = map[string]int{}
-
-	fmt.Fprintf(w, "#Contig\tRECounts\tLength\n")
-	seq.ValidateSeq = false // This flag makes parsing FASTA much faster
+	totalCounts := 0
+	totalBp := int64(0)
 
 	for {
 		rec, err := reader.Read()
@@ -178,18 +191,16 @@ func (r *Extracter) readFastaAndWriteRE() {
 		length := rec.Seq.Length()
 		totalCounts += count
 		totalBp += int64(length)
-		fmt.Fprintf(w, "%s\t%d\t%d\n", name, count, length)
 		contig := &ContigInfo{
 			name:     name,
 			recounts: count, // To account for contigs with 0 RE sites
 			length:   length,
 		}
+
 		r.contigToIdx[name] = len(r.contigs)
 		r.contigs = append(r.contigs, contig)
 	}
-	w.Flush()
-	log.Noticef("RE counts (total: %d, avg 1 per %d bp) written to `%s`",
-		totalCounts, totalBp/int64(totalCounts), outfile)
+	writeRE(outfile, r.contigs)
 }
 
 // calcIntraContigs determine the local enrichment of links on this contig.
@@ -207,7 +218,7 @@ func (r *Extracter) calcIntraContigs() {
 // calcInterContigs calculates the MLE of distance between all contigs
 func (r *Extracter) calcInterContigs() {
 	clmfile := RemoveExt(r.Bamfile) + ".clm"
-	lines := ParseClmLines(clmfile)
+	lines := readClmLines(clmfile)
 	contigPairs := make(map[[2]int]*ContigPair)
 
 	for i := 0; i < len(lines); i++ {

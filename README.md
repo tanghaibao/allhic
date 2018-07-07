@@ -65,7 +65,8 @@ Optimize uses Genetic Algorithm (GA) to search for the best scoring solution. GA
 ![ga](tests/test-movie.gif)
 
 ```console
-allhic optimize tests/test.counts_GATC.txt tests/test.clm
+allhic optimize tests/test.counts_GATC.g0.txt tests/test.clm
+allhic optimize tests/test.counts_GATC.g1.txt tests/test.clm
 ```
 
 ### <kbd>Build</kbd>
@@ -83,7 +84,8 @@ Following the 4 steps of `prune`, `extract`, `partition`, `optimize`
 ```console
 allhic extract T4_Chr1/{prunning.sub.bam,seq.fasta}
 allhic partition T4_Chr1/{prunning.sub.counts_GATC.txt,prunning.sub.pairs.txt} 2
-allhic optimize T4_Chr1/{prunning.sub.counts_GATC.txt,prunning.sub.clm}
+allhic optimize T4_Chr1/{prunning.sub.counts_GATC.g0.txt,prunning.sub.clm}
+allhic optimize T4_Chr1/{prunning.sub.counts_GATC.g1.txt,prunning.sub.clm}
 allhic build T4_Chr/{prunning.sub.tour,seq.fasta}
 ```
 

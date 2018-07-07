@@ -154,7 +154,7 @@ can be generated with the "extract" sub-command.
 			Name:  "optimize",
 			Usage: "Order-and-orient tigs in a group",
 			UsageText: `
-	allhic optimize counts_RE.txt clmfile clusters.txt group_number [options]
+	allhic optimize counts_RE.txt clmfile [options]
 
 Optimize function:
 Given a set of Hi-C contacts between contigs, as specified in the
@@ -196,15 +196,13 @@ on a cluster).
 				},
 			},
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 4 {
+				if len(c.Args()) < 2 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify clmfile", 1)
 				}
 
 				refile := c.Args().Get(0)
 				clmfile := c.Args().Get(1)
-				clustersfile := c.Args().Get(2)
-				group, _ := strconv.Atoi(c.Args().Get(3))
 				runGA := !c.Bool("skipGA")
 				resume := c.Bool("resume")
 				seed := c.Int64("seed")
@@ -212,7 +210,6 @@ on a cluster).
 				ngen := c.Int("ngen")
 				mutpb := c.Float64("mutpb")
 				p := allhic.Optimizer{REfile: refile, Clmfile: clmfile,
-					Clustersfile: clustersfile, Group: group,
 					RunGA: runGA, Resume: resume,
 					Seed: seed, NPop: npop, NGen: ngen, MutProb: mutpb}
 				p.Run()

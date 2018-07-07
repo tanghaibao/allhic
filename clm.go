@@ -99,28 +99,28 @@ func NewCLM(Clmfile, REfile string) *CLM {
 	p.contacts = make(map[Pair]Contact)
 	p.orientedContacts = make(map[OrientedPair]GArray)
 
-	p.ParseIds()
-	p.ParseClm()
+	p.readRE()
+	p.readClm()
 
 	return p
 }
 
-// ParseIds parses the idsfile into data stored in CLM.
+// readRE parses the idsfile into data stored in CLM.
 // IDS file has a list of contigs that need to be ordered. 'recover',
 // keyword, if available in the third column, is less confident.
 // tig00015093     46912
 // tig00035238     46779   recover
 // tig00030900     119291
-func (r *CLM) ParseIds() {
+func (r *CLM) readRE() {
 	file, _ := os.Open(r.REfile)
-	log.Noticef("Parse idsfile `%s`", r.REfile)
+	log.Noticef("Parse REfile `%s`", r.REfile)
 	scanner := bufio.NewScanner(file)
 	idx := 0
 	for scanner.Scan() {
 		words := strings.Fields(scanner.Text())
 		tig := words[0]
 		size, _ := strconv.Atoi(words[len(words)-1])
-		r.Tigs = append(r.Tigs, &TigF{idx, tig, size, false})
+		r.Tigs = append(r.Tigs, &TigF{idx, tig, size, true})
 		r.tigToIdx[tig] = idx
 		idx++
 	}
@@ -134,8 +134,8 @@ func rr(b byte) byte {
 	return '-'
 }
 
-// ParseClmLines parses the clmfile into a slice of CLMLine
-func ParseClmLines(clmfile string) []CLMLine {
+// readClmLines parses the clmfile into a slice of CLMLine
+func readClmLines(clmfile string) []CLMLine {
 	file, _ := os.Open(clmfile)
 	log.Noticef("Parse clmfile `%s`", clmfile)
 	reader := bufio.NewReader(file)
@@ -172,9 +172,9 @@ func ParseClmLines(clmfile string) []CLMLine {
 	return lines
 }
 
-// ParseClm parses the clmfile into data stored in CLM.
-func (r *CLM) ParseClm() {
-	lines := ParseClmLines(r.Clmfile)
+// readClm parses the clmfile into data stored in CLM.
+func (r *CLM) readClm() {
+	lines := readClmLines(r.Clmfile)
 	for _, line := range lines {
 		// Make sure both contigs are in the ids file
 		ai, aok := r.tigToIdx[line.at]

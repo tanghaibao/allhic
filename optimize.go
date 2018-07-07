@@ -19,23 +19,21 @@ import (
 
 // Optimizer runs the order-and-orientation procedure, given a clmfile
 type Optimizer struct {
-	Clmfile      string
-	REfile       string
-	Clustersfile string
-	Group        int
-	RunGA        bool
-	Resume       bool
-	Seed         int64
-	NPop         int
-	NGen         int
-	MutProb      float64
-	CrossProb    float64
+	REfile    string
+	Clmfile   string
+	RunGA     bool
+	Resume    bool
+	Seed      int64
+	NPop      int
+	NGen      int
+	MutProb   float64
+	CrossProb float64
 }
 
 // Run kicks off the Optimizer
 func (r *Optimizer) Run() {
 	clm := NewCLM(r.Clmfile, r.REfile)
-	tourfile := fmt.Sprintf("%s.g%d.tour", RemoveExt(r.Clmfile), r.Group)
+	tourfile := RemoveExt(r.REfile) + ".tour"
 
 	// Load tourfile if it exists
 	if _, err := os.Stat(tourfile); r.Resume && err == nil {
@@ -45,8 +43,6 @@ func (r *Optimizer) Run() {
 		backupTourFile := tourfile + ".sav"
 		os.Rename(tourfile, backupTourFile)
 		log.Noticef("Backup `%s` to `%s`", tourfile, backupTourFile)
-	} else {
-		clm.parseClustersFile(r.Clustersfile, r.Group)
 	}
 
 	shuffle := false // If one wants randomized initialization, set this to true
@@ -71,6 +67,7 @@ func (r *Optimizer) Run() {
 			break
 		}
 	}
+	clm.printTour(os.Stdout, clm.Tour, "FINAL")
 	log.Notice("Success")
 }
 

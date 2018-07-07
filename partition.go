@@ -39,6 +39,7 @@ func (r *Partitioner) Run() {
 		r.Cluster()
 	}
 	r.printClusters()
+	r.splitRE()
 	log.Notice("Success")
 }
 
@@ -181,6 +182,19 @@ func (r *Partitioner) readRE() {
 	}
 	log.Noticef("Loaded %d contig RE lengths for normalization from `%s`",
 		len(r.contigs), r.Contigsfile)
+}
+
+// splitRE reads in a three-column tab-separated file
+// #Contig    REcounts    Length
+func (r *Partitioner) splitRE() {
+	for j, cl := range r.clusters {
+		contigs := []*ContigInfo{}
+		for _, idx := range cl {
+			contigs = append(contigs, r.contigs[idx])
+		}
+		outfile := fmt.Sprintf("%s.g%d.txt", RemoveExt(r.Contigsfile), j)
+		writeRE(outfile, contigs)
+	}
 }
 
 // parseDist imports the edges of the contig into a slice of DistLine
