@@ -119,6 +119,9 @@ func (r *CLM) readRE() {
 	for scanner.Scan() {
 		words := strings.Fields(scanner.Text())
 		tig := words[0]
+		if tig[0] == '#' {
+			continue
+		}
 		size, _ := strconv.Atoi(words[len(words)-1])
 		r.Tigs = append(r.Tigs, &TigF{idx, tig, size, true})
 		r.tigToIdx[tig] = idx
