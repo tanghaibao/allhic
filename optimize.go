@@ -74,7 +74,7 @@ func (r *Optimizer) Run() {
 // OptimizeOrdering changes the ordering of contigs by Genetic Algorithm
 func (r *CLM) OptimizeOrdering(fwtour *os.File, opt *Optimizer, phase int) {
 	r.GARun(fwtour, opt, phase)
-	r.pruneTour()
+	// r.pruneTour()
 }
 
 // OptimizeOrientations changes the orientations of contigs by using heuristic flipping algorithms.
