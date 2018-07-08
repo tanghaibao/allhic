@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"strings"
 )
@@ -28,10 +29,12 @@ type Optimizer struct {
 	NGen      int
 	MutProb   float64
 	CrossProb float64
+	rng       *rand.Rand
 }
 
 // Run kicks off the Optimizer
 func (r *Optimizer) Run() {
+	r.rng = rand.New(rand.NewSource(r.Seed))
 	clm := NewCLM(r.Clmfile, r.REfile)
 	tourfile := RemoveExt(r.REfile) + ".tour"
 
@@ -45,13 +48,15 @@ func (r *Optimizer) Run() {
 		log.Noticef("Backup `%s` to `%s`", tourfile, backupTourFile)
 	}
 
-	shuffle := false // If one wants randomized initialization, set this to true
-	clm.Activate(shuffle)
+	shuffle := true // If one wants randomized initialization, set this to true
+	clm.Activate(shuffle, r.rng)
 
 	// tourfile logs the intermediate configurations
 	log.Noticef("Optimization history logged to `%s`", tourfile)
 	fwtour, _ := os.Create(tourfile)
 	defer fwtour.Close()
+
+	clm.printTour(os.Stdout, clm.Tour, "INIT")
 	clm.printTour(fwtour, clm.Tour, "INIT")
 
 	if r.RunGA {

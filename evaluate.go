@@ -231,11 +231,11 @@ func (r Tour) Clone() gago.Genome {
 }
 
 // Shuffle randomly shuffles an integer array using Knuth or Fisher-Yates
-func (r Tour) Shuffle() {
+func (r Tour) Shuffle(rng *rand.Rand) {
 	N := r.Len()
 	for i := 0; i < N; i++ {
 		// choose index uniformly in [i, N-1]
-		j := i + rand.Intn(N-i)
+		j := i + rng.Intn(N-i)
 		r.Tigs[j], r.Tigs[i] = r.Tigs[i], r.Tigs[j]
 	}
 }
@@ -257,7 +257,7 @@ func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
 			},
 			MutRate: opt.MutProb,
 		},
-		RNG:          rand.New(rand.NewSource(opt.Seed)),
+		RNG:          opt.rng,
 		ParallelEval: true,
 	}
 	ga.Initialize()

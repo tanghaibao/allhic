@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"io"
 	"math"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -362,12 +363,12 @@ func (r *CLM) pruneTour() {
 // - "hotstart": This is useful when there was a past run, with a given
 //    tourfile. In this case, the active contig list and orientations are
 //    derived from the last tour in the file.
-func (r *CLM) Activate(shuffle bool) {
+func (r *CLM) Activate(shuffle bool, rng *rand.Rand) {
 	N := len(r.Tigs)
-	if shuffle {
-		r.reportActive(true)
-		r.pruneByDensity()
-	}
+	// if shuffle {
+	// 	r.reportActive(true)
+	// 	r.pruneByDensity()
+	// }
 	activeCounts, _ := r.reportActive(true)
 
 	r.Tour.Tigs = make([]Tig, activeCounts)
@@ -381,7 +382,7 @@ func (r *CLM) Activate(shuffle bool) {
 
 	r.Tour.M = r.M()
 	if shuffle {
-		r.Tour.Shuffle()
+		r.Tour.Shuffle(rng)
 	}
 	r.Signs = make([]byte, N)
 	for i := 0; i < N; i++ {
