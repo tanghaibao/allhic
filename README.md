@@ -36,7 +36,7 @@ Prune bamfile to remove weak links. WIP.
 Extract does a fair amount of preprocessing: 1) extract inter-contig links into a more compact form, specifically into `.clm`; 2) extract intra-contig links and build a distribution; 3) count up the restriction sites to be used in normalization (similar to LACHESIS); 4) bundles the inter-contig links into pairs of contigs.
 
 ```console
-allhic extract tests/test.bam tests/test.fasta
+allhic extract tests/test.bam tests/seq.fasta.gz
 ```
 
 ### <kbd>Partition</kbd>
@@ -65,30 +65,39 @@ Optimize uses Genetic Algorithm (GA) to search for the best scoring solution. GA
 ![ga](images/test-movie.gif)
 
 ```console
-allhic optimize tests/test.counts_GATC.g0.txt tests/test.clm
-allhic optimize tests/test.counts_GATC.g1.txt tests/test.clm
+allhic optimize tests/test.counts_GATC.2g1.txt tests/test.clm
+allhic optimize tests/test.counts_GATC.2g2.txt tests/test.clm
 ```
 
 ### <kbd>Build</kbd>
 
-Build genome release, including a `.agp` output and a `.fasta` output.
+Build genome release, including `.agp` and `.fasta` output.
+
+```console
+allhic build tests/test.counts_GATC.2g1.tour seq.fasta
+```
 
 ### <kbd>Plot</kbd>
 
 Use [d3.js](https://d3js.org/) to visualize the heatmap.
 
+```console
+allhic plot tests/test.bam tests/test.counts_GATC.2g1.tour
+```
+
 ![allhicplot](images/allhic-plot-s.png)
 
 ## Pipeline
 
-Following the 4 steps of `prune`, `extract`, `partition`, `optimize`
+Following the 4 steps of `prune`, `extract`, `partition`, `optimize`, as described above.
+In summary, we have:
 
 ```console
-allhic extract T4_Chr1/{prunning.sub.bam,seq.fasta}
-allhic partition T4_Chr1/{prunning.sub.counts_GATC.txt,prunning.sub.pairs.txt} 2
-allhic optimize T4_Chr1/{prunning.sub.counts_GATC.2g1.txt,prunning.sub.clm}
-allhic optimize T4_Chr1/{prunning.sub.counts_GATC.2g2.txt,prunning.sub.clm}
-allhic build T4_Chr/{prunning.sub.tour,seq.fasta}
+allhic extract tests/{test.bam,seq.fasta.gz}
+allhic partition tests/{test.counts_GATC.txt,test.pairs.txt} 2
+allhic optimize tests/{test.counts_GATC.2g1.txt,test.clm}
+allhic optimize tests/{test.counts_GATC.2g2.txt,test.clm}
+allhic build tests/{test.tour,seq.fasta}
 ```
 
 ## WIP features
@@ -97,6 +106,7 @@ allhic build T4_Chr/{prunning.sub.tour,seq.fasta}
 - [x] Add partition split inside "partition"
 - [x] Use clustering when k = 1
 - [x] Isolate matrix generation to "plot"
+- [ ] Merge tours from multiple partitions back to a single file
 - [ ] Add dot plot to "plot"
 - [ ] Add "pipeline" to simplify execution
 - [ ] Compare numerical output with Lachesis

@@ -177,7 +177,7 @@ func (r *LinkDensityModel) fitPowerLaw(Xs []int, Ys []float64) {
 	A := math.Exp((SumLogY - B*SumLogX) / float64(n))
 	r.A, r.B = A, B
 
-	log.Noticef("Power law Y = %.4f * X ^ %.4f", A, B)
+	log.Noticef("Power law Y = %.3g * X ^ %.4f", A, B)
 }
 
 // transformPowerLaw interpolate probability value given a link size
