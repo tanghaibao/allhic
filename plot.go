@@ -9,7 +9,13 @@
 
 package allhic
 
-import "os"
+import (
+	"net/http"
+	"os"
+	"strconv"
+
+	"github.com/gobuffalo/packr"
+)
 
 // Plotter extracts a matrix of link counts and plot a heatmp
 type Plotter struct {
@@ -25,7 +31,30 @@ func (r *Plotter) Run() {
 	// Serialize to disk for plotting
 	m.makeContigStarts()
 	m.serialize(250000, "genome.json", "data.npy")
+	r.host()
 
 	// printPaths(paths)
 	log.Notice("Success")
+}
+
+// Host plot.html
+func (r *Plotter) host() {
+	box := packr.NewBox("./templates")
+	port := 3000
+	f, _ := os.Create("index.html")
+	defer f.Close()
+	f.WriteString(box.String("index.html"))
+	f.Sync()
+
+	http.Handle("/", http.FileServer(http.Dir(".")))
+
+	for {
+		log.Noticef("Serving on localhost:%d ...", port)
+		if err := http.ListenAndServe(":"+strconv.Itoa(port), nil); err != nil {
+			log.Debug(err)
+			port++
+		} else {
+			break
+		}
+	}
 }
