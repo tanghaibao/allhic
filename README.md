@@ -106,6 +106,7 @@ allhic build tests/{test.tour,seq.fasta}
 - [x] Add partition split inside "partition"
 - [x] Use clustering when k = 1
 - [x] Isolate matrix generation to "plot"
+- [ ] Plot the boundary of the contigs in "plot" using genome.json
 - [ ] Provide better error messages for "file not found"
 - [ ] Merge tours from multiple partitions back to a single file
 - [ ] Add dot plot to "plot"
