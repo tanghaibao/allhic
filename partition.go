@@ -25,6 +25,8 @@ type Partitioner struct {
 	matrix      [][]int64
 	longestRE   int
 	clusters    Clusters
+	// Output files
+	OutREfiles []string
 }
 
 // Run is the main function body of partition
@@ -194,6 +196,7 @@ func (r *Partitioner) splitRE() {
 		}
 		outfile := fmt.Sprintf("%s.%dg%d.txt", RemoveExt(r.Contigsfile), r.K, j+1)
 		writeRE(outfile, contigs)
+		r.OutREfiles = append(r.OutREfiles, outfile)
 	}
 }
 

@@ -10,14 +10,28 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	".."
 	logging "github.com/op/go-logging"
 	"github.com/urfave/cli"
 )
+
+var log = logging.MustGetLogger("main")
+
+// var format = logging.MustStringFormatter(
+// 	`%{color}%{time:15:04:05} | main | %{level:.6s} %{color:reset} ** %{message} **`,
+// )
+
+// // Backend is the default stderr output
+// var Backend = logging.NewLogBackend(os.Stderr, "", 0)
+
+// // BackendFormatter contains the fancy debug formatter
+// var BackendFormatter = logging.NewBackendFormatter(Backend, format)
 
 // init customizes how cli layout the command interface
 // Logo banner (Varsity style):
@@ -34,6 +48,14 @@ _/ /   \ \_  _| |__/ | _| |__/ | _| |  | |_  _| |_\ ` + "`" + `.___.'\
 ` + cli.AppHelpTemplate
 }
 
+// banner prints the separate steps
+func banner(message string) {
+	message = "* " + message + " *"
+	log.Noticef(strings.Repeat("*", len(message)))
+	log.Noticef(message)
+	log.Noticef(strings.Repeat("*", len(message)))
+}
+
 // main is the entrypoint for the entire program, routes to commands
 func main() {
 	logging.SetBackend(allhic.BackendFormatter)
@@ -44,6 +66,45 @@ func main() {
 	app.Name = "ALLHIC"
 	app.Usage = "Genome scaffolding based on Hi-C data"
 	app.Version = allhic.Version
+
+	extractFlags := []cli.Flag{
+		cli.StringFlag{
+			Name:  "RE",
+			Usage: "Restriction site pattern",
+			Value: "GATC",
+		},
+	}
+
+	optimizeFlags := []cli.Flag{
+		cli.BoolFlag{
+			Name:  "skipGA",
+			Usage: "Skip GA step",
+		},
+		cli.BoolFlag{
+			Name:  "resume",
+			Usage: "Resume from existing tour file",
+		},
+		cli.Int64Flag{
+			Name:  "seed",
+			Usage: "Random seed",
+			Value: 42,
+		},
+		cli.IntFlag{
+			Name:  "npop",
+			Usage: "Population size",
+			Value: 100,
+		},
+		cli.IntFlag{
+			Name:  "ngen",
+			Usage: "Number of generations for convergence",
+			Value: 5000,
+		},
+		cli.Float64Flag{
+			Name:  "mutpb",
+			Usage: "Mutation prob in GA",
+			Value: .2,
+		},
+	}
 
 	app.Commands = []cli.Command{
 		{
@@ -79,13 +140,7 @@ Given a bamfile, the goal of the extract step is to calculate an empirical
 distribution of Hi-C link size based on intra-contig links. The Extract function
 also prepares for the latter steps of ALLHIC.
 `,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "RE",
-					Usage: "Restriction site pattern",
-					Value: "GATC",
-				},
-			},
+			Flags: extractFlags,
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) < 2 {
 					cli.ShowSubcommandHelp(c)
@@ -95,6 +150,7 @@ also prepares for the latter steps of ALLHIC.
 				bamfile := c.Args().Get(0)
 				fastafile := c.Args().Get(1)
 				RE := c.String("RE")
+
 				p := allhic.Extracter{Bamfile: bamfile, Fastafile: fastafile, RE: RE}
 				p.Run()
 				return nil
@@ -165,36 +221,7 @@ order appearing in "clusters.txt". Typically, if there are k clusters, we
 can start k separate "optimize" commands for parallelism (for example,
 on a cluster).
 `,
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:  "skipGA",
-					Usage: "Skip GA step",
-				},
-				cli.BoolFlag{
-					Name:  "resume",
-					Usage: "Resume from existing tour file",
-				},
-				cli.Int64Flag{
-					Name:  "seed",
-					Usage: "Random seed",
-					Value: 42,
-				},
-				cli.IntFlag{
-					Name:  "npop",
-					Usage: "Population size",
-					Value: 100,
-				},
-				cli.IntFlag{
-					Name:  "ngen",
-					Usage: "Number of generations for convergence",
-					Value: 5000,
-				},
-				cli.Float64Flag{
-					Name:  "mutpb",
-					Usage: "Mutation prob in GA",
-					Value: .2,
-				},
-			},
+			Flags: optimizeFlags,
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) < 2 {
 					cli.ShowSubcommandHelp(c)
@@ -284,6 +311,67 @@ as a quality assessment step.
 				seqid := c.Args().Get(2)
 				p := allhic.Assesser{Bamfile: bamfile, Bedfile: bedfile, Seqid: seqid}
 				p.Run()
+				return nil
+			},
+		},
+		{
+			Name:  "pipeline",
+			Usage: "Run extract-partition-optimize-build steps sequentially",
+			UsageText: `
+	allhic pipeline bamfile fastafile k [options]
+
+Pipeline:
+A convenience driver function. Chain the following steps sequentially.
+
+- extract
+- partion
+- optimize
+- build
+`,
+			Flags: append(extractFlags, optimizeFlags...),
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) < 3 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify distfile, clmfile and bamfile", 1)
+				}
+
+				bamfile := c.Args().Get(0)
+				fastafile := c.Args().Get(1)
+				k, _ := strconv.Atoi(c.Args().Get(2))
+				RE := c.String("RE")
+				runGA := !c.Bool("skipGA")
+				resume := c.Bool("resume")
+				seed := c.Int64("seed")
+				npop := c.Int("npop")
+				ngen := c.Int("ngen")
+				mutpb := c.Float64("mutpb")
+
+				// Extract the contig pairs, count RE sites
+				banner(fmt.Sprintf("Extractor started (RE = %s)", RE))
+				extractor := allhic.Extracter{Bamfile: bamfile, Fastafile: fastafile, RE: RE}
+				extractor.Run()
+
+				// Partition into k groups
+				banner(fmt.Sprintf("Partition into %d groups", k))
+				partitioner := allhic.Partitioner{Contigsfile: extractor.OutContigsfile,
+					Distfile: extractor.OutPairsfile, K: k}
+				partitioner.Run()
+
+				// Optimize the k groups separately
+				for i, refile := range partitioner.OutREfiles {
+					banner(fmt.Sprintf("Optimize group %d", i))
+					optimizer := allhic.Optimizer{REfile: refile,
+						Clmfile: extractor.OutClmfile,
+						RunGA:   runGA, Resume: resume,
+						Seed: seed, NPop: npop, NGen: ngen, MutProb: mutpb}
+					optimizer.Run()
+				}
+
+				// Run the final build
+				// log.Noticef("***** Build started *****")
+				// builder := allhic.Builder{Tourfile: tourfile, Fastafile: fastafile}
+				// builder.Run()
+
 				return nil
 			},
 		},

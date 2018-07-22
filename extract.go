@@ -39,6 +39,10 @@ type Extracter struct {
 	contigToIdx     map[string]int
 	model           *LinkDensityModel
 	totalIntraLinks int
+	// Output file
+	OutContigsfile string
+	OutPairsfile   string
+	OutClmfile     string
 }
 
 // ContigInfo stores results calculated from f
@@ -172,6 +176,7 @@ func writeRE(outfile string, contigs []*ContigInfo) {
 // readFastaAndWriteRE writes out the number of restriction fragments, one per line
 func (r *Extracter) readFastaAndWriteRE() {
 	outfile := RemoveExt(r.Bamfile) + ".counts_" + r.RE + ".txt"
+	r.OutContigsfile = outfile
 	reader, _ := fastx.NewDefaultReader(r.Fastafile)
 	seq.ValidateSeq = false // This flag makes parsing FASTA much faster
 
@@ -242,6 +247,7 @@ func (r *Extracter) calcInterContigs() {
 	}
 
 	outfile := RemoveExt(r.Bamfile) + ".pairs.txt"
+	r.OutPairsfile = outfile
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
@@ -343,6 +349,7 @@ func (r *Extracter) extractContigLinks() {
 	fh, _ := os.Open(r.Bamfile)
 	prefix := RemoveExt(r.Bamfile)
 	clmfile := prefix + ".clm"
+	r.OutClmfile = clmfile
 
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)

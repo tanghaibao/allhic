@@ -60,7 +60,9 @@ Given a set of Hi-C contacts between contigs, as specified in the
 clmfile, reconstruct the highest scoring ordering and orientations
 for these contigs.
 
-Optimize uses Genetic Algorithm (GA) to search for the best scoring solution. GA has been successfully applied to genome scaffolding tasks in the past (see ALLMAPS; [Tang et al. *Genome Biology*, 2015](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-014-0573-1)).
+Optimize uses Genetic Algorithm (GA) to search for the best scoring solution.
+GA has been successfully applied to genome scaffolding tasks in the past
+(see ALLMAPS; [Tang et al. *Genome Biology*, 2015](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-014-0573-1)).
 
 ![ga](images/test-movie.gif)
 
@@ -74,7 +76,7 @@ allhic optimize tests/test.counts_GATC.2g2.txt tests/test.clm
 Build genome release, including `.agp` and `.fasta` output.
 
 ```console
-allhic build tests/test.counts_GATC.2g1.tour seq.fasta
+allhic build tests/test.counts_GATC.2g1.tour seq.fasta.gz
 ```
 
 ### <kbd>Plot</kbd>
@@ -93,12 +95,24 @@ Following the 4 steps of `prune`, `extract`, `partition`, `optimize`, as describ
 In summary, we have:
 
 ```console
-allhic extract tests/{test.bam,seq.fasta.gz}
-allhic partition tests/{test.counts_GATC.txt,test.pairs.txt} 2
-allhic optimize tests/{test.counts_GATC.2g1.txt,test.clm}
-allhic optimize tests/{test.counts_GATC.2g2.txt,test.clm}
-allhic build tests/{test.tour,seq.fasta}
+allhic extract tests/test.bam tests/seq.fasta.gz
+allhic partition tests/test.counts_GATC.txt tests/test.pairs.txt 2
+allhic optimize tests/test.counts_GATC.2g1.txt tests/test.clm
+allhic optimize tests/test.counts_GATC.2g2.txt tests/test.clm
+allhic build tests/test.tour seq.fasta.gz
 ```
+
+Or, in a single step:
+
+```console
+allhic pipeline tests/test.bam tests/seq.fasta.gz 2
+```
+
+In summary, the pipeline requires a BAM file and the contigs FASTA file.
+The user then needs to specify the Restriction Enzyme used, the number
+`k` groups to partition into. Output include reconstructed chromosome
+AGP file (containing how the contigs are linked together) and chromosomal
+FASTA file.
 
 ## WIP features
 
@@ -106,11 +120,12 @@ allhic build tests/{test.tour,seq.fasta}
 - [x] Add partition split inside "partition"
 - [x] Use clustering when k = 1
 - [x] Isolate matrix generation to "plot"
+- [x] Add "pipeline" to simplify execution
+- [ ] Make "build" to merge subgroup tours
 - [ ] Plot the boundary of the contigs in "plot" using genome.json
 - [ ] Provide better error messages for "file not found"
 - [ ] Merge tours from multiple partitions back to a single file
 - [ ] Add dot plot to "plot"
-- [ ] Add "pipeline" to simplify execution
 - [ ] Compare numerical output with Lachesis
 - [ ] Improve Ler0 results
 - [ ] Translate "prune" from C++ code to golang

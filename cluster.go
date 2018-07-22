@@ -192,9 +192,12 @@ func (r *Partitioner) Cluster() {
 				break
 			}
 		}
-		log.Noticef("Merge #%d: Clusters\t%d + %d -> %d, Linkage = %g",
-			nMerges, bestMerge.a, bestMerge.b, newClusterID, bestMerge.score)
 
+		if nMerges%50 == 0 {
+			log.Noticef("Merge #%d: Clusters\t%d + %d -> %d, Linkage = %g",
+				nMerges, bestMerge.a, bestMerge.b, newClusterID, bestMerge.score)
+
+		}
 		merges = newMerges
 	}
 
