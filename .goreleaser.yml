@@ -3,6 +3,9 @@
 builds:
   - main: cmd/allhic.go
     binary: allhic
+    hooks:
+      pre: packr
+      post: packr clean
     goos:
       - windows
       - darwin
