@@ -30,6 +30,8 @@ type Optimizer struct {
 	MutProb   float64
 	CrossProb float64
 	rng       *rand.Rand
+	// Output files
+	OutTourFile string
 }
 
 // Run kicks off the Optimizer
@@ -54,6 +56,7 @@ func (r *Optimizer) Run() {
 	// tourfile logs the intermediate configurations
 	log.Noticef("Optimization history logged to `%s`", tourfile)
 	fwtour, _ := os.Create(tourfile)
+	r.OutTourFile = tourfile
 	defer fwtour.Close()
 
 	clm.printTour(os.Stdout, clm.Tour, "INIT")
@@ -94,7 +97,7 @@ func (r *CLM) OptimizeOrientations(fwtour *os.File, phase int) (string, string) 
 // parseTourFile parses tour file
 // Only the last line is retained anc onverted into a Tour
 func parseTourFile(filename string) []string {
-	f, _ := os.Open(filename)
+	f := mustOpen(filename)
 	log.Noticef("Parse tour file `%s`", filename)
 	defer f.Close()
 

@@ -14,7 +14,6 @@ import (
 	"io"
 	"math"
 	"math/rand"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -113,7 +112,7 @@ func NewCLM(Clmfile, REfile string) *CLM {
 // tig00035238     46779   recover
 // tig00030900     119291
 func (r *CLM) readRE() {
-	file, _ := os.Open(r.REfile)
+	file := mustOpen(r.REfile)
 	log.Noticef("Parse REfile `%s`", r.REfile)
 	scanner := bufio.NewScanner(file)
 	idx := 0
@@ -140,7 +139,7 @@ func rr(b byte) byte {
 
 // readClmLines parses the clmfile into a slice of CLMLine
 func readClmLines(clmfile string) []CLMLine {
-	file, _ := os.Open(clmfile)
+	file := mustOpen(clmfile)
 	log.Noticef("Parse clmfile `%s`", clmfile)
 	reader := bufio.NewReader(file)
 

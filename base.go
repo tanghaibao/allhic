@@ -349,7 +349,7 @@ func Percentage(a, b int) string {
 func ReadCSVLines(filename string) [][]string {
 	log.Noticef("Parse csvfile `%s`", filename)
 
-	fh, _ := os.Open(filename)
+	fh := mustOpen(filename)
 	defer fh.Close()
 
 	var data [][]string
@@ -383,4 +383,20 @@ func sortInt64s(a []int64) {
 // searchInt64 searches the position within a sorted int64 slice
 func searchInt64(a []int64, x int64) int {
 	return sort.Search(len(a), func(i int) bool { return a[i] >= x })
+}
+
+// mustExist panics when a file is not found
+func mustExist(filename string) {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		log.Fatal(err)
+	}
+}
+
+// mustOpen wraps os.Open but panics if file not found
+func mustOpen(filename string) *os.File {
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return f
 }

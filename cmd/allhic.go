@@ -12,6 +12,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,16 +24,6 @@ import (
 )
 
 var log = logging.MustGetLogger("main")
-
-// var format = logging.MustStringFormatter(
-// 	`%{color}%{time:15:04:05} | main | %{level:.6s} %{color:reset} ** %{message} **`,
-// )
-
-// // Backend is the default stderr output
-// var Backend = logging.NewLogBackend(os.Stderr, "", 0)
-
-// // BackendFormatter contains the fancy debug formatter
-// var BackendFormatter = logging.NewBackendFormatter(Backend, format)
 
 // init customizes how cli layout the command interface
 // Logo banner (Varsity style):
@@ -118,7 +110,7 @@ Given a bamfile, the goal of the pruning step is to remove all inter-allelic
 links, then it is possible to reconstruct allele-separated assemblies.
 `,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 1 {
+				if c.NArg() < 1 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify bamfile", 1)
 				}
@@ -142,7 +134,7 @@ also prepares for the latter steps of ALLHIC.
 `,
 			Flags: extractFlags,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 2 {
+				if c.NArg() < 2 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify distfile, clmfile and bamfile", 1)
 				}
@@ -168,11 +160,10 @@ also prepares for the latter steps of ALLHIC.
 		// of the contig linkage graph.
 		// `,
 		// 			Action: func(c *cli.Context) error {
-		// 				if len(c.Args()) < 1 {
+		// 				if c.NArg() < 1 {
 		// 					cli.ShowSubcommandHelp(c)
 		// 					return cli.NewExitError("Must specify bamfile", 1)
 		// 				}
-
 		// 				bamfile := c.Args().Get(0)
 		// 				p := allhic.Anchorer{Bamfile: bamfile}
 		// 				p.Run()
@@ -193,7 +184,7 @@ a hierarchical clustering algorithm using average links. The two input files
 can be generated with the "extract" sub-command.
 `,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 3 {
+				if c.NArg() < 3 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify distfile", 1)
 				}
@@ -223,7 +214,7 @@ on a cluster).
 `,
 			Flags: optimizeFlags,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 2 {
+				if c.NArg() < 2 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify clmfile", 1)
 				}
@@ -247,21 +238,30 @@ on a cluster).
 			Name:  "build",
 			Usage: "Build genome release",
 			UsageText: `
-	allhic build tourfile contigs.fasta [options]
+	allhic build tourfile1 tourfile2 ... contigs.fasta asm.chr.fasta  [options]
 
 Build function:
 Convert the tourfile into the standard AGP file, which is then converted
 into a FASTA genome release.
 `,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 2 {
+				if c.NArg() < 3 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify tourfile and fastafile", 1)
 				}
 
-				tourfile := c.Args().Get(0)
-				fastafile := c.Args().Get(1)
-				p := allhic.Builder{Tourfile: tourfile, Fastafile: fastafile}
+				tourfiles := []string{}
+				for i := 0; i < c.NArg()-2; i++ {
+					tourfiles = append(tourfiles, c.Args().Get(i))
+				}
+				sort.Strings(tourfiles)
+
+				fastafile := c.Args().Get(c.NArg() - 2)
+				outfastafile := c.Args().Get(c.NArg() - 1)
+
+				p := allhic.Builder{Tourfiles: tourfiles,
+					Fastafile:    fastafile,
+					OutFastafile: outfastafile}
 				p.Run()
 				return nil
 			},
@@ -276,7 +276,7 @@ Anchor function:
 Given a bamfile, we extract matrix of link counts and plot heatmap.
 `,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 2 {
+				if c.NArg() < 2 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify bamfile", 1)
 				}
@@ -301,7 +301,7 @@ Compute the posterior probability of contig orientations after scaffolding
 as a quality assessment step.
 `,
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 3 {
+				if c.NArg() < 3 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify bamfile", 1)
 				}
@@ -330,7 +330,7 @@ A convenience driver function. Chain the following steps sequentially.
 `,
 			Flags: append(extractFlags, optimizeFlags...),
 			Action: func(c *cli.Context) error {
-				if len(c.Args()) < 3 {
+				if c.NArg() < 3 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specify distfile, clmfile and bamfile", 1)
 				}
@@ -358,6 +358,7 @@ A convenience driver function. Chain the following steps sequentially.
 				partitioner.Run()
 
 				// Optimize the k groups separately
+				tourfiles := []string{}
 				for i, refile := range partitioner.OutREfiles {
 					banner(fmt.Sprintf("Optimize group %d", i))
 					optimizer := allhic.Optimizer{REfile: refile,
@@ -365,12 +366,17 @@ A convenience driver function. Chain the following steps sequentially.
 						RunGA:   runGA, Resume: resume,
 						Seed: seed, NPop: npop, NGen: ngen, MutProb: mutpb}
 					optimizer.Run()
+					tourfiles = append(tourfiles, optimizer.OutTourFile)
 				}
 
 				// Run the final build
-				// log.Noticef("***** Build started *****")
-				// builder := allhic.Builder{Tourfile: tourfile, Fastafile: fastafile}
-				// builder.Run()
+				banner("Build started (AGP and FASTA)")
+				outfastafile := path.Join(path.Dir(tourfiles[0]),
+					fmt.Sprintf("asm-g%d.chr.fasta", k))
+				builder := allhic.Builder{Tourfiles: tourfiles,
+					Fastafile:    fastafile,
+					OutFastafile: outfastafile}
+				builder.Run()
 
 				return nil
 			},

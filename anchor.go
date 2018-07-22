@@ -202,7 +202,7 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig, flanksize int64) PathSet 
 
 // ExtractInterContigLinks extracts links from the Bamfile
 func (r *Anchorer) ExtractInterContigLinks() {
-	fh, _ := os.Open(r.Bamfile)
+	fh := mustOpen(r.Bamfile)
 	prefix := RemoveExt(r.Bamfile)
 	disfile := prefix + ".dis"
 	idsfile := prefix + ".ids"

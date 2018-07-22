@@ -177,6 +177,7 @@ func writeRE(outfile string, contigs []*ContigInfo) {
 func (r *Extracter) readFastaAndWriteRE() {
 	outfile := RemoveExt(r.Bamfile) + ".counts_" + r.RE + ".txt"
 	r.OutContigsfile = outfile
+	mustExist(r.Fastafile)
 	reader, _ := fastx.NewDefaultReader(r.Fastafile)
 	seq.ValidateSeq = false // This flag makes parsing FASTA much faster
 
@@ -346,7 +347,7 @@ func (r *Extracter) findExpectedInterContigLinks(D, L1, L2 int) []float64 {
 
 // extractContigLinks converts the BAM file to .clm and .ids
 func (r *Extracter) extractContigLinks() {
-	fh, _ := os.Open(r.Bamfile)
+	fh := mustOpen(r.Bamfile)
 	prefix := RemoveExt(r.Bamfile)
 	clmfile := prefix + ".clm"
 	r.OutClmfile = clmfile

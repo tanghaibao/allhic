@@ -76,7 +76,7 @@ allhic optimize tests/test.counts_GATC.2g2.txt tests/test.clm
 Build genome release, including `.agp` and `.fasta` output.
 
 ```console
-allhic build tests/test.counts_GATC.2g1.tour seq.fasta.gz
+allhic build tests/test.counts_GATC.2g?.tour tests/seq.fasta.gz tests/asm-2g.chr.fasta
 ```
 
 ### <kbd>Plot</kbd>
@@ -89,7 +89,7 @@ allhic plot tests/test.bam tests/test.counts_GATC.2g1.tour
 
 ![allhicplot](images/allhic-plot-s.png)
 
-## Pipeline
+## <kbd>Pipeline</kbd>
 
 Following the 4 steps of `prune`, `extract`, `partition`, `optimize`, as described above.
 In summary, we have:
@@ -99,7 +99,7 @@ allhic extract tests/test.bam tests/seq.fasta.gz
 allhic partition tests/test.counts_GATC.txt tests/test.pairs.txt 2
 allhic optimize tests/test.counts_GATC.2g1.txt tests/test.clm
 allhic optimize tests/test.counts_GATC.2g2.txt tests/test.clm
-allhic build tests/test.tour seq.fasta.gz
+allhic build tests/test.counts_GATC.2g?.txt tests/seq.fasta.gz tests/asm-2g.chr.fasta
 ```
 
 Or, in a single step:
@@ -121,10 +121,9 @@ FASTA file.
 - [x] Use clustering when k = 1
 - [x] Isolate matrix generation to "plot"
 - [x] Add "pipeline" to simplify execution
-- [ ] Make "build" to merge subgroup tours
+- [x] Make "build" to merge subgroup tours
+- [x] Provide better error messages for "file not found"
 - [ ] Plot the boundary of the contigs in "plot" using genome.json
-- [ ] Provide better error messages for "file not found"
-- [ ] Merge tours from multiple partitions back to a single file
 - [ ] Add dot plot to "plot"
 - [ ] Compare numerical output with Lachesis
 - [ ] Improve Ler0 results

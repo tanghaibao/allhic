@@ -98,11 +98,7 @@ func (r *Assesser) writePostProb(outfile string) {
 
 // readBed parses the bedfile to extract the start and stop for all the contigs
 func (r *Assesser) readBed() {
-	fh, err := os.Open(r.Bedfile)
-	if err != nil {
-		log.Errorf("bedfile `%s` does not exist", r.Bedfile)
-		os.Exit(1)
-	}
+	fh := mustOpen(r.Bedfile)
 	log.Noticef("Parse bedfile `%s`", r.Bedfile)
 	reader := bufio.NewReader(fh)
 
@@ -142,7 +138,7 @@ func checkInRange(pos, start, end int) bool {
 
 // extractContigLinks builds the probability distribution of link sizes
 func (r *Assesser) extractContigLinks() {
-	fh, _ := os.Open(r.Bamfile)
+	fh := mustOpen(r.Bamfile)
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
 	defer br.Close()

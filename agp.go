@@ -12,7 +12,6 @@ package allhic
 import (
 	"bufio"
 	"bytes"
-	"os"
 	"strconv"
 	"strings"
 
@@ -86,7 +85,7 @@ func (r *AGP) Add(row string) {
 // buildFasta builds target FASTA based on info from agpfile
 func buildFasta(agpfile string, seqs map[string]*seq.Seq) {
 	agp := NewAGP(agpfile)
-	file, _ := os.Open(agpfile)
+	file := mustOpen(agpfile)
 
 	log.Noticef("Parse agpfile `%s`", agpfile)
 	scanner := bufio.NewScanner(file)
@@ -95,7 +94,7 @@ func buildFasta(agpfile string, seqs map[string]*seq.Seq) {
 	}
 
 	var buf bytes.Buffer
-	outFile := RemoveExt(agpfile) + ".chr.fasta"
+	outFile := RemoveExt(agpfile) + ".fasta"
 	outfh, _ := xopen.Wopen(outFile)
 	prevObject := ""
 	for _, line := range agp.lines {
@@ -124,6 +123,7 @@ func buildFasta(agpfile string, seqs map[string]*seq.Seq) {
 	// Last one
 	writeRecord(prevObject, buf, outfh)
 	buf.Reset()
+	log.Noticef("Assembly FASTA file `%s` built", outFile)
 }
 
 // writeRecord writes the FASTA record to the file
