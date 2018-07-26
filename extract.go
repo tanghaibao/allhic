@@ -193,7 +193,8 @@ func (r *Extracter) readFastaAndWriteRE() {
 		}
 
 		name := string(rec.Name)
-		count := bytes.Count(rec.Seq.Seq, []byte(r.RE))
+		// Add pseudocount of 1 to prevent division by zero
+		count := bytes.Count(rec.Seq.Seq, []byte(r.RE)) + 1
 		length := rec.Seq.Length()
 		totalCounts += count
 		totalBp += int64(length)
