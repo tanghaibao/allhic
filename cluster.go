@@ -67,7 +67,7 @@ func (r *Partitioner) Cluster() {
 	}
 	nNonSkipped := N - nContigsSkipped
 	if nNonSkipped == 0 {
-		log.Noticef("There are no informative contigts for clustering. Contigs are either SHORT or REPETITVE.")
+		log.Noticef("There are no informative contigs for clustering. Contigs are either SHORT or REPETITVE.")
 	}
 	log.Noticef("Clustering starts with %d (%d informative) contigs with target of %d clusters",
 		N, nNonSkipped, nclusters)
@@ -185,7 +185,7 @@ func (r *Partitioner) Cluster() {
 		}
 
 		// Analyze the current clusters if enough merges occurred
-		if nMerges > N/2 && nonSingletonClusters <= nclusters {
+		if nMerges > nNonSkipped/2 && nonSingletonClusters <= nclusters {
 			if nonSingletonClusters == nclusters {
 				log.Noticef("%d merges made so far; this leaves %d clusters, and so we'r done!",
 					nMerges, nonSingletonClusters)
