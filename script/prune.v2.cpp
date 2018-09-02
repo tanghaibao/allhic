@@ -4,11 +4,10 @@
 #include <vector>
 #include <string>
 #include <cstring>
-#include <ctime>
 
 using namespace std;
 
-#define MAX_LENGTH 65535
+#define MAX_LENGTH 1000000
 
 class Prune {
 private:
@@ -18,7 +17,7 @@ private:
 	unordered_map< string, unordered_map <string, string>> pairdb;
 	unordered_map<string, long > ctgdb;
 	unordered_map<string, long > bamdb;
-	unordered_map<string, long>removedb;
+	unordered_map<string, long> removedb;
 
 	bool Split(string source, string delim, vector<string>&target);
 	void SortCtg(string ctg1, string ctg2, string &sctg1, string &sctg2);
@@ -114,51 +113,36 @@ bool Prune::GeneratePairsAndCtgs() {
 		return false;
 	}
 	else {
-		ifstream fin;
-		string temp;
 		string tempsam;
 		string cmd;
 		vector<string>data;
 		string ctg1, ctg2;
 		string sctg1, sctg2;
 
-		fin.open(bamfile);
-		if (fin) {
-			while (getline(fin, temp)) {
-				if (temp.find(".bam") == -1) {
-					continue;
-				}
-				bamdb[temp]++;
-				cmd = "samtools view " + temp;
-				FILE * fp = popen(cmd.c_str(), "r");
-				if (fp) {
-					char buffer[MAX_LENGTH];
-					while (!feof(fp)) {
-						if (fgets(buffer, sizeof(buffer), fp) != NULL) {
-							tempsam = buffer;
-							Split(tempsam, "\t", data);
-							ctg1 = data[2];
-							ctg2 = data[6];
-							if (ctg2 == "=") {
-								continue;
-							}
-
-							SortCtg(ctg1, ctg2, sctg1, sctg2);
-							pairdb[sctg1][sctg2] += data[0] + ",";
-							ctgdb[ctg1]++;
-							ctgdb[ctg2]++;
-						}
+		cmd = "samtools view " + bamfile;
+		FILE * fp = popen(cmd.c_str(), "r");
+		if (fp) {
+			char buffer[MAX_LENGTH];
+			while (!feof(fp)) {
+				if (fgets(buffer, sizeof(buffer), fp) != NULL) {
+					tempsam = buffer;
+					Split(tempsam, "\t", data);
+					ctg1 = data[2];
+					ctg2 = data[6];
+					if (ctg2 == "=") {
+						continue;
 					}
-					pclose(fp);
-				}
-				else {
-					return false;
+
+					SortCtg(ctg1, ctg2, sctg1, sctg2);
+					pairdb[sctg1][sctg2] += data[0] + ",";
+					ctgdb[ctg1]++;
+					ctgdb[ctg2]++;
 				}
 			}
-			fin.close();
-			return true;
+			pclose(fp);
 		}
-		else {
+		else{
+			cout<<"Cannot open "<<bamfile<<"\n";
 			return false;
 		}
 	}
@@ -239,6 +223,7 @@ bool Prune::CreateLogAndRemovedbFiles() {
 			fin.close();
 		}
 		else {
+			cout<<"Cannot open "<<table<<"\n";
 			return false;
 		}
 		fallele.close();
@@ -267,40 +252,45 @@ bool Prune::CreatePrunedBam() {
 	num_of_remove_reads = removedb.size();
 	cout << "Removing " << num_of_remove_reads << " reads\n";
 	
-	cmd = "samtools view -bt " + refSeq + ".fai " + " - > prunning.bam";
+	//cmd = "samtools view -bt " + refSeq + ".fai - >> prunning.bam";
 	//Create a pipe for bamfile
-	fout = popen(cmd.c_str(), "w");
-	for (iter_bamdb = bamdb.begin(); iter_bamdb != bamdb.end(); iter_bamdb++) {
-		cmd = "samtools view " + iter_bamdb->first;
-		fp = popen(cmd.c_str(), "r");
-		while (!feof(fp)) {
-			if (fgets(buffer, sizeof(buffer), fp)) {
-				temp = buffer;
-				data.clear();
-				Split(temp, "\t", data);
-				rname = data[0];
-				ctg2 = data[6];
-				if (ctg2 == "*") {
-					continue;
-				}
-				if (removedb.count(rname) == 0) {
-					temp += "\n";
-					fputs(temp.c_str(), fout);
-				}
+	//fout = popen(cmd.c_str(), "w");
+	fout = fopen("prunning.sam","w");
+
+	cmd = "samtools view " +  bamfile;
+	fp = popen(cmd.c_str(), "r");
+	while (!feof(fp)) {
+		if (fgets(buffer, sizeof(buffer), fp)) {
+			temp = buffer;
+			memset(buffer,0,sizeof(buffer));
+			data.clear();
+			Split(temp, "\t", data);
+			rname = data[0];
+			ctg2 = data[6];
+			if (ctg2 == "*") {
+				continue;
+			}
+			if (removedb.count(rname) == 0) {
+				//temp += "\n";
+				fputs(temp.c_str(), fout);
 			}
 		}
-		pclose(fp);
 	}
-	pclose(fout);
+	pclose(fp);
+	//pclose(fout);
+	fclose(fout);
+	cmd = "samtools view -bt " + refSeq + ".fai prunning.sam > prunning.bam";
+	fp = popen(cmd.c_str(), "r");
+	pclose(fp);
 }
 
 int main(int argc, char* argv[]) {
 	if (argc != 7) {
 		cout << "************************************************************************\n";
-		cout << "    Usage: ./prune -i Allele.ctg.table -b bam.list -r draft.asm.fasta\n";
+		cout << "    Usage: ./prune -i Allele.ctg.table -b bamfile -r draft.asm.fasta\n";
 		cout << "      -h : help and usage.\n";
 		cout << "      -i : Allele.ctg.table\n";
-		cout << "      -b : bam.list, a file contains input bam files\n";
+		cout << "      -b : input bam file\n";
 		cout << "      -r : draft.asm.fasta\n";
 		cout << "************************************************************************\n";
 	}
@@ -308,8 +298,6 @@ int main(int argc, char* argv[]) {
 		string bamfile;
 		string table;
 		string refSeq;
-		time_t startt, endt;
-		startt = time(NULL);
 		for (long i = 1; i < 7; i += 2) {
 			if (strcmp(argv[i], "-i") == 0) {
 				table = argv[i + 1];
@@ -329,9 +317,6 @@ int main(int argc, char* argv[]) {
 		prune.GeneratePairsAndCtgs();
 		prune.CreateLogAndRemovedbFiles();
 		prune.CreatePrunedBam();
-		
-		endt = time(NULL);
-		cout << "use time: " << difftime(endt, startt) << "\n";
 	}
 	return 0;
 }
