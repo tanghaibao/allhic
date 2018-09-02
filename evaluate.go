@@ -19,7 +19,7 @@ import (
 )
 
 // LIMIT determines the largest distance for two tigs to add to total score
-const LIMIT = 5000000
+const LIMIT = 10000000
 
 // LimitLog is the Log of LIMIT
 var LimitLog = math.Log(LIMIT)
@@ -76,8 +76,9 @@ func (r Tour) Copy() gago.Slice {
 	return clone
 }
 
-// Evaluate calculates a score for the current tour
-func (r Tour) Evaluate() (float64, error) {
+// EvaluateSumLog calculates a score for the current tour
+func (r Tour) EvaluateSumLog() (float64, error) {
+	//func (r Tour) Evaluate() (float64, error) {
 	size := r.Len()
 	mid := make([]float64, size)
 	cumSum := 0.0
@@ -106,6 +107,36 @@ func (r Tour) Evaluate() (float64, error) {
 			// everytime we have a small dist, we reduce the total score
 			// we are looking at the largest reductions from all links
 			score += float64(nlinks) * (math.Log(dist) - LimitLog)
+		}
+	}
+	return score, nil
+}
+
+// Evaluate calculates a score for the current tour
+func (r Tour) Evaluate() (float64, error) {
+	//func (r Tour) EvaluateSumRecip() (float64, error) {
+	size := r.Len()
+	mid := make([]float64, size)
+	cumSum := 0.0
+	for i, t := range r.Tigs {
+		tsize := float64(t.Size)
+		mid[i] = cumSum + tsize/2
+		cumSum += tsize
+	}
+
+	score := 0.0
+	// Now add up all the pairwise scores
+	for i := 0; i < size; i++ {
+		a := r.Tigs[i].Idx
+		for j := i + 1; j < size; j++ {
+			b := r.Tigs[j].Idx
+			nlinks := r.M[a][b]
+			dist := mid[j] - mid[i]
+			if dist > LIMIT {
+				break
+			}
+			// We are looking for maximum
+			score -= float64(nlinks) / dist
 		}
 	}
 	return score, nil
@@ -205,11 +236,11 @@ func MutSplice(genome gago.Slice, rng *rand.Rand) {
 // Mutate a Tour by applying by inversion or insertion
 func (r Tour) Mutate(rng *rand.Rand) {
 	rd := rng.Float64()
-	if rd < 0.25 {
+	if rd < 0.2 {
 		MutPermute(r, rng)
-	} else if rd < .5 {
+	} else if rd < .4 {
 		MutSplice(r, rng)
-	} else if rd < .75 {
+	} else if rd < .7 {
 		MutInsertion(r, rng)
 	} else {
 		MutInversion(r, rng)

@@ -130,7 +130,7 @@ func (r *Partitioner) skipRepeats() {
 	repetitiveLength := 0
 	for i, contig := range r.contigs {
 		factor := float64(nLinks[i]) / nLinksAvg
-		// Adjust all ink densitities by their repetitive factors
+		// Adjust all link densitities by their repetitive factors
 		for j := 0; j < N; j++ {
 			if r.matrix[i][j] != 0 {
 				r.matrix[i][j] = int64(math.Ceil(float64(r.matrix[i][j]) / factor))
