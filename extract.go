@@ -64,6 +64,7 @@ type ContigPair struct {
 	L1, L2         int
 	nObservedLinks int
 	nExpectedLinks float64
+	label          string // allelic/cross-allelic/ok
 }
 
 // String outputs the string representation of ContigInfo
@@ -73,9 +74,9 @@ func (r ContigInfo) String() string {
 
 // String outputs the string representation of ContigInfo
 func (r ContigPair) String() string {
-	return fmt.Sprintf("%d\t%d\t%s\t%s\t%d\t%d\t%d\t%.1f",
+	return fmt.Sprintf("%d\t%d\t%s\t%s\t%d\t%d\t%d\t%.1f\t%s",
 		r.ai, r.bi, r.at, r.bt, r.RE1, r.RE2,
-		r.nObservedLinks, r.nExpectedLinks)
+		r.nObservedLinks, r.nExpectedLinks, r.label)
 }
 
 // uintLog2 calculates the integer log2 of a number
@@ -241,7 +242,7 @@ func (r *Extracter) calcInterContigs() {
 			L1, L2 := ca.length, cb.length
 			cp = &ContigPair{ai: ai, bi: bi, at: at, bt: bt,
 				RE1: ca.recounts, RE2: cb.recounts,
-				L1: L1, L2: L2}
+				L1: L1, L2: L2, label: "ok"}
 			cp.nExpectedLinks = sumf(r.findExpectedInterContigLinks(0, L1, L2))
 			cp.nObservedLinks = len(line.links)
 			contigPairs[pair] = cp
@@ -253,7 +254,7 @@ func (r *Extracter) calcInterContigs() {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
-	fmt.Fprintf(w, "#X\tY\tContig1\tContig2\tRE1\tRE2\tObservedLinks\tExpectedLinksIfAdjacent\n")
+	fmt.Fprintf(w, "#X\tY\tContig1\tContig2\tRE1\tRE2\tObservedLinks\tExpectedLinksIfAdjacent\tLabel\n")
 
 	allPairs := []*ContigPair{}
 	for _, c := range contigPairs {

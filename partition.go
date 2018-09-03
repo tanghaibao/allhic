@@ -237,12 +237,14 @@ func parseDist(pairsFile string) []ContigPair {
 		RE2, _ := strconv.Atoi(rec[5])
 		nObservedLinks, _ := strconv.Atoi(rec[6])
 		nExpectedLinks, _ := strconv.ParseFloat(rec[7], 64)
+		label := rec[8]
 
 		cp := ContigPair{
 			ai: ai, bi: bi,
 			at: at, bt: bt,
 			RE1: RE1, RE2: RE2,
 			nObservedLinks: nObservedLinks, nExpectedLinks: nExpectedLinks,
+			label: label,
 		}
 
 		edges = append(edges, cp)

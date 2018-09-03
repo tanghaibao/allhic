@@ -26,6 +26,11 @@ type Pruner struct {
 type AlleleGroup []string
 
 // Run calls the pruning steps
+// The pruning algorithm is a heuristic method that removes the following pairs:
+//
+// 1. Alleleic, these are directly the pairs of allelic contigs given in the allele table
+// 2. Cross-allelic, these are any contigs that connect to the allelic contigs so we only keep the
+//    the best pair
 func (r *Pruner) Run() {
 	edges := parseDist(r.PairsFile)
 	alleleGroups := parseAllelesTable(r.AllelesFile)
