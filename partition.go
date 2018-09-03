@@ -20,7 +20,7 @@ import (
 // Partitioner converts the bamfile into a matrix of link counts
 type Partitioner struct {
 	Contigsfile string
-	Distfile    string
+	PairsFile   string
 	K           int
 	contigs     []*ContigInfo
 	contigToIdx map[string]int
@@ -158,7 +158,7 @@ func (r *Partitioner) skipRepeats() {
 
 // makeMatrix creates an adjacency matrix containing normalized score
 func (r *Partitioner) makeMatrix() {
-	edges := r.parseDist()
+	edges := parseDist(r.PairsFile)
 	N := len(r.contigs)
 	M := Make2DSliceInt64(N, N)
 	longestSquared := int64(r.longestRE) * int64(r.longestRE)
@@ -220,14 +220,14 @@ func (r *Partitioner) splitRE() {
 	}
 }
 
-// parseDist imports the edges of the contig into a slice of DistLine
-// DistLine stores the data structure of the distfile
+// parseDist imports the edges of the contig into a slice of ContigPair
+// ContigPair stores the data structure of the distfile
 // #X      Y       Contig1 Contig2 RE1     RE2     ObservedLinks   ExpectedLinksIfAdjacent
 // 1       44      idcChr1.ctg24   idcChr1.ctg51   6612    1793    12      121.7
 // 1       70      idcChr1.ctg24   idcChr1.ctg52   6612    686     2       59.3
-func (r *Partitioner) parseDist() []ContigPair {
+func parseDist(pairsFile string) []ContigPair {
 	var edges []ContigPair
-	recs := ReadCSVLines(r.Distfile)
+	recs := ReadCSVLines(pairsFile)
 
 	for _, rec := range recs {
 		ai, _ := strconv.Atoi(rec[0])

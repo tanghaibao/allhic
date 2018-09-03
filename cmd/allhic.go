@@ -100,28 +100,6 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:  "prune",
-			Usage: "Prune bamfile to remove weak links",
-			UsageText: `
-	allhic prune bamfile [options]
-
-Prune function:
-Given a bamfile, the goal of the pruning step is to remove all inter-allelic
-links, then it is possible to reconstruct allele-separated assemblies.
-`,
-			Action: func(c *cli.Context) error {
-				if c.NArg() < 1 {
-					cli.ShowSubcommandHelp(c)
-					return cli.NewExitError("Must specify bamfile", 1)
-				}
-
-				bamfile := c.Args().Get(0)
-				p := allhic.Pruner{Bamfile: bamfile}
-				p.Run()
-				return nil
-			},
-		},
-		{
 			Name:  "extract",
 			Usage: "Extract Hi-C link size distribution",
 			UsageText: `
@@ -136,7 +114,7 @@ also prepares for the latter steps of ALLHIC.
 			Action: func(c *cli.Context) error {
 				if c.NArg() < 2 {
 					cli.ShowSubcommandHelp(c)
-					return cli.NewExitError("Must specify distfile, clmfile and bamfile", 1)
+					return cli.NewExitError("Must specify pairsFile, clmfile and bamfile", 1)
 				}
 
 				bamfile := c.Args().Get(0)
@@ -144,6 +122,40 @@ also prepares for the latter steps of ALLHIC.
 				RE := c.String("RE")
 
 				p := allhic.Extracter{Bamfile: bamfile, Fastafile: fastafile, RE: RE}
+				p.Run()
+				return nil
+			},
+		},
+		{
+			Name:  "prune",
+			Usage: "Prune allelic, cross-allelic and weak links",
+			UsageText: `
+	allhic prune alleles.table pairs.txt [options]
+
+Prune function:
+Given contig pairing, the goal of the prune step is to remove all inter-allelic
+links, then it is possible to reconstruct allele-separated assemblies in the following
+steps. The alleles.table file contains tab-separated columns containing contigs that
+are considered "allelic". For example:
+
+Chr10   18902   tig00030660     tig00003333
+Chr10   35071   tig00038687     tig00038686     tig00065419
+
+These lines means that at certain locations in the genome (typically based on synteny
+to a closely-related genome), several contigs are considered allelic. The Hi-C links
+between these contigs are removed, in addition, other contigs linking to these contigs
+simultaneously would only consider one single-best edge. The "pairs.txt" file is the output
+of the "extract" command.
+`,
+			Action: func(c *cli.Context) error {
+				if c.NArg() < 2 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specify alleles.table and pairs.txt", 1)
+				}
+
+				allelesFile := c.Args().Get(0)
+				pairsFile := c.Args().Get(1)
+				p := allhic.Pruner{AllelesFile: allelesFile, PairsFile: pairsFile}
 				p.Run()
 				return nil
 			},
@@ -172,7 +184,7 @@ also prepares for the latter steps of ALLHIC.
 		// 		},
 		{
 			Name:  "partition",
-			Usage: "Separate bamfile into k groups",
+			Usage: "Separate contigs into k groups",
 			UsageText: `
 	allhic partition counts_RE.txt pairs.txt k [options]
 
@@ -186,13 +198,13 @@ can be generated with the "extract" sub-command.
 			Action: func(c *cli.Context) error {
 				if c.NArg() < 3 {
 					cli.ShowSubcommandHelp(c)
-					return cli.NewExitError("Must specify distfile", 1)
+					return cli.NewExitError("Must specify countsFile, pairsFile and value k", 1)
 				}
 
 				contigsfile := c.Args().Get(0)
-				distfile := c.Args().Get(1)
+				pairsFile := c.Args().Get(1)
 				k, _ := strconv.Atoi(c.Args().Get(2))
-				p := allhic.Partitioner{Contigsfile: contigsfile, Distfile: distfile, K: k}
+				p := allhic.Partitioner{Contigsfile: contigsfile, PairsFile: pairsFile, K: k}
 				p.Run()
 				return nil
 			},
@@ -332,7 +344,7 @@ A convenience driver function. Chain the following steps sequentially.
 			Action: func(c *cli.Context) error {
 				if c.NArg() < 3 {
 					cli.ShowSubcommandHelp(c)
-					return cli.NewExitError("Must specify distfile, clmfile and bamfile", 1)
+					return cli.NewExitError("Must specify pairsFile, clmfile and bamfile", 1)
 				}
 
 				bamfile := c.Args().Get(0)
@@ -354,7 +366,7 @@ A convenience driver function. Chain the following steps sequentially.
 				// Partition into k groups
 				banner(fmt.Sprintf("Partition into %d groups", k))
 				partitioner := allhic.Partitioner{Contigsfile: extractor.OutContigsfile,
-					Distfile: extractor.OutPairsfile, K: k}
+					PairsFile: extractor.OutPairsfile, K: k}
 				partitioner.Run()
 
 				// Optimize the k groups separately

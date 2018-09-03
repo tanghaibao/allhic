@@ -27,10 +27,6 @@ go install github.com/tanghaibao/allhic/cmd/allhic
 
 ## Usage
 
-### <kbd>Prune</kbd>
-
-Prune bamfile to remove weak links. WIP.
-
 ### <kbd>Extract</kbd>
 
 Extract does a fair amount of preprocessing: 1) extract inter-contig links into a more compact form, specifically into `.clm`; 2) extract intra-contig links and build a distribution; 3) count up the restriction sites to be used in normalization (similar to LACHESIS); 4) bundles the inter-contig links into pairs of contigs.
@@ -38,6 +34,20 @@ Extract does a fair amount of preprocessing: 1) extract inter-contig links into 
 ```console
 allhic extract tests/test.bam tests/seq.fasta.gz
 ```
+
+### <kbd>Prune</kbd>
+
+This prune step is **optional** for typical inbreeding diploid genomes.
+However, pruning will improve the quality of assembly of polyploid genomes.
+Prune pairs file to remove allelic/cross-allelic links.
+
+```console
+allhic prune tests/Allele.ctg.table tests/test.pairs.txt
+```
+
+Please see help string of `allhic prune` on the formatting of
+`Allele.ctg.table`.
+
 
 ### <kbd>Partition</kbd>
 

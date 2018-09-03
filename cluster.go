@@ -329,7 +329,7 @@ func (r *Partitioner) sortClusters() {
 
 // printClusters shows the contents of the clusters
 func (r *Partitioner) printClusters() {
-	clusterfile := RemoveExt(RemoveExt(r.Distfile)) + ".clusters.txt"
+	clusterfile := RemoveExt(RemoveExt(r.PairsFile)) + ".clusters.txt"
 	f, _ := os.Create(clusterfile)
 	defer f.Close()
 	w := bufio.NewWriter(f)
