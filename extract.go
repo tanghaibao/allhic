@@ -163,7 +163,7 @@ func writeRE(outfile string, contigs []*ContigInfo) {
 	defer f.Close()
 	totalCounts := 0
 	totalBp := int64(0)
-	fmt.Fprintf(w, "#Contig\tRECounts\tLength\n")
+	fmt.Fprintf(w, REHeader)
 	for _, contig := range contigs {
 		totalCounts += contig.recounts
 		totalBp += int64(contig.length)
@@ -254,7 +254,7 @@ func (r *Extracter) calcInterContigs() {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
 	defer f.Close()
-	fmt.Fprintf(w, "#X\tY\tContig1\tContig2\tRE1\tRE2\tObservedLinks\tExpectedLinksIfAdjacent\tLabel\n")
+	fmt.Fprintf(w, PairsFileHeader)
 
 	allPairs := []*ContigPair{}
 	for _, c := range contigPairs {
@@ -355,7 +355,11 @@ func (r *Extracter) extractContigLinks() {
 	r.OutClmfile = clmfile
 
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
-	br, _ := bam.NewReader(fh, 0)
+	br, err := bam.NewReader(fh, 0)
+	if br == nil {
+		log.Errorf("Cannot open bamfile `%s` (%s)", r.Bamfile, err)
+		os.Exit(0)
+	}
 	defer br.Close()
 
 	fclm, _ := os.Create(clmfile)

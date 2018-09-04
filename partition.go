@@ -239,6 +239,11 @@ func parseDist(pairsFile string) []ContigPair {
 		nExpectedLinks, _ := strconv.ParseFloat(rec[7], 64)
 		label := rec[8]
 
+		// Check label to make prune results effective
+		if label != "ok" {
+			continue
+		}
+
 		cp := ContigPair{
 			ai: ai, bi: bi,
 			at: at, bt: bt,

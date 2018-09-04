@@ -86,7 +86,7 @@ func (r *Assesser) writePostProb(outfile string) {
 	w := bufio.NewWriter(f)
 	defer f.Close()
 
-	fmt.Fprintf(w, "#SeqID\tStart\tEnd\tContig\tPostProb\n")
+	fmt.Fprintf(w, PostProbHeader)
 	for i, contig := range r.contigs {
 		fmt.Fprintf(w, "%s\t%d\t%d\t%s\t%.4f\n",
 			contig.seqid, contig.start, contig.end, contig.name, r.postprob[i])

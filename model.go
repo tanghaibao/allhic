@@ -45,7 +45,7 @@ func (r *LinkDensityModel) writeDistribution(outfile string) {
 	w := bufio.NewWriter(f)
 	defer f.Close()
 
-	fmt.Fprintf(w, "#Bin\tBinStart\tBinSize\tNumLinks\tTotalSize\tLinkDensity\n")
+	fmt.Fprintf(w, DistributionHeader)
 	for i := 0; i < nBins; i++ {
 		fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%.4g\n",
 			i, r.binStarts[i], r.BinSize(i), r.nLinks[i], r.binNorms[i], r.linkDensity[i])

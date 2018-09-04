@@ -67,6 +67,20 @@ const (
 	MaxLinkDensity = 2
 	// NonInformativeRatio is the cutoff for recovering skipped contigs back into the clusters (CLUSTER_NONINFORMATIVE_RATIO)
 	NonInformativeRatio = 3
+
+	// *** CSV headers ***
+
+	// REHeader is the first line in the RE counts file
+	REHeader = "#Contig\tRECounts\tLength\n"
+
+	// PairsFileHeader is the first line in the pairs.txt file
+	PairsFileHeader = "#X\tY\tContig1\tContig2\tRE1\tRE2\tObservedLinks\tExpectedLinksIfAdjacent\tLabel\n"
+
+	// DistributionHeader is the first line in the distribution.txt file
+	DistributionHeader = "#Bin\tBinStart\tBinSize\tNumLinks\tTotalSize\tLinkDensity\n"
+
+	// PostProbHeader is the first line in the postprob file
+	PostProbHeader = "#SeqID\tStart\tEnd\tContig\tPostProb\n"
 )
 
 // GArray contains golden array of size BB
