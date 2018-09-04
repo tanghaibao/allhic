@@ -28,6 +28,12 @@ type Pruner struct {
 // AlleleGroup stores the contig names that are considered allelic
 type AlleleGroup []string
 
+// CtgAlleleGroupPair stores a pair of the contig and the alleleGroup it resides in
+type CtgAlleleGroupPair struct {
+	ctg         string
+	alleleGroup *AlleleGroup
+}
+
 // Run calls the pruning steps
 // The pruning algorithm is a heuristic method that removes the following pairs:
 //
@@ -40,6 +46,7 @@ func (r *Pruner) Run() {
 	r.edges = parseDist(r.PairsFile)
 	r.alleleGroups = parseAllelesTable(r.AllelesFile)
 	r.pruneAllelic()
+	r.pruneCrossAllelic()
 	newPairsFile := RemoveExt(r.PairsFile) + ".prune.txt"
 	writePairsFile(newPairsFile, r.edges)
 }
@@ -47,6 +54,7 @@ func (r *Pruner) Run() {
 // pruneAllelic removes the allelic contigs given in the allele table
 // we iterate through all the allele groups and mark the pairs that are considered allelic
 func (r *Pruner) pruneAllelic() {
+	// Find all blacklisted allelic pairs
 	allelicPairs := map[[2]string]bool{}
 	for _, alleleGroup := range r.alleleGroups {
 		for i := 0; i < len(alleleGroup); i++ {
@@ -71,6 +79,74 @@ func (r *Pruner) pruneAllelic() {
 	}
 	log.Noticef("Allelic pairs imported: %d, pruned: %s",
 		len(allelicPairs), Percentage(pruned, len(allelicPairs)))
+}
+
+// pruneCrossAllelic removes contigs that link to multiple allelic contigs and we choose
+// to keep a single best link, i.e. for each allele group, we find the best link to each
+// contig and retain. Note that since contigs may be in different allele groups, the order
+// of removal may affect end results.
+func (r *Pruner) pruneCrossAllelic() {
+	// Store contig to list of alleleGroups since each contig can be in different alleleGroups
+	ctgToAlleleGroup := map[string][]*AlleleGroup{}
+	for _, alleleGroup := range r.alleleGroups {
+		for _, ctg := range alleleGroup {
+			if gg, ok := ctgToAlleleGroup[ctg]; ok {
+				gg = append(gg, &alleleGroup)
+			} else {
+				ctgToAlleleGroup[ctg] = []*AlleleGroup{&alleleGroup}
+			}
+		}
+	}
+
+	// Store the best match of each contig to an allele group
+	scores := map[CtgAlleleGroupPair]int{} // (ctg, alleleGroup) => (ctg, score)
+	for _, edge := range r.edges {
+		updateScore(edge.at, edge.bt, edge.nObservedLinks, ctgToAlleleGroup, scores)
+		updateScore(edge.bt, edge.at, edge.nObservedLinks, ctgToAlleleGroup, scores)
+	}
+
+	// Now iterate over all edges and mark
+	pruned := 0
+	for i, edge := range r.edges {
+		if edge.nObservedLinks < getScore(edge.at, edge.bt, ctgToAlleleGroup, scores) ||
+			edge.nObservedLinks < getScore(edge.bt, edge.at, ctgToAlleleGroup, scores) {
+			r.edges[i].label = "cross-allelic"
+			pruned++
+		}
+	}
+	log.Noticef("Cross-allelic pairs pruned: %d", pruned)
+}
+
+// updateScore takes a potential pair of contigs and update scores
+func updateScore(at, bt string, score int, ctgToAlleleGroup map[string][]*AlleleGroup, scores map[CtgAlleleGroupPair]int) {
+	if gg, ok := ctgToAlleleGroup[bt]; ok {
+		// Update through all alleleGroups that contig b sits in
+		for _, bg := range gg {
+			pair := CtgAlleleGroupPair{at, bg}
+			if sc, ok := scores[pair]; ok {
+				if sc < score {
+					scores[pair] = sc
+				}
+			} else {
+				scores[pair] = score
+			}
+		}
+	}
+}
+
+// getScore takes a pair of contigs and get the maximum score to the allele group
+func getScore(at, bt string, ctgToAlleleGroup map[string][]*AlleleGroup, scores map[CtgAlleleGroupPair]int) int {
+	if gg, ok := ctgToAlleleGroup[bt]; ok {
+		maxScore := -1
+		for _, bg := range gg {
+			maxScoreAlleleGroup, _ := scores[CtgAlleleGroupPair{at, bg}]
+			if maxScore < maxScoreAlleleGroup {
+				maxScore = maxScoreAlleleGroup
+			}
+		}
+		return maxScore // maximum score among all allele group matchings
+	}
+	return -1
 }
 
 // parseAllelesTable imports the contig allelic relationship

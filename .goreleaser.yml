@@ -18,4 +18,4 @@ archive:
   replacements:
     amd64: 64-bit
     darwin: macOS
-    linux: Tux
+    linux: Linux

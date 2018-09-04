@@ -12,6 +12,13 @@
 
 **This software is currently under active development. DO NOT USE.**
 
+| | |
+| --- | --- |
+| Authors | Haibao Tang ([tanghaibao](http://github.com/tanghaibao)) |
+| | Xingtan Zhang ([tangerzhang](https://github.com/tangerzhang)) |
+| Email   | <tanghaibao@gmail.com> |
+| License | [BSD](http://creativecommons.org/licenses/BSD/) |
+
 ## Installation
 
 The easiest way to install allhic is to download the latest binary from
@@ -126,7 +133,6 @@ FASTA file.
 
 ## WIP features
 
-- [x] Add restriction enzyme for better normalization of contig lengths
 - [x] Add partition split inside "partition"
 - [x] Use clustering when k = 1
 - [x] Isolate matrix generation to "plot"
@@ -139,3 +145,7 @@ FASTA file.
 - [ ] Improve Ler0 results
 - [ ] Translate "prune" from C++ code to golang
 - [ ] Add test suites
+
+## Reference
+
+TBD
