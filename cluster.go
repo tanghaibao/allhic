@@ -254,8 +254,9 @@ func (r *Partitioner) setClusters(clusterID []int) {
 		// 		linkage.cID, r.clusters[linkage.cID])
 		// }
 
-		passRatio := len(linkages) == 1 || (linkages[0].avgLinkage > 0 && linkages[1].avgLinkage == 0) ||
-			linkages[0].avgLinkage/linkages[1].avgLinkage >= NonInformativeRatio
+		passRatio := linkages[0].avgLinkage >= NonInformativeRatio &&
+			(len(linkages) == 1 || linkages[1].avgLinkage == 0 ||
+				linkages[0].avgLinkage/linkages[1].avgLinkage >= NonInformativeRatio)
 		if !passRatio {
 			nFailRatio++
 			continue
