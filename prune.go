@@ -99,8 +99,11 @@ func (r *Pruner) pruneCrossAllelic() {
 	}
 
 	// Store the best match of each contig to an allele group
-	scores := map[CtgAlleleGroupPair]int{} // (ctg, alleleGroup) => (ctg, score)
+	scores := map[CtgAlleleGroupPair]int{} // (ctg, alleleGroupID) => score
 	for _, edge := range r.edges {
+		if edge.label != "ok" { // We skip the allelic pairs since these are already removed
+			continue
+		}
 		updateScore(edge.at, edge.bt, edge.nObservedLinks, ctgToAlleleGroup, scores)
 		updateScore(edge.bt, edge.at, edge.nObservedLinks, ctgToAlleleGroup, scores)
 	}
@@ -108,10 +111,10 @@ func (r *Pruner) pruneCrossAllelic() {
 	// Now iterate over all edges and mark
 	pruned := 0
 	for i, edge := range r.edges {
-		if edge.nObservedLinks < getScore(edge.at, edge.bt, ctgToAlleleGroup, scores) ||
-			edge.nObservedLinks < getScore(edge.bt, edge.at, ctgToAlleleGroup, scores) {
-			r.edges[i].label = fmt.Sprintf("cross-allelic(%d, %d)", getScore(edge.at, edge.bt, ctgToAlleleGroup, scores),
-				getScore(edge.bt, edge.at, ctgToAlleleGroup, scores))
+		aBestScore := getScore(edge.at, edge.bt, ctgToAlleleGroup, scores)
+		bBestScore := getScore(edge.bt, edge.at, ctgToAlleleGroup, scores)
+		if edge.nObservedLinks < aBestScore || edge.nObservedLinks < bBestScore {
+			r.edges[i].label = fmt.Sprintf("cross-allelic(%d|%d)", aBestScore, bBestScore)
 			pruned++
 		}
 	}
@@ -124,9 +127,11 @@ func updateScore(at, bt string, score int, ctgToAlleleGroup map[string][]int, sc
 		// Update through all alleleGroups that contig b sits in
 		for _, bg := range gg {
 			pair := CtgAlleleGroupPair{at, bg}
+			// TODO: the score should ideally be 'normalized' score, since contig size can affect size, and as a
+			//       result, the "best match" in absolute score may be wrong
 			if sc, ok := scores[pair]; ok {
 				if sc < score {
-					scores[pair] = sc
+					scores[pair] = score
 				}
 			} else {
 				scores[pair] = score
