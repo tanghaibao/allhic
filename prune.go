@@ -69,16 +69,20 @@ func (r *Pruner) pruneAllelic() {
 	}
 
 	// Now iterate over all edges and mark
-	pruned := 0
+	pruned, prunedLinks := 0, 0
+	total, totalLinks := 0, 0
 	for i, edge := range r.edges {
 		pair := [2]string{edge.at, edge.bt}
 		if _, ok := allelicPairs[pair]; ok {
 			r.edges[i].label = "allelic"
 			pruned++
+			prunedLinks += edge.nObservedLinks
 		}
+		total++
+		totalLinks += edge.nObservedLinks
 	}
-	log.Noticef("Allelic pairs imported: %d, pruned: %s",
-		len(allelicPairs), Percentage(pruned, len(allelicPairs)))
+	log.Noticef("Allelic pairs imported: %d, pruned: %s, prunedLinks: %s",
+		len(allelicPairs), Percentage(pruned, total), Percentage(prunedLinks, totalLinks))
 }
 
 // pruneCrossAllelic removes contigs that link to multiple allelic contigs and we choose
@@ -109,16 +113,21 @@ func (r *Pruner) pruneCrossAllelic() {
 	}
 
 	// Now iterate over all edges and mark
-	pruned := 0
+	pruned, prunedLinks := 0, 0
+	total, totalLinks := 0, 0
 	for i, edge := range r.edges {
 		aBestScore := getScore(edge.at, edge.bt, ctgToAlleleGroup, scores)
 		bBestScore := getScore(edge.bt, edge.at, ctgToAlleleGroup, scores)
 		if edge.nObservedLinks < aBestScore || edge.nObservedLinks < bBestScore {
 			r.edges[i].label = fmt.Sprintf("cross-allelic(%d|%d)", aBestScore, bBestScore)
 			pruned++
+			prunedLinks += edge.nObservedLinks
 		}
+		total++
+		totalLinks += edge.nObservedLinks
 	}
-	log.Noticef("Cross-allelic pairs pruned: %d", pruned)
+	log.Noticef("Cross-allelic pairs pruned: %s, prunedLinks: %s",
+		Percentage(pruned, total), Percentage(prunedLinks, totalLinks))
 }
 
 // updateScore takes a potential pair of contigs and update scores
