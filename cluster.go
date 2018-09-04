@@ -254,10 +254,11 @@ func (r *Partitioner) setClusters(clusterID []int) {
 		// 		linkage.cID, r.clusters[linkage.cID])
 		// }
 
-		passRatio := len(linkages) == 1 || linkages[1].avgLinkage == 0 ||
+		passRatio := len(linkages) == 1 || (linkages[0].avgLinkage > 0 && linkages[1].avgLinkage == 0) ||
 			linkages[0].avgLinkage/linkages[1].avgLinkage >= NonInformativeRatio
 		if !passRatio {
 			nFailRatio++
+			continue
 		}
 		skippedClusters[i] = linkages[0].cID
 		nPassRatio++
@@ -343,7 +344,7 @@ func (r *Partitioner) printClusters() {
 		}
 		sort.Strings(names)
 
-		fmt.Printf("%dg%d\t%d\t%s\n", r.K, j+1, len(names), strings.Join(names, " "))
+		// fmt.Printf("%dg%d\t%d\t%s\n", r.K, j+1, len(names), strings.Join(names, " "))
 		fmt.Fprintf(w, "%dg%d\t%d\t%s\n", r.K, j+1, len(names), strings.Join(names, " "))
 	}
 	w.Flush()
