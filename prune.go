@@ -30,8 +30,8 @@ type AlleleGroup []string
 
 // CtgAlleleGroupPair stores a pair of the contig and the alleleGroup it resides in
 type CtgAlleleGroupPair struct {
-	ctg         string
-	alleleGroup *AlleleGroup
+	ctg     string
+	groupID int
 }
 
 // Run calls the pruning steps
@@ -87,13 +87,13 @@ func (r *Pruner) pruneAllelic() {
 // of removal may affect end results.
 func (r *Pruner) pruneCrossAllelic() {
 	// Store contig to list of alleleGroups since each contig can be in different alleleGroups
-	ctgToAlleleGroup := map[string][]*AlleleGroup{}
-	for _, alleleGroup := range r.alleleGroups {
+	ctgToAlleleGroup := map[string][]int{}
+	for groupID, alleleGroup := range r.alleleGroups {
 		for _, ctg := range alleleGroup {
 			if gg, ok := ctgToAlleleGroup[ctg]; ok {
-				gg = append(gg, &alleleGroup)
+				gg = append(gg, groupID)
 			} else {
-				ctgToAlleleGroup[ctg] = []*AlleleGroup{&alleleGroup}
+				ctgToAlleleGroup[ctg] = []int{groupID}
 			}
 		}
 	}
@@ -110,7 +110,8 @@ func (r *Pruner) pruneCrossAllelic() {
 	for i, edge := range r.edges {
 		if edge.nObservedLinks < getScore(edge.at, edge.bt, ctgToAlleleGroup, scores) ||
 			edge.nObservedLinks < getScore(edge.bt, edge.at, ctgToAlleleGroup, scores) {
-			r.edges[i].label = "cross-allelic"
+			r.edges[i].label = fmt.Sprintf("cross-allelic(%d, %d)", getScore(edge.at, edge.bt, ctgToAlleleGroup, scores),
+				getScore(edge.bt, edge.at, ctgToAlleleGroup, scores))
 			pruned++
 		}
 	}
@@ -118,7 +119,7 @@ func (r *Pruner) pruneCrossAllelic() {
 }
 
 // updateScore takes a potential pair of contigs and update scores
-func updateScore(at, bt string, score int, ctgToAlleleGroup map[string][]*AlleleGroup, scores map[CtgAlleleGroupPair]int) {
+func updateScore(at, bt string, score int, ctgToAlleleGroup map[string][]int, scores map[CtgAlleleGroupPair]int) {
 	if gg, ok := ctgToAlleleGroup[bt]; ok {
 		// Update through all alleleGroups that contig b sits in
 		for _, bg := range gg {
@@ -135,7 +136,7 @@ func updateScore(at, bt string, score int, ctgToAlleleGroup map[string][]*Allele
 }
 
 // getScore takes a pair of contigs and get the maximum score to the allele group
-func getScore(at, bt string, ctgToAlleleGroup map[string][]*AlleleGroup, scores map[CtgAlleleGroupPair]int) int {
+func getScore(at, bt string, ctgToAlleleGroup map[string][]int, scores map[CtgAlleleGroupPair]int) int {
 	if gg, ok := ctgToAlleleGroup[bt]; ok {
 		maxScore := -1
 		for _, bg := range gg {
