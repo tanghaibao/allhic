@@ -218,12 +218,12 @@ func (r *Partitioner) setClusters(clusterID []int) {
 	}
 	r.clusters = clusters
 
-	if !(NonInformativeRatio == 0 || NonInformativeRatio > 1) {
+	if !(r.NonInformativeRatio == 0 || r.NonInformativeRatio > 1) {
 		log.Errorf("NonInformativeRatio needs to either 0 or > 1")
 	}
 
 	// Now try to recover previously skipped contigs
-	if NonInformativeRatio == 0 {
+	if r.NonInformativeRatio == 0 {
 		r.sortClusters()
 		return
 	}
@@ -249,14 +249,10 @@ func (r *Partitioner) setClusters(clusterID []int) {
 		sort.Slice(linkages, func(i, j int) bool {
 			return linkages[i].avgLinkage > linkages[j].avgLinkage
 		})
-		// for _, linkage := range linkages {
-		// 	fmt.Println(r.contigs[i].name, linkage.avgLinkage,
-		// 		linkage.cID, r.clusters[linkage.cID])
-		// }
 
-		passRatio := linkages[0].avgLinkage >= NonInformativeRatio &&
+		passRatio := linkages[0].avgLinkage >= float64(r.NonInformativeRatio) &&
 			(len(linkages) == 1 || linkages[1].avgLinkage == 0 ||
-				linkages[0].avgLinkage/linkages[1].avgLinkage >= NonInformativeRatio)
+				linkages[0].avgLinkage/linkages[1].avgLinkage >= float64(r.NonInformativeRatio))
 		if !passRatio {
 			nFailRatio++
 			continue
@@ -266,7 +262,7 @@ func (r *Partitioner) setClusters(clusterID []int) {
 	}
 
 	log.Noticef("setClusters summary (NonInformativeRatio = %d): nPassRatio = %d, nFailRatio = %d, nFailCluster=%d",
-		NonInformativeRatio, nPassRatio, nFailRatio, nFailCluster)
+		r.NonInformativeRatio, nPassRatio, nFailRatio, nFailCluster)
 
 	// Insert the skipped contigs into clusters
 	for contigID, cID := range skippedClusters {

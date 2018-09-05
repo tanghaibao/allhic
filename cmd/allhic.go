@@ -67,6 +67,24 @@ func main() {
 		},
 	}
 
+	partitionFlags := []cli.Flag{
+		cli.IntFlag{
+			Name:  "minREs",
+			Usage: "Minimum number of RE sites in a contig to be clustered (CLUSTER_MIN_RE_SITES in LACHESIS)",
+			Value: allhic.MinREs,
+		},
+		cli.IntFlag{
+			Name:  "maxLinkDensity",
+			Usage: "Density threshold before marking contig as repetive (CLUSTER_MAX_LINK_DENSITY in LACHESIS)",
+			Value: allhic.MaxLinkDensity,
+		},
+		cli.IntFlag{
+			Name:  "nonInformativeRatio",
+			Usage: "cutoff for recovering skipped contigs back into the clusters (CLUSTER_NONINFORMATIVE_RATIO in LACHESIS)",
+			Value: allhic.NonInformativeRatio,
+		},
+	}
+
 	optimizeFlags := []cli.Flag{
 		cli.BoolFlag{
 			Name:  "skipGA",
@@ -160,28 +178,6 @@ of the "extract" command.
 				return nil
 			},
 		},
-		// 		{
-		// 			Name:  "anchor",
-		// 			Usage: "Anchor contigs based on an iterative merging method",
-		// 			UsageText: `
-		// 	allhic anchor bamfile [options]
-
-		// Anchor function:
-		// Given a bamfile, we anchor contigs based on an iterative merging method similar
-		// to the method used in 3D-DNA. The method is based on maximum weight matching
-		// of the contig linkage graph.
-		// `,
-		// 			Action: func(c *cli.Context) error {
-		// 				if c.NArg() < 1 {
-		// 					cli.ShowSubcommandHelp(c)
-		// 					return cli.NewExitError("Must specify bamfile", 1)
-		// 				}
-		// 				bamfile := c.Args().Get(0)
-		// 				p := allhic.Anchorer{Bamfile: bamfile}
-		// 				p.Run()
-		// 				return nil
-		// 			},
-		// 		},
 		{
 			Name:  "partition",
 			Usage: "Separate contigs into k groups",
@@ -195,6 +191,7 @@ algorithm, there is an optimization goal here. The LACHESIS algorithm is
 a hierarchical clustering algorithm using average links. The two input files
 can be generated with the "extract" sub-command.
 `,
+			Flags: partitionFlags,
 			Action: func(c *cli.Context) error {
 				if c.NArg() < 3 {
 					cli.ShowSubcommandHelp(c)
@@ -204,7 +201,12 @@ can be generated with the "extract" sub-command.
 				contigsfile := c.Args().Get(0)
 				pairsFile := c.Args().Get(1)
 				k, _ := strconv.Atoi(c.Args().Get(2))
-				p := allhic.Partitioner{Contigsfile: contigsfile, PairsFile: pairsFile, K: k}
+				minREs := c.Int("minREs")
+				maxLinkDensity := c.Int("maxLinkDensity")
+				nonInformativeRatio := c.Int("nonInformativeRatio")
+				p := allhic.Partitioner{Contigsfile: contigsfile, PairsFile: pairsFile, K: k,
+					MinREs: minREs, MaxLinkDensity: maxLinkDensity,
+					NonInformativeRatio: nonInformativeRatio}
 				p.Run()
 				return nil
 			},
