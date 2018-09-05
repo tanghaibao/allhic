@@ -8,7 +8,6 @@
     |____| |____||________||________||____||____||_____|`.____ .'
 
 [![Travis-CI](https://travis-ci.org/tanghaibao/allhic.svg?branch=master)](https://travis-ci.org/tanghaibao/allhic)
-[![GOreport](https://goreportcard.com/badge/github.com/tanghaibao/allhic)](https://goreportcard.com/report/github.com/tanghaibao/allhic)
 
 **This software is currently under active development. DO NOT USE.**
 
@@ -69,6 +68,12 @@ average links, which is the same method used by ALLHIC.
 
 ```console
 allhic partition tests/test.counts_GATC.txt tests/test.pairs.txt
+```
+
+Critically, if you have applied the pruning step above, use the "pruned" pairs:
+
+```console
+allhic partition tests/test.counts_GATC.txt tests/test.pairs.prune.txt
 ```
 
 ### <kbd>Optimize</kbd>
