@@ -78,16 +78,6 @@ func (r *Partitioner) getRE() string {
 func (r *Partitioner) skipContigsWithFewREs() {
 	RE := r.getRE()
 	MinREs := r.MinREs
-	switch len(RE) {
-	case 4:
-		MinREs = 4 * r.MinREs // 32 * (4 ** 4) = 8Kb
-	case 5:
-		MinREs = 2 * r.MinREs // 16 * (4 ** 5) = 16Kb
-	case 6:
-		MinREs = r.MinREs // 8 * (4 ** 6) = 32Kb
-	default:
-		MinREs = r.MinREs // We normally only use RE between 4 to 6 base cutter, but just in case
-	}
 	log.Noticef("skipContigsWithFewREs with MinREs = %d (RE = %s)", MinREs, RE)
 	nShort := 0
 	shortRE := 0

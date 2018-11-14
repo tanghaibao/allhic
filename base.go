@@ -61,7 +61,7 @@ const (
 	// *** The following parameters are modeled after LACHESIS ***
 
 	// MinREs is the minimum number of RE sites in a contig to be clustered (CLUSTER_MIN_RE_SITES)
-	MinREs = 8
+	MinREs = 10
 
 	// MaxLinkDensity is the density threshold before marking a contig as 'repetitve' (CLUSTER_MAX_LINK_DENSITY)
 	MaxLinkDensity = 2
