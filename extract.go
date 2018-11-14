@@ -17,6 +17,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/biogo/hts/bam"
 	"github.com/shenwei356/bio/seq"
@@ -194,6 +195,8 @@ func (r *Extracter) readFastaAndWriteRE() {
 		}
 
 		name := string(rec.Name)
+		// Strip the sequence name to get the first part up to empty space
+		name = strings.Fields(name)[0]
 		// Add pseudocount of 1 to prevent division by zero
 		count := bytes.Count(rec.Seq.Seq, []byte(r.RE)) + 1
 		length := rec.Seq.Length()

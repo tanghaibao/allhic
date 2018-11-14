@@ -132,7 +132,7 @@ also prepares for the latter steps of ALLHIC.
 			Action: func(c *cli.Context) error {
 				if c.NArg() < 2 {
 					cli.ShowSubcommandHelp(c)
-					return cli.NewExitError("Must specify pairsFile, clmfile and bamfile", 1)
+					return cli.NewExitError("Must specify bamfile and fastafile", 1)
 				}
 
 				bamfile := c.Args().Get(0)
