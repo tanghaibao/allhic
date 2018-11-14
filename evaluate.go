@@ -15,7 +15,7 @@ import (
 	"math/rand"
 	"os"
 
-	"github.com/MaxHalford/gago"
+	"github.com/MaxHalford/eaopt"
 )
 
 // LIMIT determines the largest distance for two tigs to add to total score
@@ -25,7 +25,7 @@ const LIMIT = 10000000
 var LimitLog = math.Log(LIMIT)
 
 // We will implement the Slice interface here, key ideas borrowed from:
-// https://github.com/MaxHalford/gago-examples/blob/master/tsp_grid/main.go
+// https://github.com/MaxHalford/eaopt-examples/blob/master/tsp_grid/main.go
 
 // At method from Slice
 func (r Tour) At(i int) interface{} {
@@ -48,27 +48,27 @@ func (r Tour) Swap(i, j int) {
 }
 
 // Slice method from Slice
-func (r Tour) Slice(a, b int) gago.Slice {
+func (r Tour) Slice(a, b int) eaopt.Slice {
 	return Tour{r.Tigs[a:b], r.M}
 }
 
 // Split method from Slice
-func (r Tour) Split(k int) (gago.Slice, gago.Slice) {
+func (r Tour) Split(k int) (eaopt.Slice, eaopt.Slice) {
 	return Tour{r.Tigs[:k], r.M}, Tour{r.Tigs[k:], r.M}
 }
 
 // Append method from Slice
-func (r Tour) Append(q gago.Slice) gago.Slice {
+func (r Tour) Append(q eaopt.Slice) eaopt.Slice {
 	return Tour{append(r.Tigs, q.(Tour).Tigs...), r.M}
 }
 
 // Replace method from Slice
-func (r Tour) Replace(q gago.Slice) {
+func (r Tour) Replace(q eaopt.Slice) {
 	copy(r.Tigs, q.(Tour).Tigs)
 }
 
 // Copy method from Slice
-func (r Tour) Copy() gago.Slice {
+func (r Tour) Copy() eaopt.Slice {
 	var clone Tour
 	clone.Tigs = make([]Tig, r.Len())
 	copy(clone.Tigs, r.Tigs)
@@ -103,7 +103,7 @@ func (r Tour) EvaluateSumLog() (float64, error) {
 			if dist > LIMIT {
 				break
 			}
-			// gago only looks at minimum =>
+			// eaopt only looks at minimum =>
 			// everytime we have a small dist, we reduce the total score
 			// we are looking at the largest reductions from all links
 			score += float64(nlinks) * (math.Log(dist) - LimitLog)
@@ -143,7 +143,7 @@ func (r Tour) Evaluate() (float64, error) {
 }
 
 // Sample k unique integers in range [min, max) using reservoir sampling,
-// specifically Vitter's Algorithm R. From gago.
+// specifically Vitter's Algorithm R. From eaopt.
 func randomInts(k, min, max int, rng *rand.Rand) (ints []int) {
 	ints = make([]int, k)
 	for i := 0; i < k; i++ {
@@ -159,7 +159,7 @@ func randomInts(k, min, max int, rng *rand.Rand) (ints []int) {
 }
 
 // randomTwoInts is a faster version than randomInts above
-func randomTwoInts(genome gago.Slice, rng *rand.Rand) (int, int) {
+func randomTwoInts(genome eaopt.Slice, rng *rand.Rand) (int, int) {
 	n := genome.Len()
 	p := rng.Intn(n)
 	q := rng.Intn(n)
@@ -170,7 +170,7 @@ func randomTwoInts(genome gago.Slice, rng *rand.Rand) (int, int) {
 }
 
 // MutInversion applies inversion operation on the genome
-func MutInversion(genome gago.Slice, rng *rand.Rand) {
+func MutInversion(genome eaopt.Slice, rng *rand.Rand) {
 	// log.Debugf("Before MutInversion: %v", genome)
 	// Choose two points on the genome
 	p, q := randomTwoInts(genome, rng)
@@ -185,7 +185,7 @@ func MutInversion(genome gago.Slice, rng *rand.Rand) {
 }
 
 // MutInsertion applies insertion operation on the genome
-func MutInsertion(genome gago.Slice, rng *rand.Rand) {
+func MutInsertion(genome eaopt.Slice, rng *rand.Rand) {
 	// log.Debugf("Before MutInsertion: %v", genome)
 	// Choose two points on the genome
 	p, q := randomTwoInts(genome, rng)
@@ -213,7 +213,7 @@ func MutInsertion(genome gago.Slice, rng *rand.Rand) {
 }
 
 // MutPermute permutes two genes at random n times
-func MutPermute(genome gago.Slice, rng *rand.Rand) {
+func MutPermute(genome eaopt.Slice, rng *rand.Rand) {
 	// Nothing to permute
 	if genome.Len() <= 1 {
 		return
@@ -225,7 +225,7 @@ func MutPermute(genome gago.Slice, rng *rand.Rand) {
 
 // MutSplice splits a genome in 2 and glues the pieces back together in reverse
 // order
-func MutSplice(genome gago.Slice, rng *rand.Rand) {
+func MutSplice(genome eaopt.Slice, rng *rand.Rand) {
 	var (
 		k    = rng.Intn(genome.Len()-1) + 1
 		a, b = genome.Split(k)
@@ -248,12 +248,12 @@ func (r Tour) Mutate(rng *rand.Rand) {
 }
 
 // Crossover a Tour with another Tour by using Partially Mixed Crossover (PMX).
-func (r Tour) Crossover(q gago.Genome, rng *rand.Rand) {
-	//gago.CrossPMX(r, q.(Tour), rng)
+func (r Tour) Crossover(q eaopt.Genome, rng *rand.Rand) {
+	//eaopt.CrossPMX(r, q.(Tour), rng)
 }
 
 // Clone a Tour
-func (r Tour) Clone() gago.Genome {
+func (r Tour) Clone() eaopt.Genome {
 	var clone Tour
 	clone.Tigs = make([]Tig, r.Len())
 	copy(clone.Tigs, r.Tigs)
@@ -273,35 +273,41 @@ func (r Tour) Shuffle(rng *rand.Rand) {
 
 // GARun set up the Genetic Algorithm and run it
 func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
-	MakeTour := func(rng *rand.Rand) gago.Genome {
+	MakeTour := func(rng *rand.Rand) eaopt.Genome {
 		c := r.Tour.Clone()
 		return c
 	}
 
-	ga := gago.GA{
-		NewGenome: MakeTour,
-		NPops:     1,
-		PopSize:   opt.NPop,
-		Model: gago.ModGenerational{
-			Selector: gago.SelTournament{
-				NContestants: 3,
-			},
-			MutRate: opt.MutProb,
-		},
-		RNG:          opt.rng,
-		ParallelEval: true,
+	ga, err := eaopt.NewDefaultGAConfig().NewGA()
+	if err != nil {
+		panic(err)
 	}
-	ga.Initialize()
 
-	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.2f, rng: %d, break: %d)",
-		opt.NPop, opt.NGen, opt.MutProb, opt.Seed, LIMIT)
+	ga.NPops = 1
+	ga.NGenerations = 1000000
+	ga.PopSize = uint(opt.NPop)
+	ga.Model = eaopt.ModGenerational{
+		Selector: eaopt.SelTournament{
+			NContestants: 3,
+		},
+		MutRate: opt.MutProb,
+	}
+	ga.RNG = opt.rng
+	ga.ParallelEval = true
 
-	gen := 1
-	best := -math.MaxFloat64
-	updated := 0
-	for ; ; gen++ {
-		ga.Evolve()
+	best := new(float64)
+	updated := new(uint)
+	*best = -math.MaxFloat64 // Currently best score
+	*updated = 0             // Last updated generation
+
+	// Additional bookkeeping per generation
+	ga.Callback = func(ga *eaopt.GA) {
+		gen := ga.Generations
 		currentBest := -ga.HallOfFame[0].Fitness
+		if currentBest > *best {
+			*best = currentBest
+			*updated = gen
+		}
 		if gen%500 == 0 {
 			fmt.Printf("Current iteration GA%d-%d: max_score=%.5f\n",
 				phase, gen, currentBest)
@@ -309,16 +315,18 @@ func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
 			r.printTour(fwtour, currentBestTour, fmt.Sprintf("GA%d-%d-%.5f",
 				phase, gen, currentBest))
 		}
-
-		if currentBest > best {
-			best = currentBest
-			updated = gen
-		}
-
-		if gen-updated > opt.NGen { // Converged
-			break
-		}
 	}
+
+	// Convergence criteria
+	ga.EarlyStop = func(ga *eaopt.GA) bool {
+		return ga.Generations-*updated > uint(opt.NGen)
+	}
+
+	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.2f, rng: %d, break: %d)",
+		opt.NPop, opt.NGen, opt.MutProb, opt.Seed, LIMIT)
+
+	ga.Minimize(MakeTour)
+
 	r.Tour = ga.HallOfFame[0].Genome.(Tour)
 	return r.Tour
 }
