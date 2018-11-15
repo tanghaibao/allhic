@@ -102,6 +102,14 @@ var Backend = logging.NewLogBackend(os.Stderr, "", 0)
 // BackendFormatter contains the fancy debug formatter
 var BackendFormatter = logging.NewBackendFormatter(Backend, format)
 
+// ErrorAbort logs an error message and then exit with retcode of 1
+func ErrorAbort(err error) {
+	if err != nil {
+		log.Errorf("%s", err)
+		os.Exit(1)
+	}
+}
+
 // RemoveExt returns the substring minus the extension
 func RemoveExt(filename string) string {
 	return strings.TrimSuffix(filename, path.Ext(filename))

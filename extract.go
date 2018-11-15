@@ -159,7 +159,8 @@ func (r *Extracter) makeModel(outfile string) {
 
 // writeRE write a RE file and report statistics
 func writeRE(outfile string, contigs []*ContigInfo) {
-	f, _ := os.Create(outfile)
+	f, err := os.Create(outfile)
+	ErrorAbort(err)
 	w := bufio.NewWriter(f)
 	defer f.Close()
 	totalCounts := 0

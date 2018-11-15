@@ -113,12 +113,15 @@ func (r *LinkDensityModel) countBinDensities(contigs []*ContigInfo) {
 	// Find the length of assayable intra-contig sequence in each bin
 	intraContigLinkRange := math.Log2(float64(maxLinkDist) / float64(MinLinkDist))
 	nIntraContigBins := int(math.Ceil(intraContigLinkRange * 16))
+	if nIntraContigBins > len(r.nLinks) {
+		nIntraContigBins = len(r.nLinks)
+	}
 
 	// Step 3: loop through all links and tabulate the counts
 	for _, contig := range contigs {
 		for _, link := range contig.links {
 			bin := r.linkBin(link)
-			if bin == -1 {
+			if bin == -1 || bin >= len(r.nLinks) {
 				continue
 			}
 			r.nLinks[bin]++
