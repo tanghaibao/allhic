@@ -1,4 +1,4 @@
-# ALLHIC: Genome scaffolding based on HiC data
+# ALLHIC: Genome scaffolding based on Hi-C data
 
          _       _____     _____     ____  ____  _____   ______
         / \     |_   _|   |_   _|   |_   ||   _||_   _|.' ___  |
@@ -9,14 +9,16 @@
 
 [![Travis-CI](https://travis-ci.org/tanghaibao/allhic.svg?branch=master)](https://travis-ci.org/tanghaibao/allhic)
 
-**This software is currently under active development. DO NOT USE.**
-
 | | |
 | --- | --- |
 | Authors | Haibao Tang ([tanghaibao](http://github.com/tanghaibao)) |
 | | Xingtan Zhang ([tangerzhang](https://github.com/tangerzhang)) |
 | Email   | <tanghaibao@gmail.com> |
 | License | [BSD](http://creativecommons.org/licenses/BSD/) |
+
+## Introduction
+
+This program can be used to scaffold genomic contigs based on Hi-C data, which is particularly effectively for auto-polyploid genomes. **We currently recommend using this program in a scripted pipeline, as detailed [here](https://github.com/tangerzhang/ALLHiC/wiki).**
 
 ## Installation
 
@@ -53,7 +55,6 @@ allhic prune tests/Allele.ctg.table tests/test.pairs.txt
 
 Please see help string of `allhic prune` on the formatting of
 `Allele.ctg.table`.
-
 
 ### <kbd>Partition</kbd>
 
@@ -113,28 +114,7 @@ allhic plot tests/test.bam tests/test.counts_GATC.2g1.tour
 
 ## <kbd>Pipeline</kbd>
 
-Following the 4 steps of `prune`, `extract`, `partition`, `optimize`, as described above.
-In summary, we have:
-
-```console
-allhic extract tests/test.bam tests/seq.fasta.gz
-allhic partition tests/test.counts_GATC.txt tests/test.pairs.txt 2
-allhic optimize tests/test.counts_GATC.2g1.txt tests/test.clm
-allhic optimize tests/test.counts_GATC.2g2.txt tests/test.clm
-allhic build tests/test.counts_GATC.2g?.txt tests/seq.fasta.gz tests/asm-2g.chr.fasta
-```
-
-Or, in a single step:
-
-```console
-allhic pipeline tests/test.bam tests/seq.fasta.gz 2
-```
-
-In summary, the pipeline requires a BAM file and the contigs FASTA file.
-The user then needs to specify the Restriction Enzyme used, the number
-`k` groups to partition into. Output include reconstructed chromosome
-AGP file (containing how the contigs are linked together) and chromosomal
-FASTA file.
+Please see detailed steps in a scripted pipeline [here](https://github.com/tangerzhang/ALLHiC/wiki).
 
 ## WIP features
 
@@ -153,4 +133,4 @@ FASTA file.
 
 ## Reference
 
-TBD
+Zhang, X. Ming, R. Tang H. ALLHiC: phasing and scaffolding polyploid genomes based on Hi-C data. Submitted.
