@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	".."
 	logging "github.com/op/go-logging"
+	"github.com/tanghaibao/allhic"
 	"github.com/urfave/cli"
 )
 
