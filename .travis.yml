@@ -5,6 +5,7 @@ os:
 
 go:
     - 1.9
+    - 1.12
 
 script:
     bash functional-tests.sh
