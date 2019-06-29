@@ -8,5 +8,7 @@ go:
   - 1.12
 
 script:
-  go test -v
-  bash functional-tests.sh
+  # Unit testing
+  - go test -v
+  # Functional testing
+  - bash functional-tests.sh
