@@ -103,7 +103,7 @@ type RECountsFile struct {
 	Records  []RECountsRecord // List of records
 }
 
-// ParseRecords reads a list of records from REFile
+// parseRecords reads a list of records from REFile
 func (r *RECountsFile) ParseRecords() {
 	recs := ReadCSVLines(r.Filename)
 	for _, rec := range recs {

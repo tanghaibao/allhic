@@ -11,14 +11,17 @@ package allhic
 import (
 	"bufio"
 	"io"
+	"sort"
 	"strconv"
 	"strings"
 )
 
 // Alleler is responsible for building the allele table
 type Alleler struct {
-	PafFile string // ex. "genome.paf"
-	REFile  string // ex. "genome.counts_GATC.txt"
+	PafFile string       // ex. "genome.paf"
+	REFile  string       // ex. "genome.counts_GATC.txt"
+	Paf     PAF          // The PAF data
+	ReFile  RECountsFile // The RE data
 }
 
 // Tag represents the additional info in the 12+ columns in the PAF
@@ -72,8 +75,8 @@ type PAF struct {
 	Records []PAFRecord // List of PAF records
 }
 
-// parseRecords collects all records in memory
-func (r *PAF) parseRecords() {
+// ParseRecords collects all records in memory
+func (r *PAF) ParseRecords() {
 	r.Records = []PAFRecord{}
 	fh := mustOpen(r.PafFile)
 
@@ -133,14 +136,20 @@ func (r *PAF) parseRecords() {
 }
 
 // extractAllelicPairs collects Extract allelic pairs
-func (r *PAF) extractAllelicPairs() {
+func (r *Alleler) extractAllelicPairs() {
 
+	// Sort the contigs by sizes, starting from shortest
+	sort.Slice(r.ReFile.Records, func(i, j int) bool {
+		return r.ReFile.Records[i].Length < r.ReFile.Records[j].Length
+	})
 }
 
 // Run kicks off the Alleler
-func (r *Alleler) Run() PAF {
-	paf := PAF{PafFile: r.PafFile}
-	paf.parseRecords()
+func (r *Alleler) Run() {
+	r.Paf = PAF{PafFile: r.PafFile}
+	r.Paf.ParseRecords()
+	r.ReFile = RECountsFile{Filename: r.REFile}
+	r.ReFile.ParseRecords()
+	r.extractAllelicPairs()
 	log.Notice("Success")
-	return paf
 }
