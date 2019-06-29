@@ -10,7 +10,6 @@ package allhic
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -18,7 +17,8 @@ import (
 
 // Alleler is responsible for building the allele table
 type Alleler struct {
-	PafFile string
+	PafFile string // ex. "genome.paf"
+	REFile  string // ex. "genome.counts_GATC.txt"
 }
 
 // Tag represents the additional info in the 12+ columns in the PAF
@@ -72,8 +72,8 @@ type PAF struct {
 	Records []PAFRecord // List of PAF records
 }
 
-// ParseRecords collects all records in memory
-func (r *PAF) ParseRecords() {
+// parseRecords collects all records in memory
+func (r *PAF) parseRecords() {
 	r.Records = []PAFRecord{}
 	fh := mustOpen(r.PafFile)
 
@@ -132,11 +132,15 @@ func (r *PAF) ParseRecords() {
 	}
 }
 
+// extractAllelicPairs collects Extract allelic pairs
+func (r *PAF) extractAllelicPairs() {
+
+}
+
 // Run kicks off the Alleler
 func (r *Alleler) Run() PAF {
 	paf := PAF{PafFile: r.PafFile}
-	paf.ParseRecords()
-	fmt.Println(paf.Records)
+	paf.parseRecords()
 	log.Notice("Success")
 	return paf
 }

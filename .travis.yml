@@ -1,11 +1,12 @@
 language: go
 
 os:
-    - linux
+  - linux
 
 go:
-    - 1.9
-    - 1.12
+  - 1.11
+  - 1.12
 
 script:
-    bash functional-tests.sh
+  go test -v
+  bash functional-tests.sh

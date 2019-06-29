@@ -90,6 +90,33 @@ type Tour struct {
 	M    [][]int
 }
 
+// RECountsRecord contains a line in the RE file
+type RECountsRecord struct {
+	Contig   string // Name of the contig
+	RECounts int    // Number of restriction sites
+	Length   int    // Length of the contig, in base pairs
+}
+
+// RECountsFile holds a list of RECountsRecord
+type RECountsFile struct {
+	Filename string           // File path
+	Records  []RECountsRecord // List of records
+}
+
+// ParseRecords reads a list of records from REFile
+func (r *RECountsFile) ParseRecords() {
+	recs := ReadCSVLines(r.Filename)
+	for _, rec := range recs {
+		reCounts, _ := strconv.Atoi(rec[1])
+		length, _ := strconv.Atoi(rec[2])
+		r.Records = append(r.Records, RECountsRecord{
+			Contig:   rec[0],
+			RECounts: reCounts,
+			Length:   length,
+		})
+	}
+}
+
 // NewCLM is the constructor for CLM
 func NewCLM(Clmfile, REfile string) *CLM {
 	p := new(CLM)

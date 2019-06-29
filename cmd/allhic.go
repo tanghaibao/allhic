@@ -148,7 +148,7 @@ also prepares for the latter steps of ALLHIC.
 			Name:  "alleles",
 			Usage: "Build alleles.table for `prune`",
 			UsageText: `
-	allhic alleles genome.paf
+	allhic alleles genome.paf genome.counts_RE.txt
 
 Alleles function:
 Given a paf file, we could identify and classify the allelic contigs to be used
@@ -160,13 +160,14 @@ The PAF file contains all self-alignments, which is the basis for classification
 ALLHiC generates "alleles.table", which can then be used for later steps.
 `,
 			Action: func(c *cli.Context) error {
-				if c.NArg() < 1 {
+				if c.NArg() < 2 {
 					cli.ShowSubcommandHelp(c)
 					return cli.NewExitError("Must specificify paf file", 1)
 				}
 
 				pafFile := c.Args().Get(0)
-				p := allhic.Alleler{PafFile: pafFile}
+				reFile := c.Args().Get(1)
+				p := allhic.Alleler{PafFile: pafFile, REFile: reFile}
 				p.Run()
 				return nil
 			},
