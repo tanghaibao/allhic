@@ -51,30 +51,30 @@ type Tag = interface{}
 // The file spec:
 // https://github.com/lh3/miniasm/blob/master/PAF.md
 type PAFRecord struct {
-	query           string         // Query sequence name
-	queryLength     int            // Query sequence length
-	queryStart      int            // Query start (0-based)
-	queryEnd        int            // Query end (0-based)
-	relativeStrand  byte           // `+' if query and target on the same strand; `-' if opposite
-	target          string         // Target sequence name
-	targetLength    int            // Target sequence length
-	targetStart     int            // Target start on original strand (0-based)
-	targetEnd       int            // Target end on original strand (0-based)
-	nMatches        int            // Number of matching bases in the mapping
-	alignmentLength int            // Number bases, including gaps, in the mapping
-	mappingQuality  uint8          // Mapping quality (0-255 with 255 for missing)
-	tags            map[string]Tag // Tags, e.g. tp, cm etc.
+	Query           string         // Query sequence name
+	QueryLength     int            // Query sequence length
+	QueryStart      int            // Query start (0-based)
+	QueryEnd        int            // Query end (0-based)
+	RelativeStrand  byte           // `+' if query and target on the same strand; `-' if opposite
+	Target          string         // Target sequence name
+	TargetLength    int            // Target sequence length
+	TargetStart     int            // Target start on original strand (0-based)
+	TargetEnd       int            // Target end on original strand (0-based)
+	NumMatches      int            // Number of matching bases in the mapping
+	AlignmentLength int            // Number bases, including gaps, in the mapping
+	MappingQuality  uint8          // Mapping quality (0-255 with 255 for missing)
+	Tags            map[string]Tag // Tags, e.g. tp, cm etc.
 }
 
 // PAF parses the PAF file into a set of records
 type PAF struct {
 	PafFile string      // File path of the paf
-	records []PAFRecord // List of PAF records
+	Records []PAFRecord // List of PAF records
 }
 
 // ParseRecords collects all records in memory
 func (r *PAF) ParseRecords() {
-	r.records = []PAFRecord{}
+	r.Records = []PAFRecord{}
 	fh := mustOpen(r.PafFile)
 
 	log.Noticef("Parse paffile `%s`", r.PafFile)
@@ -93,20 +93,20 @@ func (r *PAF) ParseRecords() {
 		}
 
 		// Parse the first 12 columns
-		rec.query = words[0]
-		rec.queryLength, _ = strconv.Atoi(words[1])
-		rec.queryStart, _ = strconv.Atoi(words[2])
-		rec.queryEnd, _ = strconv.Atoi(words[3])
-		rec.relativeStrand = words[4][0]
-		rec.target = words[5]
-		rec.targetLength, _ = strconv.Atoi(words[6])
-		rec.targetStart, _ = strconv.Atoi(words[7])
-		rec.targetEnd, _ = strconv.Atoi(words[8])
-		rec.nMatches, _ = strconv.Atoi(words[9])
-		rec.alignmentLength, _ = strconv.Atoi(words[10])
+		rec.Query = words[0]
+		rec.QueryLength, _ = strconv.Atoi(words[1])
+		rec.QueryStart, _ = strconv.Atoi(words[2])
+		rec.QueryEnd, _ = strconv.Atoi(words[3])
+		rec.RelativeStrand = words[4][0]
+		rec.Target = words[5]
+		rec.TargetLength, _ = strconv.Atoi(words[6])
+		rec.TargetStart, _ = strconv.Atoi(words[7])
+		rec.TargetEnd, _ = strconv.Atoi(words[8])
+		rec.NumMatches, _ = strconv.Atoi(words[9])
+		rec.AlignmentLength, _ = strconv.Atoi(words[10])
 		mappingQuality, _ := strconv.Atoi(words[11])
-		rec.mappingQuality = uint8(mappingQuality)
-		rec.tags = map[string]Tag{}
+		rec.MappingQuality = uint8(mappingQuality)
+		rec.Tags = map[string]Tag{}
 		var tag Tag
 
 		// Parse columns 12+
@@ -125,17 +125,18 @@ func (r *PAF) ParseRecords() {
 			default:
 				tag = value
 			}
-			rec.tags[tagName] = tag
+			rec.Tags[tagName] = tag
 		}
 
-		r.records = append(r.records, rec)
+		r.Records = append(r.Records, rec)
 	}
 }
 
 // Run kicks off the Alleler
-func (r *Alleler) Run() {
+func (r *Alleler) Run() PAF {
 	paf := PAF{PafFile: r.PafFile}
 	paf.ParseRecords()
-	fmt.Println(paf.records)
+	fmt.Println(paf.Records)
 	log.Notice("Success")
+	return paf
 }
