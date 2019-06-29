@@ -17,10 +17,10 @@ import (
 
 func TestParseRECountsFile(t *testing.T) {
 	reCountsFile := allhic.RECountsFile{
-		Filename: path.Join("tests", "test.counts_GATC.txt"),
+		Filename: path.Join("tests", "test.counts_RE.txt"),
 	}
 	reCountsFile.ParseRecords()
-	expectedNumRecords := 883
+	expectedNumRecords := 2
 	if len(reCountsFile.Records) != expectedNumRecords {
 		t.Fatalf("Expected %d records, got %d records", expectedNumRecords, len(reCountsFile.Records))
 	}
