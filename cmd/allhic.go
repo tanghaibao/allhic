@@ -145,6 +145,33 @@ also prepares for the latter steps of ALLHIC.
 			},
 		},
 		{
+			Name:  "alleles",
+			Usage: "Build alleles.table for `prune`",
+			UsageText: `
+	allhic alleles genome.paf
+
+Alleles function:
+Given a paf file, we could identify and classify the allelic contigs to be used
+for "allhic prune". We recommend the following parameters to build the paf file:
+
+$ minimap2 -DP -k19 -w19 -m200 -t32 genome.fasta genome.fasta > genome.paf
+
+The PAF file contains all self-alignments, which is the basis for classification.
+ALLHiC generates "alleles.table", which can then be used for later steps.
+`,
+			Action: func(c *cli.Context) error {
+				if c.NArg() < 1 {
+					cli.ShowSubcommandHelp(c)
+					return cli.NewExitError("Must specificify paf file", 1)
+				}
+
+				pafFile := c.Args().Get(0)
+				p := allhic.Alleler{PafFile: pafFile}
+				p.Run()
+				return nil
+			},
+		},
+		{
 			Name:  "prune",
 			Usage: "Prune allelic, cross-allelic and weak links",
 			UsageText: `

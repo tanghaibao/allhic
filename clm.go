@@ -142,6 +142,7 @@ func readClmLines(clmfile string) []CLMLine {
 	file := mustOpen(clmfile)
 	log.Noticef("Parse clmfile `%s`", clmfile)
 	reader := bufio.NewReader(file)
+	defer file.Close()
 
 	var lines []CLMLine
 	for {
