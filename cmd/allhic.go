@@ -167,7 +167,7 @@ ALLHiC generates "alleles.table", which can then be used for later steps.
 
 				pafFile := c.Args().Get(0)
 				reFile := c.Args().Get(1)
-				p := allhic.Alleler{PafFile: pafFile, REFile: reFile}
+				p := allhic.Alleler{PafFile: pafFile, ReFile: reFile}
 				p.Run()
 				return nil
 			},

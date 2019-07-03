@@ -19,7 +19,7 @@ import (
 func setupAlleler() allhic.Alleler {
 	pafFile := filepath.Join("tests", "test.paf")
 	reFile := filepath.Join("tests", "test.counts_RE.txt")
-	alleler := allhic.Alleler{PafFile: pafFile, REFile: reFile}
+	alleler := allhic.Alleler{PafFile: pafFile, ReFile: reFile}
 	alleler.Run()
 	return alleler
 }
@@ -36,10 +36,10 @@ func TestParsePafFile(t *testing.T) {
 	}
 	expectedCmValue := 5277
 	if cmValue != expectedCmValue {
-		t.Fatalf("The first record is expected to have cm = %d, got %d", expectedCmValue, cmValue)
+		t.Fatalf("The first record is expected to have cm %d, got %d", expectedCmValue, cmValue)
 	}
 	expectedLength := 135917
-	if gotLength := alleler.ReFile.Records[0].Length; gotLength != expectedLength {
-		t.Fatalf("The first record is expected to have length=%d, got %d", expectedLength, gotLength)
+	if gotLength := alleler.ReCounts.Records[0].Length; gotLength != expectedLength {
+		t.Fatalf("The first record is expected to have length %d, got %d", expectedLength, gotLength)
 	}
 }

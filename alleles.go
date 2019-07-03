@@ -18,10 +18,10 @@ import (
 
 // Alleler is responsible for building the allele table
 type Alleler struct {
-	PafFile string       // ex. "genome.paf"
-	REFile  string       // ex. "genome.counts_GATC.txt"
-	Paf     PAF          // The PAF data
-	ReFile  RECountsFile // The RE data
+	PafFile  string       // ex. "genome.paf"
+	ReFile   string       // ex. "genome.counts_GATC.txt"
+	Paf      PAFFile      // The PAF data
+	ReCounts RECountsFile // The RE data
 }
 
 // Tag represents the additional info in the 12+ columns in the PAF
@@ -70,13 +70,13 @@ type PAFRecord struct {
 }
 
 // PAF parses the PAF file into a set of records
-type PAF struct {
+type PAFFile struct {
 	PafFile string      // File path of the paf
 	Records []PAFRecord // List of PAF records
 }
 
 // ParseRecords collects all records in memory
-func (r *PAF) ParseRecords() {
+func (r *PAFFile) ParseRecords() {
 	r.Records = []PAFRecord{}
 	fh := mustOpen(r.PafFile)
 
@@ -137,19 +137,18 @@ func (r *PAF) ParseRecords() {
 
 // extractAllelicPairs collects Extract allelic pairs
 func (r *Alleler) extractAllelicPairs() {
-
 	// Sort the contigs by sizes, starting from shortest
-	sort.Slice(r.ReFile.Records, func(i, j int) bool {
-		return r.ReFile.Records[i].Length < r.ReFile.Records[j].Length
+	sort.Slice(r.ReCounts.Records, func(i, j int) bool {
+		return r.ReCounts.Records[i].Length < r.ReCounts.Records[j].Length
 	})
 }
 
 // Run kicks off the Alleler
 func (r *Alleler) Run() {
-	r.Paf = PAF{PafFile: r.PafFile}
+	r.Paf = PAFFile{PafFile: r.PafFile}
 	r.Paf.ParseRecords()
-	r.ReFile = RECountsFile{Filename: r.REFile}
-	r.ReFile.ParseRecords()
+	r.ReCounts = RECountsFile{Filename: r.ReFile}
+	r.ReCounts.ParseRecords()
 	r.extractAllelicPairs()
 	log.Notice("Success")
 }
