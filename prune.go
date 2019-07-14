@@ -46,7 +46,7 @@ func (r *Pruner) Run() {
 	r.edges = parseDist(r.PairsFile)
 	r.alleleGroups = parseAllelesFile(r.AllelesFile)
 	r.pruneAllelic()
-	// r.pruneCrossAllelic()
+	r.pruneCrossAllelic()
 	newPairsFile := RemoveExt(r.PairsFile) + ".prune.txt"
 	writePairsFile(newPairsFile, r.edges)
 }
@@ -118,7 +118,7 @@ func (r *Pruner) pruneCrossAllelic() {
 	for i, edge := range r.edges {
 		aBestScore := getScore(edge.at, edge.bt, ctgToAlleleGroup, scores)
 		bBestScore := getScore(edge.bt, edge.at, ctgToAlleleGroup, scores)
-		if edge.nObservedLinks < aBestScore || edge.nObservedLinks < bBestScore {
+		if edge.nObservedLinks < aBestScore && edge.nObservedLinks < bBestScore {
 			r.edges[i].label = fmt.Sprintf("cross-allelic(%d|%d)", aBestScore, bBestScore)
 			pruned++
 			prunedLinks += edge.nObservedLinks
