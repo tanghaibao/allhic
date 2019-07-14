@@ -141,6 +141,7 @@ func (r *Alleler) extractAllelicPairs() {
 	sort.Slice(r.ReCounts.Records, func(i, j int) bool {
 		return r.ReCounts.Records[i].Length < r.ReCounts.Records[j].Length
 	})
+	// Find significant matches of small-big allelic contig pairs
 }
 
 // Run kicks off the Alleler

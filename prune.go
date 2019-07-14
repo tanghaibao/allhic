@@ -44,9 +44,9 @@ type CtgAlleleGroupPair struct {
 // Pruned edges are then annotated as allelic/cross-allelic/ok
 func (r *Pruner) Run() {
 	r.edges = parseDist(r.PairsFile)
-	r.alleleGroups = parseAllelesTable(r.AllelesFile)
+	r.alleleGroups = parseAllelesFile(r.AllelesFile)
 	r.pruneAllelic()
-	r.pruneCrossAllelic()
+	// r.pruneCrossAllelic()
 	newPairsFile := RemoveExt(r.PairsFile) + ".prune.txt"
 	writePairsFile(newPairsFile, r.edges)
 }
@@ -162,6 +162,63 @@ func getScore(at, bt string, ctgToAlleleGroup map[string][]int, scores map[CtgAl
 		return maxScore // maximum score among all allele group matchings
 	}
 	return -1
+}
+
+// parseAllelesFile() routes parser to eitehr parseAssociationLog() or
+// parseAllelesTable(), based on the first row of the file
+func parseAllelesFile(filename string) []AlleleGroup {
+	fh := mustOpen(filename)
+	reader := bufio.NewReader(fh)
+	row, err := reader.ReadString('\n')
+	if err != nil {
+		log.Fatal(err)
+	}
+	fh.Close()
+	if strings.Contains(row, "->") {
+		return parseAssociationLog(filename)
+	}
+	return parseAllelesTable(filename)
+}
+
+// parseAssociationLog imports contig allelic relationship from purge-haplotigs
+// File has the followign format:
+// tig00030660,PRIMARY -> tig00003333,HAPLOTIG
+//                     -> tig00038686,HAPLOTIG
+func parseAssociationLog(associationFile string) []AlleleGroup {
+	log.Noticef("Parse association log `%s`", associationFile)
+	fh := mustOpen(associationFile)
+	defer fh.Close()
+
+	reader := bufio.NewReader(fh)
+	var data []AlleleGroup
+	var primary string
+	var haplotig string
+	for {
+		row, err := reader.ReadString('\n')
+		row = strings.TrimSpace(row)
+		if err == io.EOF {
+			break
+		}
+		if row == "" {
+			continue
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		words := strings.Split(row, " ")
+		if len(words) == 3 {
+			primary = strings.Split(words[0], ",")[0]
+			haplotig = strings.Split(words[2], ",")[0]
+		} else if len(words) == 2 {
+			haplotig = strings.Split(words[1], ",")[0]
+		} else {
+			log.Fatalf("Malformed line: %s, expecting 2 or 3 words", row)
+		}
+		alleleGroup := AlleleGroup{primary, haplotig}
+		data = append(data, alleleGroup)
+	}
+
+	return data
 }
 
 // parseAllelesTable imports the contig allelic relationship

@@ -192,6 +192,12 @@ to a closely-related genome), several contigs are considered allelic. The Hi-C l
 between these contigs are removed, in addition, other contigs linking to these contigs
 simultaneously would only consider one single-best edge. The "pairs.txt" file is the output
 of the "extract" command.
+
+Alternatively we can use output from purge-haplotigs as source of alleles.table, the format
+looks like:
+
+tig00030660,PRIMARY -> tig00003333,HAPLOTIG
+                    -> tig00038686,HAPLOTIG
 `,
 			Action: func(c *cli.Context) error {
 				if c.NArg() < 2 {
