@@ -69,7 +69,7 @@ type PAFRecord struct {
 	Tags            map[string]Tag // Tags, e.g. tp, cm etc.
 }
 
-// PAF parses the PAF file into a set of records
+// PAFFile parses the PAF file into a set of records
 type PAFFile struct {
 	PafFile string      // File path of the paf
 	Records []PAFRecord // List of PAF records

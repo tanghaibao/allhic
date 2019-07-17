@@ -15,6 +15,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	hungarianAlgorithm "github.com/oddg/hungarian-algorithm"
 )
 
 // Pruner processes the pruning step
@@ -24,6 +26,9 @@ type Pruner struct {
 	edges        []ContigPair
 	alleleGroups []AlleleGroup
 }
+
+// ContigAB is used to get a pair of contigs
+type ContigAB [2]string
 
 // AlleleGroup stores the contig names that are considered allelic
 type AlleleGroup []string
@@ -46,7 +51,8 @@ func (r *Pruner) Run() {
 	r.edges = parseDist(r.PairsFile)
 	r.alleleGroups = parseAllelesFile(r.AllelesFile)
 	r.pruneAllelic()
-	r.pruneCrossAllelic()
+	r.pruneCrossAllelicBipartiteMatching()
+	// r.pruneCrossAllelic()
 	newPairsFile := RemoveExt(r.PairsFile) + ".prune.txt"
 	writePairsFile(newPairsFile, r.edges)
 }
@@ -85,11 +91,129 @@ func (r *Pruner) pruneAllelic() {
 		len(allelicPairs), Percentage(pruned, total), Percentage(prunedLinks, totalLinks))
 }
 
-// pruneCrossAllelic removes contigs that link to multiple allelic contigs and we choose
-// to keep a single best link, i.e. for each allele group, we find the best link to each
-// contig and retain. Note that since contigs may be in different allele groups, the order
-// of removal may affect end results.
-func (r *Pruner) pruneCrossAllelic() {
+// pruneCrossAllelicBipartiteMatching is a heuristic that tests whether an edge
+// is weak based on maximum weight bipartite matching. For example:
+//
+// a ===== 100 ===== b
+//
+// (a-d) 20  (b-c) 120
+//
+// c ===== 100 ===== d
+// we still favor the partition where ab + cd = 200 > ad + bc = 140
+func (r *Pruner) pruneCrossAllelicBipartiteMatching() {
+	ctgToAlleleGroup := r.getCtgToAlleleGroup()
+
+	// Store scores for contig pairs
+	ctgPairScores := map[ContigAB]int{}
+	for _, edge := range r.edges { // First pass collects all scores
+		if edge.label != "ok" { // We skip the allelic pairs since these are already removed
+			continue
+		}
+		ctgPairScores[ContigAB{edge.at, edge.bt}] = edge.nObservedLinks
+		ctgPairScores[ContigAB{edge.bt, edge.at}] = edge.nObservedLinks
+	}
+
+	// Now iterate over all edges and mark
+	pruned, prunedLinks := 0, 0
+	total, totalLinks := 0, 0
+	for i, edge := range r.edges {
+		if edge.label != "ok" {
+			continue
+		}
+		if !r.isStrongEdgeInBipartiteMatchingGroups(&edge, ctgToAlleleGroup, ctgPairScores) {
+			r.edges[i].label = edge.label
+			pruned++
+			prunedLinks += edge.nObservedLinks
+		}
+		total++
+		totalLinks += edge.nObservedLinks
+
+	}
+}
+
+// isStrongEdgeInBipartiteMatching determines if the edge being considered is
+// used in bipartite matching between two allele groups on either side of this
+// edge, since a-b can both be within a number of AlleleGroups. We need to check
+// each pair one by one.
+func (r *Pruner) isStrongEdgeInBipartiteMatchingGroups(edge *ContigPair, ctgToAlleleGroup map[string][]int, ctgPairScores map[ContigAB]int) bool {
+	ag, aok := ctgToAlleleGroup[edge.at]
+	bg, bok := ctgToAlleleGroup[edge.bt]
+	if !aok || !bok {
+		return true
+	}
+	for _, ai := range ag {
+		for _, bi := range bg {
+			aGroup := r.alleleGroups[ai]
+			bGroup := r.alleleGroups[bi]
+			if !r.isStrongEdgeInBipartiteMatching(edge, aGroup, bGroup, ctgPairScores) {
+				edge.label = fmt.Sprintf("cross-allelic(%s|%s)", strings.Join(aGroup, ","), strings.Join(bGroup, ","))
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// isStrongEdgeInBipartiteMatching determines if the edge being considered is
+// used in bipartite matching between two allele groups on either side of this
+// edge. Note that this function is called by
+// isStrongEdgeInBipartiteMatchingGroups(), and only operates on a single pair
+// of AlleleGroups.
+func (r *Pruner) isStrongEdgeInBipartiteMatching(edge *ContigPair, aGroup AlleleGroup, bGroup AlleleGroup, ctgPairScores map[ContigAB]int) bool {
+	// Build a square matrix that contain matching scores
+	aN := len(aGroup)
+	bN := len(bGroup)
+	N := max(aN, bN)
+	S := Make2DSlice(N, N)
+	ti, tj := -1, -1
+	// Populate the entries
+	for i, at := range aGroup {
+		if at == edge.at {
+			ti = i
+		}
+		for j, bt := range bGroup {
+			if bt == edge.bt {
+				tj = j
+			}
+			ctgPair := ContigAB{at, bt}
+			if score, ok := ctgPairScores[ctgPair]; ok {
+				S[i][j] = score
+			}
+		}
+	}
+	// Solve the matching problem using Hungarian algorithm
+	solution := maxBipartiteMatchingWithWeights(S)
+	ans := solution[ti] == tj
+	fmt.Println(aGroup, bGroup, S, solution, ans)
+	return ans
+}
+
+// maxBipartiteMatchingWithWeights calculates the bipartite matching using the
+// weights, wraps hungarianAlgorithm() which minimizes the costs, so we need to
+// transform from weights to costs
+func maxBipartiteMatchingWithWeights(weights [][]int) []int {
+	maxCell := 0
+	// Get the max value of the matrix
+	for _, row := range weights {
+		for _, cell := range row {
+			maxCell = max(maxCell, cell)
+		}
+	}
+	N := len(weights)
+	costs := Make2DSlice(N, N)
+	// Subtract the weights from the max to get costs
+	for i, row := range weights {
+		for j, cell := range row {
+			costs[i][j] = maxCell - cell
+		}
+	}
+	// By default, hungarianAlgorithm works on costs
+	solution, _ := hungarianAlgorithm.Solve(costs)
+	return solution
+}
+
+// getCtgToAlleleGroup returns contig to List of alleleGroups
+func (r *Pruner) getCtgToAlleleGroup() map[string][]int {
 	// Store contig to list of alleleGroups since each contig can be in different alleleGroups
 	ctgToAlleleGroup := map[string][]int{}
 	for groupID, alleleGroup := range r.alleleGroups {
@@ -101,6 +225,15 @@ func (r *Pruner) pruneCrossAllelic() {
 			}
 		}
 	}
+	return ctgToAlleleGroup
+}
+
+// pruneCrossAllelic removes contigs that link to multiple allelic contigs and we choose
+// to keep a single best link, i.e. for each allele group, we find the best link to each
+// contig and retain. Note that since contigs may be in different allele groups, the order
+// of removal may affect end results.
+func (r *Pruner) pruneCrossAllelic() {
+	ctgToAlleleGroup := r.getCtgToAlleleGroup()
 
 	// Store the best match of each contig to an allele group
 	scores := map[CtgAlleleGroupPair]int{} // (ctg, alleleGroupID) => score
