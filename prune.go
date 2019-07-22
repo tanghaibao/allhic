@@ -127,8 +127,9 @@ func (r *Pruner) pruneCrossAllelicBipartiteMatching() {
 		}
 		total++
 		totalLinks += edge.nObservedLinks
-
 	}
+	log.Noticef("Cross-allelic pairs pruned: %s, prunedLinks: %s",
+		Percentage(pruned, total), Percentage(prunedLinks, totalLinks))
 }
 
 // isStrongEdgeInBipartiteMatching determines if the edge being considered is
@@ -184,7 +185,7 @@ func (r *Pruner) isStrongEdgeInBipartiteMatching(edge *ContigPair, aGroup Allele
 	// Solve the matching problem using Hungarian algorithm
 	solution := maxBipartiteMatchingWithWeights(S)
 	ans := solution[ti] == tj
-	fmt.Println(aGroup, bGroup, S, solution, ans)
+	fmt.Println(edge.at, edge.bt, aGroup, bGroup, S, solution, ans)
 	return ans
 }
 
