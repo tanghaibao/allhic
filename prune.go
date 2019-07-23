@@ -185,7 +185,7 @@ func (r *Pruner) isStrongEdgeInBipartiteMatching(edge *ContigPair, aGroup Allele
 	// Solve the matching problem using Hungarian algorithm
 	solution := maxBipartiteMatchingWithWeights(S)
 	ans := solution[ti] == tj
-	fmt.Println(edge.at, edge.bt, aGroup, bGroup, S, solution, ans)
+	// fmt.Println(edge.at, edge.bt, aGroup, bGroup, S, solution, ans)
 	return ans
 }
 
