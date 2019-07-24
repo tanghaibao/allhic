@@ -262,8 +262,9 @@ func unique(a []int) []int {
 	return list
 }
 
-// arrayToString print comma-separated int slice
+// arrayToString print delim-separated int slice
 func arrayToString(a []int, delim string) string {
+	sort.Ints(a)
 	return strings.Trim(strings.Replace(fmt.Sprint(a), " ", delim, -1), "[]")
 }
 
