@@ -36,6 +36,7 @@ type Extracter struct {
 	Bamfile         string
 	Fastafile       string
 	RE              string
+	MinLinks        int
 	contigs         []*ContigInfo
 	contigToIdx     map[string]int
 	model           *LinkDensityModel
@@ -269,6 +270,9 @@ func (r *Extracter) calcInterContigs() {
 			(allPairs[i].ai == allPairs[j].ai && allPairs[i].bi < allPairs[j].bi)
 	})
 	for _, c := range allPairs {
+		if c.nObservedLinks < r.MinLinks {
+			continue
+		}
 		fmt.Fprintln(w, c)
 	}
 	w.Flush()
@@ -467,6 +471,9 @@ func (r *Extracter) extractContigLinks() {
 			if nLinks > maxLinks {
 				maxLinks = nLinks
 			}
+			if nLinks < r.MinLinks {
+				continue
+			}
 			total += nLinks
 			ai, bi := pair[0], pair[1]
 			at, bt := r.contigs[ai].name, r.contigs[bi].name
@@ -476,6 +483,6 @@ func (r *Extracter) extractContigLinks() {
 	}
 
 	wclm.Flush()
-	log.Noticef("Extracted %d inter-contig groups to `%s` (total = %d, maxLinks = %d)",
-		len(contigPairs), clmfile, total, maxLinks)
+	log.Noticef("Extracted %d inter-contig groups to `%s` (total = %d, maxLinks = %d, minLinks = %d)",
+		len(contigPairs), clmfile, total, maxLinks, r.MinLinks)
 }

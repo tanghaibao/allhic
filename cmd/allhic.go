@@ -65,6 +65,11 @@ func main() {
 			Usage: "Restriction site pattern",
 			Value: "GATC",
 		},
+		cli.IntFlag{
+			Name:  "minLinks",
+			Usage: "Minimum number of links for any contig pair",
+			Value: 3,
+		},
 	}
 
 	partitionFlags := []cli.Flag{
@@ -138,8 +143,9 @@ also prepares for the latter steps of ALLHIC.
 				bamfile := c.Args().Get(0)
 				fastafile := c.Args().Get(1)
 				RE := c.String("RE")
+				minLinks := c.Int("minLinks")
 
-				p := allhic.Extracter{Bamfile: bamfile, Fastafile: fastafile, RE: RE}
+				p := allhic.Extracter{Bamfile: bamfile, Fastafile: fastafile, RE: RE, MinLinks: minLinks}
 				p.Run()
 				return nil
 			},
