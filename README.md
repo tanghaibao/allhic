@@ -9,12 +9,12 @@
 
 [![Travis-CI](https://travis-ci.org/tanghaibao/allhic.svg?branch=master)](https://travis-ci.org/tanghaibao/allhic)
 
-| | |
-| --- | --- |
-| Authors | Haibao Tang ([tanghaibao](http://github.com/tanghaibao)) |
-| | Xingtan Zhang ([tangerzhang](https://github.com/tangerzhang)) |
-| Email   | <tanghaibao@gmail.com> |
-| License | [BSD](http://creativecommons.org/licenses/BSD/) |
+|         |                                                               |
+| ------- | ------------------------------------------------------------- |
+| Authors | Haibao Tang ([tanghaibao](http://github.com/tanghaibao))      |
+|         | Xingtan Zhang ([tangerzhang](https://github.com/tangerzhang)) |
+| Email   | <tanghaibao@gmail.com>                                        |
+| License | [BSD](http://creativecommons.org/licenses/BSD/)               |
 
 ## Introduction
 
@@ -85,7 +85,7 @@ for these contigs.
 
 Optimize uses Genetic Algorithm (GA) to search for the best scoring solution.
 GA has been successfully applied to genome scaffolding tasks in the past
-(see ALLMAPS; [Tang et al. *Genome Biology*, 2015](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-014-0573-1)).
+(see ALLMAPS; [Tang et al. _Genome Biology_, 2015](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-014-0573-1)).
 
 ![ga](images/test-movie.gif)
 
@@ -133,4 +133,6 @@ Please see detailed steps in a scripted pipeline [here](https://github.com/tange
 
 ## Reference
 
-Zhang, X. Ming, R. Tang H. ALLHiC: phasing and scaffolding polyploid genomes based on Hi-C data. Submitted.
+Xingtan Zhang, Shengcheng Zhang, Qian Zhao, Ray Ming & Haibao Tang. Assembly of
+allele-aware, chromosomal-scale autopolyploid genomes based on Hi-C data. (2019) _Nature
+Plants._ [link](https://www.nature.com/articles/s41477-019-0487-8)
