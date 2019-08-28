@@ -75,7 +75,7 @@ func (r *CLM) flipWhole() (tag string) {
 	}
 	newScore := r.EvaluateQ()
 	tag = ACCEPT
-	if newScore < score {
+	if newScore <= score {
 		copy(r.Signs, oldSigns) // Recover
 		tag = REJECT
 	}

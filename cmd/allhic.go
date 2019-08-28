@@ -54,7 +54,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Compiled = time.Now()
-	app.Copyright = "(c) Haibao Tang, Xingtan Zhang 2017-2018"
+	app.Copyright = "(c) Haibao Tang, Xingtan Zhang 2017-2019"
 	app.Name = "ALLHIC"
 	app.Usage = "Genome scaffolding based on Hi-C data"
 	app.Version = allhic.Version
