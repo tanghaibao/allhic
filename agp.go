@@ -128,7 +128,8 @@ func buildFasta(agpfile string, seqs map[string]*seq.Seq) {
 
 // writeRecord writes the FASTA record to the file
 func writeRecord(object string, buf bytes.Buffer, outfh *xopen.Writer) {
-	record, _ := fastx.NewRecordWithoutValidation(seq.DNA, []byte{}, []byte(object), buf.Bytes())
+	record, _ := fastx.NewRecordWithoutValidation(seq.DNA, []byte{}, []byte(object),
+		[]byte{}, buf.Bytes())
 	size := record.Seq.Length()
 	if size > LargeSequence {
 		log.Noticef("Write sequence %s (size = %d bp)", record.Name, size)

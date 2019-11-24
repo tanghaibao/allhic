@@ -7,7 +7,8 @@
     _/ /   \ \_  _| |__/ | _| |__/ | _| |  | |_  _| |_\ `.___.'\
     |____| |____||________||________||____||____||_____|`.____ .'
 
-[![Travis-CI](https://travis-ci.org/tanghaibao/allhic.svg?branch=master)](https://travis-ci.org/tanghaibao/allhic)
+[![Github
+Actions](https://github.com/tanghaibao/allhic/workflows/build/badge.svg)](https://github.com/tanghaibao/allhic/actions)
 
 |         |                                                               |
 | ------- | ------------------------------------------------------------- |
@@ -18,7 +19,11 @@
 
 ## Introduction
 
-This program can be used to scaffold genomic contigs based on Hi-C data, which is particularly effectively for auto-polyploid genomes. **We currently recommend using this program in a scripted pipeline, as detailed [here](https://github.com/tangerzhang/ALLHiC/wiki).**
+**We currently recommend only using this program in a scripted pipeline, as detailed
+[here](https://github.com/tangerzhang/ALLHiC/wiki).**
+
+ALLHiC can be used to scaffold genomic contigs based on Hi-C data, which is
+particularly effectively for auto-polyploid or heterozygous diploid genomes.
 
 ## Installation
 
