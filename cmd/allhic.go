@@ -60,12 +60,12 @@ func main() {
 	app.Version = allhic.Version
 
 	extractFlags := []cli.Flag{
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "RE",
 			Usage: "Restriction site pattern",
 			Value: "GATC",
 		},
-		cli.IntFlag{
+		&cli.IntFlag{
 			Name:  "minLinks",
 			Usage: "Minimum number of links for any contig pair",
 			Value: 3,
@@ -73,17 +73,17 @@ func main() {
 	}
 
 	partitionFlags := []cli.Flag{
-		cli.IntFlag{
+		&cli.IntFlag{
 			Name:  "minREs",
 			Usage: "Minimum number of RE sites in a contig to be clustered (CLUSTER_MIN_RE_SITES in LACHESIS)",
 			Value: allhic.MinREs,
 		},
-		cli.IntFlag{
+		&cli.IntFlag{
 			Name:  "maxLinkDensity",
 			Usage: "Density threshold before marking contig as repetive (CLUSTER_MAX_LINK_DENSITY in LACHESIS)",
 			Value: allhic.MaxLinkDensity,
 		},
-		cli.IntFlag{
+		&cli.IntFlag{
 			Name:  "nonInformativeRatio",
 			Usage: "cutoff for recovering skipped contigs back into the clusters (CLUSTER_NONINFORMATIVE_RATIO in LACHESIS)",
 			Value: allhic.NonInformativeRatio,
@@ -91,37 +91,37 @@ func main() {
 	}
 
 	optimizeFlags := []cli.Flag{
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "skipGA",
 			Usage: "Skip GA step",
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "resume",
 			Usage: "Resume from existing tour file",
 		},
-		cli.Int64Flag{
+		&cli.Int64Flag{
 			Name:  "seed",
 			Usage: "Random seed",
 			Value: 42,
 		},
-		cli.IntFlag{
+		&cli.IntFlag{
 			Name:  "npop",
 			Usage: "Population size",
 			Value: 100,
 		},
-		cli.IntFlag{
+		&cli.IntFlag{
 			Name:  "ngen",
 			Usage: "Number of generations for convergence",
 			Value: 5000,
 		},
-		cli.Float64Flag{
+		&cli.Float64Flag{
 			Name:  "mutpb",
 			Usage: "Mutation prob in GA",
 			Value: .2,
 		},
 	}
 
-	app.Commands = []cli.Command{
+	app.Commands = []*cli.Command{
 		{
 			Name:  "extract",
 			Usage: "Extract Hi-C link size distribution",
