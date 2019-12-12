@@ -25,7 +25,7 @@ import (
 
 const (
 	// Version is the current version of ALLHIC
-	Version = "0.9.12"
+	Version = "0.9.13"
 	// LB is lower bound for GoldenArray
 	LB = 18
 	// UB is upper bound for GoldenArray
@@ -47,6 +47,12 @@ const (
 	// MinLinkDist is the minimum link distance we care about
 	MinLinkDist = 1 << 11
 
+	/* extract */
+	// DefaultRE is the default restriction site used
+	DefaultRE = "GATC"
+	// MinLinks is the minimum number of links between contig pair to consider
+	MinLinks = 3
+
 	// MaxLinkDist is the maximum link distance we care about
 	MaxLinkDist = 1 << 27
 	// BigNorm is a big integer multiplier so we don't have to mess with float64
@@ -58,8 +64,17 @@ const (
 	// LinkDist specifies to maximum size of the links going over a certain position
 	LinkDist = int64(1000000)
 
-	// *** The following parameters are modeled after LACHESIS ***
+	/* optimize */
+	// Seed is the random seed
+	Seed = 42
+	// Npop is the population size used in GA
+	Npop = 100
+	// Ngen is the number of generations for convergence
+	Ngen = 5000
+	// MutaProb is the mutation probability in GA
+	MutaProb = 0.2
 
+	// *** The following parameters are modeled after LACHESIS ***
 	// MinREs is the minimum number of RE sites in a contig to be clustered (CLUSTER_MIN_RE_SITES)
 	MinREs = 10
 
