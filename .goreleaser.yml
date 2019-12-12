@@ -1,7 +1,7 @@
 # .goreleaser.yml
 # Build customization
 builds:
-  - main: cmd/allhic.go
+  - main: cmd/main.go
     binary: allhic
     hooks:
       pre: packr
