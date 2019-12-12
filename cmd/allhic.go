@@ -126,7 +126,7 @@ func main() {
 			Name:  "extract",
 			Usage: "Extract Hi-C link size distribution",
 			UsageText: `
-	allhic extract bamfile fastafile [options]
+	allhic extract [options] bamfile fastafile
 
 Extract function:
 Given a bamfile, the goal of the extract step is to calculate an empirical
@@ -144,6 +144,7 @@ also prepares for the latter steps of ALLHIC.
 				fastafile := c.Args().Get(1)
 				RE := c.String("RE")
 				minLinks := c.Int("minLinks")
+				log.Debugf("RE=%s minLinks=%d", RE, minLinks)
 
 				p := allhic.Extracter{Bamfile: bamfile, Fastafile: fastafile, RE: RE, MinLinks: minLinks}
 				p.Run()
@@ -154,7 +155,7 @@ also prepares for the latter steps of ALLHIC.
 			Name:  "alleles",
 			Usage: "Build alleles.table for `prune`",
 			UsageText: `
-	allhic alleles genome.paf genome.counts_RE.txt
+	allhic alleles [options] genome.paf genome.counts_RE.txt
 
 Alleles function:
 Given a paf file, we could identify and classify the allelic contigs to be used
@@ -182,7 +183,7 @@ ALLHiC generates "alleles.table", which can then be used for later steps.
 			Name:  "prune",
 			Usage: "Prune allelic, cross-allelic and weak links",
 			UsageText: `
-	allhic prune alleles.table pairs.txt [options]
+	allhic prune [options] alleles.table pairs.txt
 
 Prune function:
 Given contig pairing, the goal of the prune step is to remove all inter-allelic
@@ -222,7 +223,7 @@ tig00030660,PRIMARY -> tig00003333,HAPLOTIG
 			Name:  "partition",
 			Usage: "Separate contigs into k groups",
 			UsageText: `
-	allhic partition counts_RE.txt pairs.txt k [options]
+	allhic partition [options] counts_RE.txt pairs.txt k
 
 Partition function:
 Given a target k, number of partitions, the goal of the partitioning is to
@@ -255,7 +256,7 @@ can be generated with the "extract" sub-command.
 			Name:  "optimize",
 			Usage: "Order-and-orient tigs in a group",
 			UsageText: `
-	allhic optimize counts_RE.txt clmfile [options]
+	allhic optimize [options] counts_RE.txt clmfile
 
 Optimize function:
 Given a set of Hi-C contacts between contigs, as specified in the
@@ -292,7 +293,7 @@ on a cluster).
 			Name:  "build",
 			Usage: "Build genome release",
 			UsageText: `
-	allhic build tourfile1 tourfile2 ... contigs.fasta asm.chr.fasta  [options]
+	allhic build [options] tourfile1 tourfile2 ... contigs.fasta asm.chr.fasta
 
 Build function:
 Convert the tourfile into the standard AGP file, which is then converted
@@ -324,7 +325,7 @@ into a FASTA genome release.
 			Name:  "plot",
 			Usage: "Extract matrix of link counts and plot heatmap",
 			UsageText: `
-	allhic anchor bamfile tourfile [options]
+	allhic anchor [options] bamfile tourfile
 
 Anchor function:
 Given a bamfile, we extract matrix of link counts and plot heatmap.
@@ -348,7 +349,7 @@ Given a bamfile, we extract matrix of link counts and plot heatmap.
 			Name:  "assess",
 			Usage: "Assess the orientations of contigs",
 			UsageText: `
-	allhic assess bamfile bedfile chr1
+	allhic assess [options] bamfile bedfile chr1
 
 Assess function:
 Compute the posterior probability of contig orientations after scaffolding
@@ -372,7 +373,7 @@ as a quality assessment step.
 			Name:  "pipeline",
 			Usage: "Run extract-partition-optimize-build steps sequentially",
 			UsageText: `
-	allhic pipeline bamfile fastafile k [options]
+	allhic pipeline [options] bamfile fastafile k
 
 Pipeline:
 A convenience driver function. Chain the following steps sequentially.
