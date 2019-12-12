@@ -28,7 +28,7 @@ jobs:
           fi
 
       - name: Build
-        run: go build -o allhic -v cmd/allhic.go
+        run: go build -o allhic -v cmd/main.go
 
       - name: Unit testing
         run: go test -v
