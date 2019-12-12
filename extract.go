@@ -206,7 +206,7 @@ func MakePattern(s string) Pattern {
 	}
 	rePattern := regexp.MustCompile(rePatternStr)
 	if isRegex {
-		log.Debugf("Compile '%s' => '%s'", s, rePatternStr)
+		log.Noticef("Compile '%s' => '%s'", s, rePatternStr)
 	}
 	return Pattern{
 		pattern:   []byte(s),

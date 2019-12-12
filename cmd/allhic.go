@@ -131,7 +131,7 @@ func main() {
 Extract function:
 Given a bamfile, the goal of the extract step is to calculate an empirical
 distribution of Hi-C link size based on intra-contig links. The Extract function
-also prepares for the latter steps of ALLHIC.
+also prepares for the latter steps of ALLHiC.
 `,
 			Flags: extractFlags,
 			Action: func(c *cli.Context) error {
@@ -144,7 +144,7 @@ also prepares for the latter steps of ALLHIC.
 				fastafile := c.Args().Get(1)
 				RE := c.String("RE")
 				minLinks := c.Int("minLinks")
-				log.Debugf("RE=%s minLinks=%d", RE, minLinks)
+				log.Noticef("RE=%s minLinks=%d", RE, minLinks)
 
 				p := allhic.Extracter{Bamfile: bamfile, Fastafile: fastafile, RE: RE, MinLinks: minLinks}
 				p.Run()
