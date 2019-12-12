@@ -16,6 +16,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -67,6 +68,13 @@ type ContigPair struct {
 	nObservedLinks int
 	nExpectedLinks float64
 	label          string // allelic/cross-allelic/ok
+}
+
+// Pattern is a string pattern that is either simple or a regex
+type Pattern struct {
+	pattern   []byte
+	rePattern *regexp.Regexp
+	isRegex   bool
 }
 
 // String outputs the string representation of ContigInfo
@@ -177,9 +185,50 @@ func writeRE(outfile string, contigs []*ContigInfo) {
 		len(contigs), totalCounts, totalBp/int64(totalCounts), outfile)
 }
 
+// MakePattern builds a regex-aware pattern that could be passed around and counted
+// Multiple patterns will be split at comma (,) and N is converted to [ACGT]
+func MakePattern(s string) Pattern {
+	rePatternStr := s
+	isRegex := false
+	if strings.Contains(s, ",") {
+		rePatternStr = ""
+		for i, pattern := range strings.Split(s, ",") {
+			if i != 0 {
+				rePatternStr += "|"
+			}
+			rePatternStr += fmt.Sprintf("(%s)", pattern)
+		}
+		isRegex = true
+	}
+	if strings.Contains(s, "N") {
+		rePatternStr = strings.ReplaceAll(rePatternStr, "N", "[ACGT]")
+		isRegex = true
+	}
+	rePattern := regexp.MustCompile(rePatternStr)
+	if isRegex {
+		log.Debugf("Compile '%s' => '%s'", s, rePatternStr)
+	}
+	return Pattern{
+		pattern:   []byte(s),
+		rePattern: rePattern,
+		isRegex:   isRegex,
+	}
+}
+
+// CountPattern count how many times a pattern occurs in seq
+func CountPattern(seq []byte, pattern Pattern) int {
+	if pattern.isRegex {
+		if all := pattern.rePattern.FindAllIndex(seq, -1); all != nil {
+			return len(all)
+		}
+		return 0
+	}
+	return bytes.Count(seq, pattern.pattern)
+}
+
 // readFastaAndWriteRE writes out the number of restriction fragments, one per line
 func (r *Extracter) readFastaAndWriteRE() {
-	outfile := RemoveExt(r.Bamfile) + ".counts_" + r.RE + ".txt"
+	outfile := RemoveExt(r.Bamfile) + ".counts_" + strings.ReplaceAll(r.RE, ",", "_") + ".txt"
 	r.OutContigsfile = outfile
 	mustExist(r.Fastafile)
 	reader, _ := fastx.NewDefaultReader(r.Fastafile)
@@ -189,6 +238,7 @@ func (r *Extracter) readFastaAndWriteRE() {
 	r.contigToIdx = map[string]int{}
 	totalCounts := 0
 	totalBp := int64(0)
+	pattern := MakePattern(r.RE)
 
 	for {
 		rec, err := reader.Read()
@@ -199,8 +249,8 @@ func (r *Extracter) readFastaAndWriteRE() {
 		name := string(rec.Name)
 		// Strip the sequence name to get the first part up to empty space
 		name = strings.Fields(name)[0]
-		// Add pseudocount of 1 to prevent division by zero
-		count := bytes.Count(rec.Seq.Seq, []byte(r.RE)) + 1
+		// Add pseudo-count of 1 to prevent division by zero
+		count := CountPattern(rec.Seq.Seq, pattern) + 1
 		length := rec.Seq.Length()
 		totalCounts += count
 		totalBp += int64(length)

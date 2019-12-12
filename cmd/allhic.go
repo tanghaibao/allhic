@@ -55,14 +55,14 @@ func main() {
 	app := cli.NewApp()
 	app.Compiled = time.Now()
 	app.Copyright = "(c) Haibao Tang, Xingtan Zhang 2017-2019"
-	app.Name = "ALLHIC"
+	app.Name = "ALLHiC"
 	app.Usage = "Genome scaffolding based on Hi-C data"
 	app.Version = allhic.Version
 
 	extractFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:  "RE",
-			Usage: "Restriction site pattern",
+			Usage: "Restriction site pattern, use comma to separate multiple patterns (N is considered as [ACGT]), e.g. 'GATCGATC,GANTGATC,GANTANTC,GATCANTC'",
 			Value: "GATC",
 		},
 		&cli.IntFlag{
