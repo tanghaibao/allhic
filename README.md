@@ -9,6 +9,7 @@
 
 [![Github
 Actions](https://github.com/tanghaibao/allhic/workflows/build/badge.svg)](https://github.com/tanghaibao/allhic/actions)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftanghaibao%2Fallhic.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftanghaibao%2Fallhic?ref=badge_shield)
 
 |         |                                                               |
 | ------- | ------------------------------------------------------------- |
@@ -141,3 +142,7 @@ Please see detailed steps in a scripted pipeline [here](https://github.com/tange
 Xingtan Zhang, Shengcheng Zhang, Qian Zhao, Ray Ming & Haibao Tang. Assembly of
 allele-aware, chromosomal-scale autopolyploid genomes based on Hi-C data. (2019) _Nature
 Plants._ [link](https://www.nature.com/articles/s41477-019-0487-8)
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftanghaibao%2Fallhic.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftanghaibao%2Fallhic?ref=badge_large)
