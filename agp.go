@@ -53,12 +53,6 @@ type AGP struct {
 	lines []AGPLine
 }
 
-// NewAGP is the constructor for AGP
-func NewAGP() *AGP {
-	p := new(AGP)
-	return p
-}
-
 // Add adds an AGPLine to the collection
 func (r *AGP) Add(row string) {
 	words := strings.Fields(row)
@@ -85,7 +79,7 @@ func (r *AGP) Add(row string) {
 
 // buildFasta builds target FASTA based on info from agpfile
 func buildFasta(agpfile string, seqs map[string]*seq.Seq) error {
-	agp := NewAGP()
+	agp := new(AGP)
 	file, err := os.Open(agpfile)
 	if err != nil {
 		return err
