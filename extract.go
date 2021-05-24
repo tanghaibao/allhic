@@ -154,7 +154,7 @@ func (r *Extracter) Run() {
 // makeModel computes the norms and bins separately to derive an empirical link size
 // distribution, then power law is inferred for extrapolating higher values
 func (r *Extracter) makeModel(outfile string) {
-	contigSizes := []int{}
+	contigSizes := make([]int, 0)
 	for _, contig := range r.contigs {
 		contigSizes = append(contigSizes, contig.length)
 	}
@@ -171,18 +171,18 @@ func writeRE(outfile string, contigs []*ContigInfo) {
 	f, err := os.Create(outfile)
 	ErrorAbort(err)
 	w := bufio.NewWriter(f)
-	defer f.Close()
 	totalCounts := 0
 	totalBp := int64(0)
-	fmt.Fprintf(w, REHeader)
+	_, _ = fmt.Fprintf(w, REHeader)
 	for _, contig := range contigs {
 		totalCounts += contig.recounts
 		totalBp += int64(contig.length)
-		fmt.Fprintf(w, "%s\n", contig)
+		_, _ = fmt.Fprintf(w, "%s\n", contig)
 	}
-	w.Flush()
+	_ = w.Flush()
 	log.Noticef("RE counts in %d contigs (total: %d, avg 1 per %d bp) written to `%s`",
 		len(contigs), totalCounts, totalBp/int64(totalCounts), outfile)
+	_ = f.Close()
 }
 
 // MakePattern builds a regex-aware pattern that could be passed around and counted
@@ -242,7 +242,7 @@ func (r *Extracter) readFastaAndWriteRE() {
 
 	for {
 		rec, err := reader.Read()
-		if err == io.EOF {
+		if err == io.EOF || rec == nil {
 			break
 		}
 
@@ -272,7 +272,7 @@ func (r *Extracter) calcIntraContigs() {
 		L := contig.length
 		links := contig.links
 		nObservedLinks := len(links)
-		nExpectedLinks := r.findExpectedIntraContigLinks(L, links)
+		nExpectedLinks := r.findExpectedIntraContigLinks(L)
 		contig.nExpectedLinks = sumf(nExpectedLinks)
 		contig.nObservedLinks = nObservedLinks
 	}
@@ -308,10 +308,10 @@ func (r *Extracter) calcInterContigs() {
 	r.OutPairsfile = outfile
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
-	defer f.Close()
-	fmt.Fprintf(w, PairsFileHeader)
+	_ = f.Close()
+	_, _ = fmt.Fprintf(w, PairsFileHeader)
 
-	allPairs := []*ContigPair{}
+	allPairs := make([]*ContigPair, 0)
 	for _, c := range contigPairs {
 		allPairs = append(allPairs, c)
 	}
@@ -323,14 +323,14 @@ func (r *Extracter) calcInterContigs() {
 		if c.nObservedLinks < r.MinLinks {
 			continue
 		}
-		fmt.Fprintln(w, c)
+		_, _ = fmt.Fprintln(w, c)
 	}
-	w.Flush()
+	_ = w.Flush()
 	log.Noticef("Contig pair analyses written to `%s`", outfile)
 }
 
 // findExpectedIntraContigLinks calculates the expected number of links within a contig
-func (r *Extracter) findExpectedIntraContigLinks(L int, links []int) []float64 {
+func (r *Extracter) findExpectedIntraContigLinks(L int) []float64 {
 	nExpectedLinks := make([]float64, nBins)
 	m := r.model
 
@@ -418,7 +418,6 @@ func (r *Extracter) extractContigLinks() {
 		log.Errorf("Cannot open bamfile `%s` (%s)", r.Bamfile, err)
 		os.Exit(0)
 	}
-	defer br.Close()
 
 	fclm, _ := os.Create(clmfile)
 	wclm := bufio.NewWriter(fclm)
@@ -527,12 +526,13 @@ func (r *Extracter) extractContigLinks() {
 			total += nLinks
 			ai, bi := pair[0], pair[1]
 			at, bt := r.contigs[ai].name, r.contigs[bi].name
-			fmt.Fprintf(wclm, "%s%c %s%c\t%d\t%s\n",
+			_, _ = fmt.Fprintf(wclm, "%s%c %s%c\t%d\t%s\n",
 				at, tags[i][0], bt, tags[i][1], nLinks, arrayToString(linksWithDir, " "))
 		}
 	}
 
-	wclm.Flush()
+	_ = wclm.Flush()
 	log.Noticef("Extracted %d inter-contig groups to `%s` (total = %d, maxLinks = %d, minLinks = %d)",
 		len(contigPairs), clmfile, total, maxLinks, r.MinLinks)
+	_ = br.Close()
 }

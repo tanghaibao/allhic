@@ -68,7 +68,7 @@ func (r *Assesser) Run() {
 // makeModel computes the norms and bins separately to derive an empirical link size
 // distribution, then power law is inferred for extrapolating higher values
 func (r *Assesser) makeModel(outfile string) {
-	contigSizes := []int{}
+	contigSizes := make([]int, 0)
 	for _, contig := range r.contigs {
 		contigSizes = append(contigSizes, contig.size)
 	}
@@ -84,16 +84,16 @@ func (r *Assesser) makeModel(outfile string) {
 func (r *Assesser) writePostProb(outfile string) {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
-	defer f.Close()
 
-	fmt.Fprintf(w, PostProbHeader)
+	_, _ = fmt.Fprintf(w, PostProbHeader)
 	for i, contig := range r.contigs {
-		fmt.Fprintf(w, "%s\t%d\t%d\t%s\t%.4f\n",
+		_, _ = fmt.Fprintf(w, "%s\t%d\t%d\t%s\t%.4f\n",
 			contig.seqid, contig.start, contig.end, contig.name, r.postprob[i])
 	}
 
-	w.Flush()
+	_ = w.Flush()
 	log.Noticef("Posterior probability written to `%s`", outfile)
+	_ = f.Close()
 }
 
 // readBed parses the bedfile to extract the start and stop for all the contigs
@@ -141,7 +141,6 @@ func (r *Assesser) extractContigLinks() {
 	fh := mustOpen(r.Bamfile)
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
-	defer br.Close()
 
 	// We need the size of the SeqId to compute expected number of links
 	var s *ContigInfo
@@ -157,7 +156,10 @@ func (r *Assesser) extractContigLinks() {
 			break
 		}
 	}
-
+	if s == nil {
+		log.Fatalf("Seq not found: %f", r.Seqid)
+		return
+	}
 	log.Noticef("Seq `%s` has size %d", s.name, s.length)
 
 	// Import links into pairs of contigs
@@ -229,6 +231,7 @@ func (r *Assesser) extractContigLinks() {
 	}
 	log.Noticef("A total of %d intra-contig and %d inter-contig links imported (%d skipped, too short)",
 		nIntraLinks, nInterLinks, nSkippedTooShort)
+	_ = br.Close()
 }
 
 // ComputeLikelihood computes the likelihood of link sizes assuming + orientation
@@ -245,7 +248,7 @@ func (r *Assesser) computeLikelihood(links []int) float64 {
 	return sumLogP
 }
 
-// posterioProbability calculates the posterior probability given two likelihood
+// posteriorProbability calculates the posterior probability given two likelihood
 func posteriorProbability(L1, L2 float64) float64 {
 	base := L1 // smaller of the two
 	if L1 > L2 {

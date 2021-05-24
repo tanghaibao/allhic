@@ -293,12 +293,12 @@ func getScore(at, bt string, ctgToAlleleGroup map[string][]int, scores map[CtgAl
 				maxScore = maxScoreAlleleGroup
 			}
 		}
-		return maxScore // maximum score among all allele group matchings
+		return maxScore // maximum score among all allele group matching
 	}
 	return -1
 }
 
-// parseAllelesFile() routes parser to eitehr parseAssociationLog() or
+// parseAllelesFile() routes parser to either parseAssociationLog() or
 // parseAllelesTable(), based on the first row of the file
 func parseAllelesFile(filename string) []AlleleGroup {
 	fh := mustOpen(filename)
@@ -307,7 +307,7 @@ func parseAllelesFile(filename string) []AlleleGroup {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fh.Close()
+	_ = fh.Close()
 	if strings.Contains(row, "->") {
 		return parseAssociationLog(filename)
 	}
@@ -315,13 +315,12 @@ func parseAllelesFile(filename string) []AlleleGroup {
 }
 
 // parseAssociationLog imports contig allelic relationship from purge-haplotigs
-// File has the followign format:
+// File has the following format:
 // tig00030660,PRIMARY -> tig00003333,HAPLOTIG
 //                     -> tig00038686,HAPLOTIG
 func parseAssociationLog(associationFile string) []AlleleGroup {
 	log.Noticef("Parse association log `%s`", associationFile)
 	fh := mustOpen(associationFile)
-	defer fh.Close()
 
 	reader := bufio.NewReader(fh)
 	var data []AlleleGroup
@@ -352,6 +351,7 @@ func parseAssociationLog(associationFile string) []AlleleGroup {
 		data = append(data, alleleGroup)
 	}
 
+	_ = fh.Close()
 	return data
 }
 
@@ -362,8 +362,6 @@ func parseAssociationLog(associationFile string) []AlleleGroup {
 func parseAllelesTable(allelesFile string) []AlleleGroup {
 	log.Noticef("Parse alleles table `%s`", allelesFile)
 	fh := mustOpen(allelesFile)
-	defer fh.Close()
-
 	reader := bufio.NewReader(fh)
 
 	var data []AlleleGroup
@@ -385,6 +383,7 @@ func parseAllelesTable(allelesFile string) []AlleleGroup {
 		data = append(data, alleleGroup)
 	}
 
+	_ = fh.Close()
 	return data
 }
 
@@ -392,12 +391,12 @@ func parseAllelesTable(allelesFile string) []AlleleGroup {
 func writePairsFile(pairsFile string, edges []ContigPair) {
 	f, _ := os.Create(pairsFile)
 	w := bufio.NewWriter(f)
-	defer f.Close()
-	fmt.Fprintf(w, PairsFileHeader)
+	_, _ = fmt.Fprintf(w, PairsFileHeader)
 
 	for _, c := range edges {
-		fmt.Fprintln(w, c)
+		_, _ = fmt.Fprintln(w, c)
 	}
-	w.Flush()
+	_ = w.Flush()
 	log.Noticef("Pruned contig pair analyses written to `%s`", pairsFile)
+	_ = f.Close()
 }

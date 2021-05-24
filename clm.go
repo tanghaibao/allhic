@@ -78,7 +78,7 @@ type TigF struct {
 	IsActive bool
 }
 
-// Tig removes some unnessary entries in the TigF
+// Tig removes some unnecessary entries in the TigF
 type Tig struct {
 	Idx  int
 	Size int
@@ -166,10 +166,9 @@ func rr(b byte) byte {
 
 // readClmLines parses the clmfile into a slice of CLMLine
 func readClmLines(clmfile string) []CLMLine {
-	file := mustOpen(clmfile)
 	log.Noticef("Parse clmfile `%s`", clmfile)
+	file := mustOpen(clmfile)
 	reader := bufio.NewReader(file)
-	defer file.Close()
 
 	var lines []CLMLine
 	for {
@@ -200,6 +199,7 @@ func readClmLines(clmfile string) []CLMLine {
 			break
 		}
 	}
+	_ = file.Close()
 	return lines
 }
 
@@ -220,7 +220,6 @@ func (r *CLM) readClm() {
 
 		// Store all these info in contacts
 		gdists := GoldenArray(line.links)
-		// meanDist := Hmean(line.links, GRLB, GRUB)
 		meanDist := SumLog(line.links)
 		strandedness := 1
 		if line.ao != line.bo {

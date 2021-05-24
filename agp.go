@@ -52,12 +52,6 @@ type AGP struct {
 	lines []AGPLine
 }
 
-// NewAGP is the constructor for AGP
-func NewAGP(agpfile string) *AGP {
-	p := new(AGP)
-	return p
-}
-
 // Add adds an AGPLine to the collection
 func (r *AGP) Add(row string) {
 	words := strings.Fields(row)
@@ -67,7 +61,7 @@ func (r *AGP) Add(row string) {
 	line.objectEnd, _ = strconv.Atoi(words[2])
 	line.partNumber, _ = strconv.Atoi(words[3])
 	line.componentType = words[4][0]
-	line.isGap = (line.componentType == 'N' || line.componentType == 'U')
+	line.isGap = line.componentType == 'N' || line.componentType == 'U'
 	if line.isGap {
 		line.gapLength, _ = strconv.Atoi(words[5])
 		line.gapType = words[6]
@@ -84,10 +78,10 @@ func (r *AGP) Add(row string) {
 
 // buildFasta builds target FASTA based on info from agpfile
 func buildFasta(agpfile string, seqs map[string]*seq.Seq) {
-	agp := NewAGP(agpfile)
+	log.Noticef("Parse agpfile `%s`", agpfile)
 	file := mustOpen(agpfile)
 
-	log.Noticef("Parse agpfile `%s`", agpfile)
+	agp := new(AGP)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		agp.Add(scanner.Text())
