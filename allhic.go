@@ -200,7 +200,7 @@ into a FASTA genome release.
 		Args: cobra.MinimumNArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
 
-			tourfiles := []string{}
+			tourfiles := make([]string, 0)
 			for i := 0; i < len(args)-2; i++ {
 				tourfiles = append(tourfiles, args[i])
 			}
@@ -281,7 +281,7 @@ A convenience driver function. Chain the following steps sequentially.
 			partitioner.Run()
 
 			// Optimize the k groups separately
-			tourfiles := []string{}
+			tourfiles := make([]string, 0)
 			for i, refile := range partitioner.OutREfiles {
 				banner(fmt.Sprintf("Optimize group %d", i))
 				optimizer := Optimizer{REfile: refile,

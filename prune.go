@@ -47,14 +47,22 @@ type CtgAlleleGroupPair struct {
 //    keep the best contig pair
 //
 // Pruned edges are then annotated as allelic/cross-allelic/ok
-func (r *Pruner) Run() {
-	r.edges = parseDist(r.PairsFile)
-	r.alleleGroups = parseAllelesFile(r.AllelesFile)
+func (r *Pruner) Run() error {
+	edges, err := parseDist(r.PairsFile)
+	if err != nil {
+		return err
+	}
+	r.edges = edges
+	alleleGroups, err := parseAllelesFile(r.AllelesFile)
+	if err != nil {
+		return err
+	}
+	r.alleleGroups = alleleGroups
 	r.pruneAllelic()
 	r.pruneCrossAllelicBipartiteMatching()
 	// r.pruneCrossAllelic()
 	newPairsFile := RemoveExt(r.PairsFile) + ".prune.txt"
-	writePairsFile(newPairsFile, r.edges)
+	return writePairsFile(newPairsFile, r.edges)
 }
 
 // pruneAllelic removes the allelic contigs given in the allele table
@@ -298,30 +306,38 @@ func getScore(at, bt string, ctgToAlleleGroup map[string][]int, scores map[CtgAl
 	return -1
 }
 
-// parseAllelesFile() routes parser to eitehr parseAssociationLog() or
+// parseAllelesFile() routes parser to either parseAssociationLog() or
 // parseAllelesTable(), based on the first row of the file
-func parseAllelesFile(filename string) []AlleleGroup {
-	fh := mustOpen(filename)
+func parseAllelesFile(filename string) ([]AlleleGroup, error) {
+	fh, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
 	reader := bufio.NewReader(fh)
 	row, err := reader.ReadString('\n')
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	fh.Close()
 	if strings.Contains(row, "->") {
 		return parseAssociationLog(filename)
+	}
+	err = fh.Close()
+	if err != nil {
+		return nil, err
 	}
 	return parseAllelesTable(filename)
 }
 
 // parseAssociationLog imports contig allelic relationship from purge-haplotigs
-// File has the followign format:
+// File has the following format:
 // tig00030660,PRIMARY -> tig00003333,HAPLOTIG
 //                     -> tig00038686,HAPLOTIG
-func parseAssociationLog(associationFile string) []AlleleGroup {
+func parseAssociationLog(associationFile string) ([]AlleleGroup, error) {
 	log.Noticef("Parse association log `%s`", associationFile)
-	fh := mustOpen(associationFile)
-	defer fh.Close()
+	fh, err := os.Open(associationFile)
+	if err != nil {
+		return nil, err
+	}
 
 	reader := bufio.NewReader(fh)
 	var data []AlleleGroup
@@ -337,7 +353,7 @@ func parseAssociationLog(associationFile string) []AlleleGroup {
 			continue
 		}
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		words := strings.Split(row, " ")
 		if len(words) == 3 {
@@ -346,23 +362,26 @@ func parseAssociationLog(associationFile string) []AlleleGroup {
 		} else if len(words) == 2 {
 			haplotig = strings.Split(words[1], ",")[0]
 		} else {
-			log.Fatalf("Malformed line: %s, expecting 2 or 3 words", row)
+			return nil, fmt.Errorf("malformed line: %s, expecting 2 or 3 words", row)
 		}
 		alleleGroup := AlleleGroup{primary, haplotig}
 		data = append(data, alleleGroup)
 	}
 
-	return data
+	err = fh.Close()
+	return data, err
 }
 
 // parseAllelesTable imports the contig allelic relationship
 // File is a tab-separated file that looks like the following:
 // Chr10   18902   tig00030660     tig00003333
 // Chr10   35071   tig00038687     tig00038686     tig00065419
-func parseAllelesTable(allelesFile string) []AlleleGroup {
+func parseAllelesTable(allelesFile string) ([]AlleleGroup, error) {
 	log.Noticef("Parse alleles table `%s`", allelesFile)
-	fh := mustOpen(allelesFile)
-	defer fh.Close()
+	fh, err := os.Open(allelesFile)
+	if err != nil {
+		return nil, err
+	}
 
 	reader := bufio.NewReader(fh)
 
@@ -374,7 +393,7 @@ func parseAllelesTable(allelesFile string) []AlleleGroup {
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		words := strings.Split(row, "\t")
 		if len(words) <= 3 { // Must have at least 4 fields, i.e. 1 pair
@@ -385,19 +404,29 @@ func parseAllelesTable(allelesFile string) []AlleleGroup {
 		data = append(data, alleleGroup)
 	}
 
-	return data
+	err = fh.Close()
+	return data, err
 }
 
 // writePairsFile simply writes pruned contig pairs to file
-func writePairsFile(pairsFile string, edges []ContigPair) {
+func writePairsFile(pairsFile string, edges []ContigPair) error {
 	f, _ := os.Create(pairsFile)
 	w := bufio.NewWriter(f)
-	defer f.Close()
-	fmt.Fprintf(w, PairsFileHeader)
+	_, err := fmt.Fprintf(w, PairsFileHeader)
+	if err != nil {
+		return err
+	}
 
 	for _, c := range edges {
-		fmt.Fprintln(w, c)
+		_, err = fmt.Fprintln(w, c)
+		if err != nil {
+			return err
+		}
 	}
-	w.Flush()
+	err = w.Flush()
+	if err != nil {
+		return err
+	}
 	log.Noticef("Pruned contig pair analyses written to `%s`", pairsFile)
+	return f.Close()
 }

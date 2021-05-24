@@ -56,19 +56,32 @@ type BedLine struct {
 }
 
 // Run calls the Assessor
-func (r *Assesser) Run() {
-	r.readBed()
-	r.extractContigLinks()
-	r.makeModel(r.Seqid + ".distribution.txt")
+func (r *Assesser) Run() error {
+	err := r.readBed()
+	if err != nil {
+		return err
+	}
+	err = r.extractContigLinks()
+	if err != nil {
+		return err
+	}
+	err = r.makeModel(r.Seqid + ".distribution.txt")
+	if err != nil {
+		return err
+	}
 	r.computePosteriorProb()
-	r.writePostProb(r.Seqid + ".postprob.txt")
+	err = r.writePostProb(r.Seqid + ".postprob.txt")
+	if err != nil {
+		return err
+	}
 	log.Notice("Success")
+	return nil
 }
 
 // makeModel computes the norms and bins separately to derive an empirical link size
 // distribution, then power law is inferred for extrapolating higher values
-func (r *Assesser) makeModel(outfile string) {
-	contigSizes := []int{}
+func (r *Assesser) makeModel(outfile string) error {
+	contigSizes := make([]int, 0)
 	for _, contig := range r.contigs {
 		contigSizes = append(contigSizes, contig.size)
 	}
@@ -76,29 +89,45 @@ func (r *Assesser) makeModel(outfile string) {
 	m.makeBins()
 	m.makeNorms(contigSizes)
 	m.countBinDensities([]*ContigInfo{r.seq})
-	m.writeDistribution(outfile)
+	err := m.writeDistribution(outfile)
+	if err != nil {
+		return err
+	}
 	r.model = m
+	return nil
 }
 
 // writePostProb writes the final posterior probability to file
-func (r *Assesser) writePostProb(outfile string) {
+func (r *Assesser) writePostProb(outfile string) error {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
-	defer f.Close()
 
-	fmt.Fprintf(w, PostProbHeader)
+	_, err := fmt.Fprintf(w, PostProbHeader)
+	if err != nil {
+		return err
+	}
 	for i, contig := range r.contigs {
-		fmt.Fprintf(w, "%s\t%d\t%d\t%s\t%.4f\n",
+		_, err = fmt.Fprintf(w, "%s\t%d\t%d\t%s\t%.4f\n",
 			contig.seqid, contig.start, contig.end, contig.name, r.postprob[i])
+		if err != nil {
+			return err
+		}
 	}
 
-	w.Flush()
+	err = w.Flush()
+	if err != nil {
+		return err
+	}
 	log.Noticef("Posterior probability written to `%s`", outfile)
+	return f.Close()
 }
 
 // readBed parses the bedfile to extract the start and stop for all the contigs
-func (r *Assesser) readBed() {
-	fh := mustOpen(r.Bedfile)
+func (r *Assesser) readBed() error {
+	fh, err := os.Open(r.Bedfile)
+	if err != nil {
+		return err
+	}
 	log.Noticef("Parse bedfile `%s`", r.Bedfile)
 	reader := bufio.NewReader(fh)
 
@@ -129,6 +158,7 @@ func (r *Assesser) readBed() {
 		return r.contigs[i].start < r.contigs[j].start
 	})
 	log.Noticef("A total of %d contigs imported", len(r.contigs))
+	return nil
 }
 
 // checkInRange checks if a point position is within range
@@ -137,11 +167,13 @@ func checkInRange(pos, start, end int) bool {
 }
 
 // extractContigLinks builds the probability distribution of link sizes
-func (r *Assesser) extractContigLinks() {
-	fh := mustOpen(r.Bamfile)
+func (r *Assesser) extractContigLinks() error {
+	fh, err := os.Open(r.Bamfile)
+	if err != nil {
+		return err
+	}
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
-	defer br.Close()
 
 	// We need the size of the SeqId to compute expected number of links
 	var s *ContigInfo
@@ -156,6 +188,10 @@ func (r *Assesser) extractContigLinks() {
 			r.seq = s
 			break
 		}
+	}
+
+	if s == nil {
+		return fmt.Errorf("failed to locate %v", r.Seqid)
 	}
 
 	log.Noticef("Seq `%s` has size %d", s.name, s.length)
@@ -229,6 +265,7 @@ func (r *Assesser) extractContigLinks() {
 	}
 	log.Noticef("A total of %d intra-contig and %d inter-contig links imported (%d skipped, too short)",
 		nIntraLinks, nInterLinks, nSkippedTooShort)
+	return br.Close()
 }
 
 // ComputeLikelihood computes the likelihood of link sizes assuming + orientation

@@ -142,22 +142,6 @@ func (r Tour) Evaluate() (float64, error) {
 	return score, nil
 }
 
-// Sample k unique integers in range [min, max) using reservoir sampling,
-// specifically Vitter's Algorithm R. From eaopt.
-func randomInts(k, min, max int, rng *rand.Rand) (ints []int) {
-	ints = make([]int, k)
-	for i := 0; i < k; i++ {
-		ints[i] = i + min
-	}
-	for i := k; i < max-min; i++ {
-		var j = rng.Intn(i + 1)
-		if j < k {
-			ints[j] = i + min
-		}
-	}
-	return
-}
-
 // randomTwoInts is a faster version than randomInts above
 func randomTwoInts(genome eaopt.Slice, rng *rand.Rand) (int, int) {
 	n := genome.Len()
@@ -248,8 +232,7 @@ func (r Tour) Mutate(rng *rand.Rand) {
 }
 
 // Crossover a Tour with another Tour by using Partially Mixed Crossover (PMX).
-func (r Tour) Crossover(q eaopt.Genome, rng *rand.Rand) {
-	//eaopt.CrossPMX(r, q.(Tour), rng)
+func (r Tour) Crossover(_ eaopt.Genome, _ *rand.Rand) {
 }
 
 // Clone a Tour
@@ -272,7 +255,7 @@ func (r Tour) Shuffle(rng *rand.Rand) {
 }
 
 // GARun set up the Genetic Algorithm and run it
-func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
+func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) (Tour, error) {
 	MakeTour := func(rng *rand.Rand) eaopt.Genome {
 		c := r.Tour.Clone()
 		return c
@@ -325,8 +308,7 @@ func (r *CLM) GARun(fwtour *os.File, opt *Optimizer, phase int) Tour {
 	log.Noticef("GA initialized (npop: %v, ngen: %v, mu: %.2f, rng: %d, break: %d)",
 		opt.NPop, opt.NGen, opt.MutProb, opt.Seed, LIMIT)
 
-	ga.Minimize(MakeTour)
-
+	err = ga.Minimize(MakeTour)
 	r.Tour = ga.HallOfFame[0].Genome.(Tour)
-	return r.Tour
+	return r.Tour, err
 }

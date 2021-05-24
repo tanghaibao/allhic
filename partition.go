@@ -36,25 +36,31 @@ type Partitioner struct {
 }
 
 // Run is the main function body of partition
-func (r *Partitioner) Run() {
-	r.readRE()
+func (r *Partitioner) Run() error {
+	err := r.readRE()
+	if err != nil {
+		return err
+	}
 	r.skipContigsWithFewREs()
-	// if r.K == 1 {
-	// 	r.makeTrivialClusters()
-	// } else {
-	r.makeMatrix()
+	err = r.makeMatrix()
+	if err != nil {
+		return err
+	}
 	r.skipRepeats()
 	r.Cluster()
-	// }
-	r.printClusters()
-	r.splitRE()
+	err = r.printClusters()
+	if err != nil {
+		return err
+	}
+	err = r.splitRE()
 	log.Notice("Success")
+	return err
 }
 
 // makeTrivialClusters make a single cluster containing all contigs
 // except the really short ones
 func (r *Partitioner) makeTrivialClusters() {
-	contigs := []int{}
+	contigs := make([]int, 0)
 	for i, contig := range r.contigs {
 		if contig.skip {
 			continue
@@ -151,8 +157,11 @@ func (r *Partitioner) skipRepeats() {
 }
 
 // makeMatrix creates an adjacency matrix containing normalized score
-func (r *Partitioner) makeMatrix() {
-	edges := parseDist(r.PairsFile)
+func (r *Partitioner) makeMatrix() error {
+	edges, err := parseDist(r.PairsFile)
+	if err != nil {
+		return err
+	}
 	N := len(r.contigs)
 	M := Make2DSliceInt64(N, N)
 	longestSquared := int64(r.longestRE) * int64(r.longestRE)
@@ -171,12 +180,16 @@ func (r *Partitioner) makeMatrix() {
 		M[b][a] = w
 	}
 	r.matrix = M
+	return nil
 }
 
 // readRE reads in a three-column tab-separated file
 // #Contig    REcounts    Length
-func (r *Partitioner) readRE() {
-	recs := ReadCSVLines(r.Contigsfile)
+func (r *Partitioner) readRE() error {
+	recs, err := ReadCSVLines(r.Contigsfile)
+	if err != nil {
+		return err
+	}
 	r.longestRE = 0
 	for _, rec := range recs {
 		name := rec[0]
@@ -198,20 +211,25 @@ func (r *Partitioner) readRE() {
 	}
 	log.Noticef("Loaded %d contig RE lengths for normalization from `%s`",
 		len(r.contigs), r.Contigsfile)
+	return nil
 }
 
 // splitRE reads in a three-column tab-separated file
 // #Contig    REcounts    Length
-func (r *Partitioner) splitRE() {
+func (r *Partitioner) splitRE() error {
 	for j, cl := range r.clusters {
-		contigs := []*ContigInfo{}
+		contigs := make([]*ContigInfo, 0)
 		for _, idx := range cl {
 			contigs = append(contigs, r.contigs[idx])
 		}
 		outfile := fmt.Sprintf("%s.%dg%d.txt", RemoveExt(r.Contigsfile), r.K, j+1)
-		writeRE(outfile, contigs)
+		err := writeRE(outfile, contigs)
+		if err != nil {
+			return err
+		}
 		r.OutREfiles = append(r.OutREfiles, outfile)
 	}
+	return nil
 }
 
 // parseDist imports the edges of the contig into a slice of ContigPair
@@ -219,9 +237,12 @@ func (r *Partitioner) splitRE() {
 // #X      Y       Contig1 Contig2 RE1     RE2     ObservedLinks   ExpectedLinksIfAdjacent
 // 1       44      idcChr1.ctg24   idcChr1.ctg51   6612    1793    12      121.7
 // 1       70      idcChr1.ctg24   idcChr1.ctg52   6612    686     2       59.3
-func parseDist(pairsFile string) []ContigPair {
+func parseDist(pairsFile string) ([]ContigPair, error) {
 	var edges []ContigPair
-	recs := ReadCSVLines(pairsFile)
+	recs, err := ReadCSVLines(pairsFile)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, rec := range recs {
 		ai, _ := strconv.Atoi(rec[0])
@@ -249,5 +270,5 @@ func parseDist(pairsFile string) []ContigPair {
 		edges = append(edges, cp)
 	}
 
-	return edges
+	return edges, nil
 }

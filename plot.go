@@ -23,28 +23,46 @@ type Plotter struct {
 }
 
 // Run starts the plotting
-func (r *Plotter) Run() {
+func (r *Plotter) Run() error {
 	m := r.Anchor
-	m.ExtractInterContigLinks()
+	err := m.ExtractInterContigLinks()
+	if err != nil {
+		return err
+	}
 	m.parseTourFile(m.Tourfile)
-	m.printTour(os.Stdout, "PLOTTER")
+	err = m.printTour(os.Stdout, "PLOTTER")
+	if err != nil {
+		return err
+	}
 	// Serialize to disk for plotting
 	m.makeContigStarts()
-	m.serialize(250000, "genome.json", "data.npy")
-	r.host()
+	err = m.serialize(250000, "genome.json", "data.npy")
+	if err != nil {
+		return err
+	}
+	err = r.host()
+	if err != nil {
+		return err
+	}
 
-	// printPaths(paths)
 	log.Notice("Success")
+	return nil
 }
 
 // Host plot.html
-func (r *Plotter) host() {
+func (r *Plotter) host() error {
 	box := packr.NewBox("./templates")
 	port := 3000
 	f, _ := os.Create("index.html")
-	defer f.Close()
-	f.WriteString(box.String("index.html"))
-	f.Sync()
+	s, _ := box.FindString("index.html")
+	_, err := f.WriteString(s)
+	if err != nil {
+		return err
+	}
+	err = f.Sync()
+	if err != nil {
+		return err
+	}
 
 	http.Handle("/", http.FileServer(http.Dir(".")))
 
@@ -57,4 +75,5 @@ func (r *Plotter) host() {
 			break
 		}
 	}
+	return f.Close()
 }

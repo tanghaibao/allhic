@@ -11,6 +11,7 @@ package allhic
 import (
 	"bufio"
 	"io"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -76,9 +77,12 @@ type PAFFile struct {
 }
 
 // ParseRecords collects all records in memory
-func (r *PAFFile) ParseRecords() {
+func (r *PAFFile) ParseRecords() error {
 	r.Records = []PAFRecord{}
-	fh := mustOpen(r.PafFile)
+	fh, err := os.Open(r.PafFile)
+	if err != nil {
+		return err
+	}
 
 	log.Noticef("Parse paffile `%s`", r.PafFile)
 	reader := bufio.NewReader(fh)
@@ -133,6 +137,7 @@ func (r *PAFFile) ParseRecords() {
 
 		r.Records = append(r.Records, rec)
 	}
+	return nil
 }
 
 // extractAllelicPairs collects Extract allelic pairs
@@ -145,11 +150,18 @@ func (r *Alleler) extractAllelicPairs() {
 }
 
 // Run kicks off the Alleler
-func (r *Alleler) Run() {
+func (r *Alleler) Run() error {
 	r.Paf = PAFFile{PafFile: r.PafFile}
-	r.Paf.ParseRecords()
+	err := r.Paf.ParseRecords()
+	if err != nil {
+		return err
+	}
 	r.ReCounts = RECountsFile{Filename: r.ReFile}
-	r.ReCounts.ParseRecords()
+	err = r.ReCounts.ParseRecords()
+	if err != nil {
+		return err
+	}
 	r.extractAllelicPairs()
 	log.Notice("Success")
+	return nil
 }

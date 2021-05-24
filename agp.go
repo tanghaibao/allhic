@@ -12,6 +12,7 @@ package allhic
 import (
 	"bufio"
 	"bytes"
+	"os"
 	"strconv"
 	"strings"
 
@@ -53,7 +54,7 @@ type AGP struct {
 }
 
 // NewAGP is the constructor for AGP
-func NewAGP(agpfile string) *AGP {
+func NewAGP() *AGP {
 	p := new(AGP)
 	return p
 }
@@ -67,7 +68,7 @@ func (r *AGP) Add(row string) {
 	line.objectEnd, _ = strconv.Atoi(words[2])
 	line.partNumber, _ = strconv.Atoi(words[3])
 	line.componentType = words[4][0]
-	line.isGap = (line.componentType == 'N' || line.componentType == 'U')
+	line.isGap = line.componentType == 'N' || line.componentType == 'U'
 	if line.isGap {
 		line.gapLength, _ = strconv.Atoi(words[5])
 		line.gapType = words[6]
@@ -83,9 +84,12 @@ func (r *AGP) Add(row string) {
 }
 
 // buildFasta builds target FASTA based on info from agpfile
-func buildFasta(agpfile string, seqs map[string]*seq.Seq) {
-	agp := NewAGP(agpfile)
-	file := mustOpen(agpfile)
+func buildFasta(agpfile string, seqs map[string]*seq.Seq) error {
+	agp := NewAGP()
+	file, err := os.Open(agpfile)
+	if err != nil {
+		return err
+	}
 
 	log.Noticef("Parse agpfile `%s`", agpfile)
 	scanner := bufio.NewScanner(file)
@@ -124,6 +128,7 @@ func buildFasta(agpfile string, seqs map[string]*seq.Seq) {
 	writeRecord(prevObject, buf, outfh)
 	buf.Reset()
 	log.Noticef("Assembly FASTA file `%s` built", outFile)
+	return nil
 }
 
 // writeRecord writes the FASTA record to the file

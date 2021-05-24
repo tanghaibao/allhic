@@ -40,19 +40,28 @@ func NewLinkDensityModel() *LinkDensityModel {
 }
 
 // writeDistribution writes the link size distribution to file
-func (r *LinkDensityModel) writeDistribution(outfile string) {
+func (r *LinkDensityModel) writeDistribution(outfile string) error {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
-	defer f.Close()
 
-	fmt.Fprintf(w, DistributionHeader)
+	_, err := fmt.Fprintf(w, DistributionHeader)
+	if err != nil {
+		return err
+	}
 	for i := 0; i < nBins; i++ {
-		fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%.4g\n",
+		_, err = fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%.4g\n",
 			i, r.binStarts[i], r.BinSize(i), r.nLinks[i], r.binNorms[i], r.linkDensity[i])
+		if err != nil {
+			return err
+		}
 	}
 
-	w.Flush()
+	err = w.Flush()
+	if err != nil {
+		return err
+	}
 	log.Noticef("Link size distribution written to `%s`", outfile)
+	return f.Close()
 }
 
 // linkBin takes a link distance and convert to a binID
@@ -143,8 +152,8 @@ func (r *LinkDensityModel) countBinDensities(contigs []*ContigInfo) {
 		nTopLinks += r.nLinks[topBin]
 	}
 
-	Xs := []int{}
-	Ys := []float64{}
+	Xs := make([]int, 0)
+	Ys := make([]float64, 0)
 	for i := 0; i < topBin; i++ {
 		if r.nLinks[i] == 0 { // This will trigger nan in regression
 			continue

@@ -14,6 +14,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -104,8 +105,11 @@ type RECountsFile struct {
 }
 
 // ParseRecords reads a list of records from REFile
-func (r *RECountsFile) ParseRecords() {
-	recs := ReadCSVLines(r.Filename)
+func (r *RECountsFile) ParseRecords() error {
+	recs, err := ReadCSVLines(r.Filename)
+	if err != nil {
+		return err
+	}
 	for _, rec := range recs {
 		reCounts, _ := strconv.Atoi(rec[1])
 		length, _ := strconv.Atoi(rec[2])
@@ -115,10 +119,11 @@ func (r *RECountsFile) ParseRecords() {
 			Length:   length,
 		})
 	}
+	return nil
 }
 
 // NewCLM is the constructor for CLM
-func NewCLM(Clmfile, REfile string) *CLM {
+func NewCLM(Clmfile, REfile string) (*CLM, error) {
 	p := new(CLM)
 	p.REfile = REfile
 	p.Clmfile = Clmfile
@@ -126,10 +131,12 @@ func NewCLM(Clmfile, REfile string) *CLM {
 	p.contacts = make(map[Pair]Contact)
 	p.orientedContacts = make(map[OrientedPair]GArray)
 
-	p.readRE()
-	p.readClm()
-
-	return p
+	err := p.readRE()
+	if err != nil {
+		return nil, err
+	}
+	err = p.readClm()
+	return p, err
 }
 
 // readRE parses the idsfile into data stored in CLM.
@@ -138,8 +145,11 @@ func NewCLM(Clmfile, REfile string) *CLM {
 // tig00015093     46912
 // tig00035238     46779   recover
 // tig00030900     119291
-func (r *CLM) readRE() {
-	file := mustOpen(r.REfile)
+func (r *CLM) readRE() error {
+	file, err := os.Open(r.REfile)
+	if err != nil {
+		return err
+	}
 	log.Noticef("Parse REfile `%s`", r.REfile)
 	scanner := bufio.NewScanner(file)
 	idx := 0
@@ -154,6 +164,7 @@ func (r *CLM) readRE() {
 		r.tigToIdx[tig] = idx
 		idx++
 	}
+	return nil
 }
 
 // rr map orientations to bit ('+' => '-', '-' => '+')
@@ -165,11 +176,13 @@ func rr(b byte) byte {
 }
 
 // readClmLines parses the clmfile into a slice of CLMLine
-func readClmLines(clmfile string) []CLMLine {
-	file := mustOpen(clmfile)
+func readClmLines(clmfile string) ([]CLMLine, error) {
+	file, err := os.Open(clmfile)
+	if err != nil {
+		return nil, err
+	}
 	log.Noticef("Parse clmfile `%s`", clmfile)
 	reader := bufio.NewReader(file)
-	defer file.Close()
 
 	var lines []CLMLine
 	for {
@@ -200,12 +213,16 @@ func readClmLines(clmfile string) []CLMLine {
 			break
 		}
 	}
-	return lines
+	err = file.Close()
+	return lines, err
 }
 
 // readClm parses the clmfile into data stored in CLM.
-func (r *CLM) readClm() {
-	lines := readClmLines(r.Clmfile)
+func (r *CLM) readClm() error {
+	lines, err := readClmLines(r.Clmfile)
+	if err != nil {
+		return err
+	}
 	for _, line := range lines {
 		// Make sure both contigs are in the ids file
 		ai, aok := r.tigToIdx[line.at]
@@ -238,6 +255,7 @@ func (r *CLM) readClm() {
 		r.orientedContacts[OrientedPair{ai, bi, ao, bo}] = gdists
 		r.orientedContacts[OrientedPair{bi, ai, rr(bo), rr(ao)}] = gdists
 	}
+	return nil
 }
 
 // calculateDensities calculated the density of inter-contig links per base.

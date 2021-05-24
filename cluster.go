@@ -77,7 +77,7 @@ func (r *Partitioner) Cluster() {
 	// The original LACHESIS implementation used a C++ multimap with its use similar
 	// to a priority queue, however, the performance benefit is not obvious since we
 	// need to perform updates to all merges (remove old merges and insert new merges)
-	merges := []*merge{}
+	merges := make([]*merge, 0)
 
 	for i := 0; i < N; i++ {
 		if r.contigs[i].skip {
@@ -136,7 +136,7 @@ func (r *Partitioner) Cluster() {
 
 		// Step 3. Calculate new score entries for the new cluster
 		// Remove all used clusters
-		newMerges := []*merge{}
+		newMerges := make([]*merge, 0)
 		for _, merge := range merges {
 			if clusterExists[merge.a] && clusterExists[merge.b] {
 				newMerges = append(newMerges, merge)
@@ -276,7 +276,7 @@ func (r *Partitioner) setClusters(clusterID []int) {
 
 // findClusterLinkages
 func (r *Partitioner) findClusterLinkage(contigID int) []*linkage {
-	linkages := []*linkage{}
+	linkages := make([]*linkage, 0)
 	for i, cl := range r.clusters {
 		totalLinkage := int64(0)
 		clusterSize := len(cl)
@@ -301,7 +301,7 @@ func (r *Partitioner) findClusterLinkage(contigID int) []*linkage {
 
 // sortClusters reorder the cluster by total length
 func (r *Partitioner) sortClusters() {
-	clusterLens := []*clusterLen{}
+	clusterLens := make([]*clusterLen, 0)
 	for cID, cl := range r.clusters {
 		c := &clusterLen{
 			cID:    cID,
@@ -326,13 +326,15 @@ func (r *Partitioner) sortClusters() {
 }
 
 // printClusters shows the contents of the clusters
-func (r *Partitioner) printClusters() {
+func (r *Partitioner) printClusters() error {
 	clusterfile := RemoveExt(RemoveExt(r.PairsFile)) + ".clusters.txt"
 	f, _ := os.Create(clusterfile)
-	defer f.Close()
 	w := bufio.NewWriter(f)
 
-	fmt.Fprintf(w, "#Group\tnContigs\tContigs\n")
+	_, err := fmt.Fprintf(w, "#Group\tnContigs\tContigs\n")
+	if err != nil {
+		return err
+	}
 	for j := 0; j < len(r.clusters); j++ {
 		ids := r.clusters[j]
 		names := make([]string, len(ids))
@@ -342,9 +344,16 @@ func (r *Partitioner) printClusters() {
 		sort.Strings(names)
 
 		// fmt.Printf("%dg%d\t%d\t%s\n", r.K, j+1, len(names), strings.Join(names, " "))
-		fmt.Fprintf(w, "%dg%d\t%d\t%s\n", r.K, j+1, len(names), strings.Join(names, " "))
+		_, err := fmt.Fprintf(w, "%dg%d\t%d\t%s\n", r.K, j+1, len(names), strings.Join(names, " "))
+		if err != nil {
+			return err
+		}
 	}
-	w.Flush()
+	err = w.Flush()
+	if err != nil {
+		return err
+	}
 
 	log.Noticef("Write %d partitions to `%s`", len(r.clusters), clusterfile)
+	return f.Close()
 }

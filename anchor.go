@@ -90,45 +90,53 @@ type SparseMatrix []map[int]int
 type PathSet map[*Path]bool
 
 // Run kicks off the merging algorithm
-func (r *Anchorer) Run() {
+func (r *Anchorer) Run() error {
 	// Prepare the paths to run
 	nIterations := 1
-	r.ExtractInterContigLinks()
+	err := r.ExtractInterContigLinks()
+	if err != nil {
+		return err
+	}
 	flanksize := int64(LIMIT)
-	paths := r.makeTrivialPaths(r.contigs, flanksize)
+	paths, err := r.makeTrivialPaths(r.contigs, flanksize)
+	if err != nil {
+		return err
+	}
 	for i := 0; i < nIterations; i++ {
-		r.iterativeGraphMerge(paths, flanksize)
-		// Attempt to split bad joins
-		// r.makeContigStarts()
-		// piler := r.inspectGaps(LinkDist)
-		// countCutoff := r.findCountCutoff(piler)
-		// paths = r.splitPath(piler, countCutoff, flanksize)
+		err := r.iterativeGraphMerge(paths, flanksize)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Serialize to disk for plotting
 	r.makeContigStarts()
-	r.serialize(250000, "genome.json", "data.npy")
-	// r.printTour(os.Stdout, "ANCHORER")
+	err = r.serialize(250000, "genome.json", "data.npy")
+	if err != nil {
+		return err
+	}
 
-	// printPaths(paths)
 	log.Notice("Success")
+	return nil
 }
 
-func (r *Anchorer) iterativeGraphMerge(paths PathSet, flanksize int64) {
+func (r *Anchorer) iterativeGraphMerge(paths PathSet, flanksize int64) error {
 	var G Graph
 	i := 0
 	prevPaths := len(paths)
 	graphRemake := true
 	for prevPaths > 1 {
-		// flanksize = getL50(paths) / 4
 		if graphRemake {
 			i++
 			log.Noticef("Starting iteration %d with %d paths (L50=%d)",
 				i, len(paths), getL50(paths))
-			G = r.makeGraph(paths)
+			G = r.makeGraph()
 		}
 		CG := r.makeConfidenceGraph(G)
-		paths = r.generatePathAndCycle(CG, flanksize)
+		paths, err := r.generatePathAndCycle(CG, flanksize)
+		if err != nil {
+			return err
+		}
 		// Check if no merges were made in this round
 		if len(paths) == prevPaths {
 			paths = r.removeSmallestPath(paths, G)
@@ -148,6 +156,7 @@ func (r *Anchorer) iterativeGraphMerge(paths PathSet, flanksize int64) {
 			r.path = path
 		}
 	}
+	return nil
 }
 
 // removeSmallestPath forces removal of the smallest path so that we can continue
@@ -159,6 +168,9 @@ func (r *Anchorer) removeSmallestPath(paths PathSet, G Graph) PathSet {
 		if smallestPath == nil || path.length < smallestPath.length {
 			smallestPath = path
 		}
+	}
+	if smallestPath == nil {
+		return nil
 	}
 	// Inactivate the nodes
 	log.Noticef("Inactivate path %s (length=%d)", smallestPath, smallestPath.length)
@@ -189,27 +201,32 @@ func printPaths(paths PathSet) {
 
 // makeTrivialPaths starts the initial construction of Path object, with one
 // contig per Path (trivial Path)
-func (r *Anchorer) makeTrivialPaths(contigs []*Contig, flanksize int64) PathSet {
+func (r *Anchorer) makeTrivialPaths(contigs []*Contig, flanksize int64) (PathSet, error) {
 	// Initially make every contig a single Path object
 	paths := PathSet{}
 	for _, contig := range contigs {
 		contig.orientation = 1
-		makePath([]*Contig{contig}, paths, flanksize)
+		_, err := makePath([]*Contig{contig}, paths, flanksize)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return paths
+	return paths, nil
 }
 
 // ExtractInterContigLinks extracts links from the Bamfile
-func (r *Anchorer) ExtractInterContigLinks() {
-	fh := mustOpen(r.Bamfile)
+func (r *Anchorer) ExtractInterContigLinks() error {
+	fh, err := os.Open(r.Bamfile)
+	if err != nil {
+		return err
+	}
 	prefix := RemoveExt(r.Bamfile)
 	disfile := prefix + ".dis"
 	idsfile := prefix + ".ids"
 
 	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
-	defer br.Close()
 
 	fdis, _ := os.Create(disfile)
 	wdis := bufio.NewWriter(fdis)
@@ -225,9 +242,15 @@ func (r *Anchorer) ExtractInterContigLinks() {
 		}
 		r.contigs = append(r.contigs, &contig)
 		r.nameToContig[contig.name] = &contig
-		fmt.Fprintf(wids, "%s\t%d\n", ref.Name(), ref.Len())
+		_, err := fmt.Fprintf(wids, "%s\t%d\n", ref.Name(), ref.Len())
+		if err != nil {
+			return err
+		}
 	}
-	wids.Flush()
+	err = wids.Flush()
+	if err != nil {
+		return err
+	}
 	log.Noticef("Extracted %d contigs to `%s`", len(r.contigs), idsfile)
 
 	// Import links into pairs of contigs
@@ -271,11 +294,19 @@ func (r *Anchorer) ExtractInterContigLinks() {
 	// Write intra-links to .dis file
 	for contig, links := range intraLinks {
 		links = unique(links)
-		fmt.Fprintf(wdis, "%s\t%s\n", contig, arrayToString(links, ","))
+		_, err := fmt.Fprintf(wdis, "%s\t%s\n", contig, arrayToString(links, ","))
+		if err != nil {
+			return err
+		}
 	}
-	wdis.Flush()
+	err = wdis.Flush()
+	if err != nil {
+		return err
+	}
 	log.Noticef("Extracted %d intra-contig and %d inter-contig links",
 		intraTotal, interTotal)
+
+	return br.Close()
 }
 
 // reverse reverses the orientations of all components
@@ -309,7 +340,6 @@ func contigToNode(contig *Contig, pos int64) *Node {
 			return rr.node
 		}
 	}
-	// log.Errorf("%s:%d not found", contig.name, pos)
 	return nil
 }
 
@@ -342,7 +372,7 @@ func (r *Path) setLength() {
 // not desired for longer path since the 'internal' links should be penalized somehow.
 // Therefore, we add a flanksize parameter so that we only create end nodes that are
 // min(pathlength / 2, flanksize) so that we handle long paths properly
-func (r *Path) bisect(flanksize int64) {
+func (r *Path) bisect(flanksize int64) error {
 	var contig *Contig
 	var contigpos int64
 
@@ -371,9 +401,12 @@ func (r *Path) bisect(flanksize int64) {
 			break
 		}
 		contig.segments = []Range{
-			Range{0, contig.length, LNode},
+			{0, contig.length, LNode},
 		}
 		contigStart += contig.length
+	}
+	if contig == nil {
+		return nil
 	}
 
 	// Left flank cuts through this contig
@@ -416,9 +449,10 @@ func (r *Path) bisect(flanksize int64) {
 	for ; i < len(r.contigs); i++ {
 		contig = r.contigs[i]
 		contig.segments = []Range{
-			Range{0, contig.length, RNode},
+			{0, contig.length, RNode},
 		}
 	}
+	return nil
 }
 
 // makeContigStarts returns starts of contigs within a path
@@ -471,7 +505,7 @@ func (r *Anchorer) inspectGaps(cutoff int64) Piler {
 func (r *Anchorer) findCountCutoff(piler Piler) int {
 	// Sample evenly in the genome to compute a cutoff value
 	stepSize := r.path.length / 1000
-	counts := []int{}
+	counts := make([]int, 0)
 	for i := int64(0); i < r.path.length; i += stepSize {
 		counts = append(counts, piler.intervalCounts(i))
 	}
@@ -514,8 +548,8 @@ func (r *Anchorer) identifyGap(breakPoints []int, res int64) {
 }
 
 // splitPath takes a path and look at joins that are weak
-func (r *Anchorer) splitPath(piler Piler, countCutoff int, flanksize int64) PathSet {
-	contigs := []*Contig{}
+func (r *Anchorer) splitPath(piler Piler, countCutoff int, flanksize int64) (PathSet, error) {
+	contigs := make([]*Contig, 0)
 	paths := PathSet{}
 	strength := 0
 	// Now go through all the contig joins
@@ -526,7 +560,10 @@ func (r *Anchorer) splitPath(piler Piler, countCutoff int, flanksize int64) Path
 			strength = piler.intervalCounts(contig.start)
 			if strength < countCutoff { // needs to break a join here
 				fmt.Println("-------------------")
-				path := makePath(contigs, paths, flanksize)
+				path, err := makePath(contigs, paths, flanksize)
+				if err != nil {
+					return nil, err
+				}
 				fmt.Println(path, len(path.contigs), path.length)
 				contigs = []*Contig{}
 			}
@@ -535,25 +572,29 @@ func (r *Anchorer) splitPath(piler Piler, countCutoff int, flanksize int64) Path
 		// fmt.Println(contig.name, contig.start, contig.orientation, strength)
 	}
 	// Last piece
-	makePath(contigs, paths, flanksize)
-	// fmt.Println(path, len(path.contigs), path.length)
+	_, err := makePath(contigs, paths, flanksize)
+	if err != nil {
+		return nil, err
+	}
 	log.Noticef("Split into %d paths", len(paths))
-
-	return paths
+	return paths, nil
 }
 
 // makePath creates a Path from contigs and set everything properly
-func makePath(contigs []*Contig, paths PathSet, flanksize int64) *Path {
+func makePath(contigs []*Contig, paths PathSet, flanksize int64) (*Path, error) {
 	path := &Path{
 		contigs: contigs,
 	}
 	for _, contig := range contigs {
 		contig.path = path
 	}
-	path.bisect(flanksize)
+	err := path.bisect(flanksize)
+	if err != nil {
+		return nil, err
+	}
 	paths[path] = true
 
-	return path
+	return path, nil
 }
 
 // findBin returns the i-th bin along the path
@@ -564,7 +605,7 @@ func findBin(contig *Contig, pos, resolution int64) int {
 
 // serialize outputs the current path to disk
 // This contains the data for jcvi.assembly.hic.heatmap()
-func (r *Anchorer) serialize(res int64, jsonfile, npyfile string) {
+func (r *Anchorer) serialize(res int64, jsonfile, npyfile string) error {
 	A := &AnchorerJSON{Resolution: res}
 	m := int(math.Ceil(float64(r.path.length) / float64(res)))
 	A.Starts = make(map[string]int64)
@@ -590,23 +631,32 @@ func (r *Anchorer) serialize(res int64, jsonfile, npyfile string) {
 	// Serialize the contig size stats to JSON file
 	s, _ := json.MarshalIndent(A, "", "\t")
 	f, _ := os.Create(jsonfile)
-	defer f.Close()
 	jw := bufio.NewWriter(f)
-	jw.WriteString(string(s))
-	jw.Flush()
+	_, err := jw.WriteString(string(s))
+	if err != nil {
+		return err
+	}
+	err = jw.Flush()
+	if err != nil {
+		return err
+	}
 	log.Noticef("Contig stats (N=%d Length=%d) written to `%s`",
 		m, r.path.length, jsonfile)
 
 	// Serialize the pixelated matrix to NPY file
 	w, _ := gonpy.NewFileWriter(npyfile)
 	w.Shape = []int{m, m}
-	w.WriteInt32(C)
+	err = w.WriteInt32(C)
+	if err != nil {
+		return err
+	}
 	log.Noticef("Matrix (resolution=%d) written to `%s`", res, npyfile)
+	return f.Close()
 }
 
 // getL50 computes the L50 of all component contigs within a path
 func getL50(paths PathSet) int64 {
-	pathLengths := []int64{}
+	pathLengths := make([]int64, 0)
 	for path := range paths {
 		pathLengths = append(pathLengths, path.length)
 	}
@@ -616,9 +666,12 @@ func getL50(paths PathSet) int64 {
 
 // parseTourFile parses tour file
 // Only the last line is retained anc onverted into a Tour
-func (r *Anchorer) parseTourFile(filename string) {
-	words := parseTourFile(filename)
-	tigs := []*Contig{}
+func (r *Anchorer) parseTourFile(filename string) error {
+	words, err := parseTourFile(filename)
+	if err != nil {
+		return err
+	}
+	tigs := make([]*Contig, 0)
 
 	for _, word := range words {
 		tigName, tigOrientation := word[:len(word)-1], word[len(word)-1]
@@ -636,11 +689,15 @@ func (r *Anchorer) parseTourFile(filename string) {
 
 	r.path = &Path{contigs: tigs}
 	r.path.setLength()
+	return nil
 }
 
 // printTour logs the current tour to file
-func (r *Anchorer) printTour(fwtour *os.File, label string) {
-	fwtour.WriteString(">" + label + "\n")
+func (r *Anchorer) printTour(fwtour *os.File, label string) error {
+	_, err := fwtour.WriteString(">" + label + "\n")
+	if err != nil {
+		return err
+	}
 	atoms := make([]string, len(r.path.contigs))
 	for i, contig := range r.path.contigs {
 		sign := "+"
@@ -649,7 +706,8 @@ func (r *Anchorer) printTour(fwtour *os.File, label string) {
 		}
 		atoms[i] = contig.name + sign
 	}
-	fwtour.WriteString(strings.Join(atoms, " ") + "\n")
+	_, err = fwtour.WriteString(strings.Join(atoms, " ") + "\n")
+	return err
 }
 
 // ************** Graph-related ********************
@@ -697,7 +755,7 @@ func (r *Edge) isSister() bool {
 }
 
 // makeGraph makes a contig linkage graph
-func (r *Anchorer) makeGraph(paths PathSet) Graph {
+func (r *Anchorer) makeGraph() Graph {
 	G := Graph{}
 	nIntra := 0    // becomes an intra-path link
 	nInternal := 0 // internal to another path, too far away from the edge
@@ -837,13 +895,12 @@ func (r *Anchorer) getUniquePaths() PathSet {
 // generatePathAndCycle makes new paths by merging the unique extensions
 // in the graph. This first extends upstream (including the sister edge)
 // and then walk downstream until it hits something seen before
-func (r *Anchorer) generatePathAndCycle(G Graph, flanksize int64) PathSet {
+func (r *Anchorer) generatePathAndCycle(G Graph, flanksize int64) (PathSet, error) {
 	visited := map[*Node]bool{}
 	var isCycle bool
-	var path *Path
 	// We can just iterate the dictionary, however, that will not be ordered
 	// we want the visit order to be stable
-	orderedNodes := []*Node{}
+	orderedNodes := make([]*Node, 0)
 	for a := range G {
 		orderedNodes = append(orderedNodes, a)
 	}
@@ -856,7 +913,7 @@ func (r *Anchorer) generatePathAndCycle(G Graph, flanksize int64) PathSet {
 		if _, ok := visited[a]; ok {
 			continue
 		}
-		path1, path2 := []Edge{}, []Edge{}
+		path1, path2 := make([]Edge, 0), make([]Edge, 0)
 		path1, isCycle = dfs(G, a, path1, visited, true)
 
 		if isCycle {
@@ -867,17 +924,20 @@ func (r *Anchorer) generatePathAndCycle(G Graph, flanksize int64) PathSet {
 			path1 = append(reversePath(path1), path2...)
 		}
 		// fmt.Println("path1", path1)
-		path = mergePath(path1, flanksize)
+		path, err := mergePath(path1, flanksize)
+		if err != nil {
+			return nil, err
+		}
 		// fmt.Println("path from", a, path)
 		for _, contig := range path.contigs {
 			contig.path = path
 		}
 	}
-	return r.getUniquePaths()
+	return r.getUniquePaths(), nil
 }
 
 // mergePath converts a single edge path into a node path
-func mergePath(path []Edge, flanksize int64) *Path {
+func mergePath(path []Edge, flanksize int64) (*Path, error) {
 	s := &Path{}
 	for _, edge := range path {
 		if !edge.isSister() {
@@ -889,13 +949,13 @@ func mergePath(path []Edge, flanksize int64) *Path {
 		}
 		s.contigs = append(s.contigs, ep.contigs...)
 	}
-	s.bisect(flanksize)
-	return s
+	err := s.bisect(flanksize)
+	return s, err
 }
 
 // reversePath reverses a single edge path into its reverse direction
 func reversePath(path []Edge) []Edge {
-	ans := []Edge{}
+	ans := make([]Edge, 0)
 	for i := len(path) - 1; i >= 0; i-- {
 		ans = append(ans, Edge{
 			path[i].b, path[i].a, path[i].weight,
@@ -908,10 +968,8 @@ func reversePath(path []Edge) []Edge {
 // breakage occurs at the weakest link
 func breakCycle(path []Edge) []Edge {
 	minI, minWeight := 0, int64(math.MaxInt64)
-	var minEdge *Edge
 	for i, edge := range path {
-		if edge.weight > 1 && (edge.weight < minWeight ||
-			(edge.weight == minWeight && nodeCmp(edge.a, minEdge.a))) {
+		if edge.weight > 1 && edge.weight < minWeight {
 			minI, minWeight = i, edge.weight
 		}
 	}
@@ -941,9 +999,6 @@ func dfs(G Graph, a *Node, path []Edge, visited map[*Node]bool, visitSister bool
 				maxb, maxWeight = b, weight
 			}
 		}
-		// if len(nb) > 1 {
-		// 	fmt.Println(a, nb, b, maxWeight)
-		// }
 		path = append(path, Edge{
 			a, maxb, maxWeight,
 		})
