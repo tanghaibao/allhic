@@ -258,6 +258,9 @@ func CountPattern(seq []byte, pattern Pattern) int {
 func (r *Extracter) readFastaAndWriteRE() error {
 	outfile := RemoveExt(r.Bamfile) + ".counts_" + strings.ReplaceAll(r.RE, ",", "_") + ".txt"
 	r.OutContigsfile = outfile
+	if _, err := os.Stat(r.Fastafile); os.IsNotExist(err) {
+		return err
+	}
 	reader, err := fastx.NewDefaultReader(r.Fastafile)
 	if err != nil {
 		return err

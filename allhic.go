@@ -66,7 +66,10 @@ also prepares for the latter steps of ALLHiC.
 			bamfile := args[0]
 			fastafile := args[1]
 			p := Extracter{Bamfile: bamfile, Fastafile: fastafile, RE: RE, MinLinks: minLinks}
-			p.Run()
+			err := p.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 	extractCmd.Flags().StringVarP(&RE, "RE", "", DefaultRE, "Restriction site pattern, use comma to separate multiple patterns (N is considered as [ACGT]), e.g. 'GATCGATC,GANTGATC,GANTANTC,GATCANTC'")
@@ -90,7 +93,10 @@ ALLHiC generates "alleles.table", which can then be used for later steps.
 			pafFile := args[0]
 			reFile := args[1]
 			p := Alleler{PafFile: pafFile, ReFile: reFile}
-			p.Run()
+			err := p.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 
@@ -124,7 +130,10 @@ tig00030660,PRIMARY -> tig00003333,HAPLOTIG
 			allelesFile := args[0]
 			pairsFile := args[1]
 			p := Pruner{AllelesFile: allelesFile, PairsFile: pairsFile}
-			p.Run()
+			err := p.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 
@@ -148,7 +157,10 @@ can be generated with the "extract" sub-command.
 			p := Partitioner{Contigsfile: contigsfile, PairsFile: pairsFile, K: k,
 				MinREs: minREs, MaxLinkDensity: maxLinkDensity,
 				NonInformativeRatio: nonInformativeRatio}
-			p.Run()
+			err := p.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 	partitionCmd.Flags().IntVarP(&minREs, "minREs", "", MinREs, "Minimum number of RE sites in a contig to be clustered (CLUSTER_MIN_RE_SITES in LACHESIS)")
@@ -179,7 +191,10 @@ on a cluster).
 			p := Optimizer{REfile: refile, Clmfile: clmfile,
 				RunGA: !skipGA, Resume: resume,
 				Seed: seed, NPop: npop, NGen: ngen, MutProb: mutpb}
-			p.Run()
+			err := p.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 	optimizeCmd.Flags().BoolVarP(&skipGA, "skipGA", "", false, "Skip GA step")
@@ -211,7 +226,10 @@ into a FASTA genome release.
 			p := Builder{Tourfiles: tourfiles,
 				Fastafile:    fastafile,
 				OutFastafile: outfastafile}
-			p.Run()
+			err := p.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 
@@ -229,7 +247,10 @@ Given a bamfile, we extract matrix of link counts and plot heatmap.
 			p := Plotter{
 				Anchor: &Anchorer{Bamfile: bamfile, Tourfile: tourfile},
 			}
-			p.Run()
+			err := p.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 
@@ -247,7 +268,10 @@ as a quality assessment step.
 			bedfile := args[1]
 			seqid := args[2]
 			p := Assesser{Bamfile: bamfile, Bedfile: bedfile, Seqid: seqid}
-			p.Run()
+			err := p.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 
@@ -272,13 +296,19 @@ A convenience driver function. Chain the following steps sequentially.
 			// Extract the contig pairs, count RE sites
 			banner(fmt.Sprintf("Extractor started (RE = %s)", RE))
 			extractor := Extracter{Bamfile: bamfile, Fastafile: fastafile, RE: RE}
-			extractor.Run()
+			err := extractor.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			// Partition into k groups
 			banner(fmt.Sprintf("Partition into %d groups", k))
 			partitioner := Partitioner{Contigsfile: extractor.OutContigsfile,
 				PairsFile: extractor.OutPairsfile, K: k}
-			partitioner.Run()
+			err = partitioner.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			// Optimize the k groups separately
 			tourfiles := make([]string, 0)
@@ -288,7 +318,10 @@ A convenience driver function. Chain the following steps sequentially.
 					Clmfile: extractor.OutClmfile,
 					RunGA:   !skipGA, Resume: resume,
 					Seed: seed, NPop: npop, NGen: ngen, MutProb: mutpb}
-				optimizer.Run()
+				err = optimizer.Run()
+				if err != nil {
+					log.Fatal(err)
+				}
 				tourfiles = append(tourfiles, optimizer.OutTourFile)
 			}
 
@@ -299,7 +332,10 @@ A convenience driver function. Chain the following steps sequentially.
 			builder := Builder{Tourfiles: tourfiles,
 				Fastafile:    fastafile,
 				OutFastafile: outfastafile}
-			builder.Run()
+			err = builder.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 	pipelineCmd.Flags().StringVarP(&RE, "RE", "", DefaultRE, "Restriction site pattern, use comma to separate multiple patterns (N is considered as [ACGT]), e.g. 'GATCGATC,GANTGATC,GANTANTC,GATCANTC'")
