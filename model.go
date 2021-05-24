@@ -43,16 +43,16 @@ func NewLinkDensityModel() *LinkDensityModel {
 func (r *LinkDensityModel) writeDistribution(outfile string) {
 	f, _ := os.Create(outfile)
 	w := bufio.NewWriter(f)
-	defer f.Close()
 
-	fmt.Fprintf(w, DistributionHeader)
+	_, _ = fmt.Fprintf(w, DistributionHeader)
 	for i := 0; i < nBins; i++ {
-		fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%.4g\n",
+		_, _ = fmt.Fprintf(w, "%d\t%d\t%d\t%d\t%d\t%.4g\n",
 			i, r.binStarts[i], r.BinSize(i), r.nLinks[i], r.binNorms[i], r.linkDensity[i])
 	}
 
-	w.Flush()
+	_ = w.Flush()
 	log.Noticef("Link size distribution written to `%s`", outfile)
+	_ = f.Close()
 }
 
 // linkBin takes a link distance and convert to a binID
@@ -143,8 +143,8 @@ func (r *LinkDensityModel) countBinDensities(contigs []*ContigInfo) {
 		nTopLinks += r.nLinks[topBin]
 	}
 
-	Xs := []int{}
-	Ys := []float64{}
+	Xs := make([]int, 0)
+	Ys := make([]float64, 0)
 	for i := 0; i < topBin; i++ {
 		if r.nLinks[i] == 0 { // This will trigger nan in regression
 			continue
@@ -191,7 +191,7 @@ func (r *LinkDensityModel) transformPowerLaw(X int) float64 {
 // transformLogProb calculates the probability given a link size
 func (r *LinkDensityModel) tranformLogProb(X int) float64 {
 	// The following two version have subtle differences, first one is more accurate, but
-	// in reality the difference seems to be neglible
+	// in reality the difference seems to be negligible
 	// return math.Log(float64(r.Seqsize-X)) + r.model.B*math.Log(float64(X))
 	return r.B * math.Log(float64(X))
 }

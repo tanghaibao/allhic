@@ -17,7 +17,7 @@ import (
 	"github.com/gobuffalo/packr"
 )
 
-// Plotter extracts a matrix of link counts and plot a heatmp
+// Plotter extracts a matrix of link counts and plot a heatmap
 type Plotter struct {
 	Anchor *Anchorer
 }
@@ -42,9 +42,9 @@ func (r *Plotter) host() {
 	box := packr.NewBox("./templates")
 	port := 3000
 	f, _ := os.Create("index.html")
-	defer f.Close()
-	f.WriteString(box.String("index.html"))
-	f.Sync()
+	s, _ := box.FindString("index.html")
+	_, _ = f.WriteString(s)
+	_ = f.Sync()
 
 	http.Handle("/", http.FileServer(http.Dir(".")))
 
@@ -57,4 +57,5 @@ func (r *Plotter) host() {
 			break
 		}
 	}
+	_ = f.Close()
 }

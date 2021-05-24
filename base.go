@@ -20,7 +20,7 @@ import (
 	"sort"
 	"strings"
 
-	logging "github.com/op/go-logging"
+	"github.com/op/go-logging"
 )
 
 const (
@@ -34,10 +34,6 @@ const (
 	BB = UB - LB + 1
 	// PHI is natural log of golden ratio
 	PHI = 0.4812118250596684 // math.Log(1.61803398875)
-	// GRLB is the min item in GR
-	GRLB = 5778
-	// GRUB is the max item in GR
-	GRUB = 1149851
 	// OUTLIERTHRESHOLD is how many deviation from MAD
 	OUTLIERTHRESHOLD = 3.5
 	// MINSIZE is the minimum size cutoff for tig to be considered
@@ -48,6 +44,7 @@ const (
 	MinLinkDist = 1 << 11
 
 	/* extract */
+
 	// DefaultRE is the default restriction site used
 	DefaultRE = "GATC"
 	// MinLinks is the minimum number of links between contig pair to consider
@@ -57,14 +54,13 @@ const (
 	MaxLinkDist = 1 << 27
 	// BigNorm is a big integer multiplier so we don't have to mess with float64
 	BigNorm = int64(1000000000000)
-	// EPS is that Q must be larger than this value, used in cluster.go
-	EPS = 1e-5
 	// MinAvgLinkage is the minimum cutoff for merging clusters
 	MinAvgLinkage = 0
 	// LinkDist specifies to maximum size of the links going over a certain position
 	LinkDist = int64(1000000)
 
 	/* optimize */
+
 	// Seed is the random seed
 	Seed = 42
 	// Npop is the population size used in GA
@@ -75,12 +71,12 @@ const (
 	MutaProb = 0.2
 
 	// *** The following parameters are modeled after LACHESIS ***
+
 	// MinREs is the minimum number of RE sites in a contig to be clustered (CLUSTER_MIN_RE_SITES)
 	MinREs = 10
-
-	// MaxLinkDensity is the density threshold before marking a contig as 'repetitve' (CLUSTER_MAX_LINK_DENSITY)
+	// MaxLinkDensity is the density threshold before marking a contig as 'repetitive' (CLUSTER_MAX_LINK_DENSITY)
 	MaxLinkDensity = 2
-	// NonInformativeRatio is the cutoff for recovering skipped contigs back into the clusters (CLUSTER_NONINFORMATIVE_RATIO)
+	// NonInformativeRatio is the cutoff for recovering skipped contigs back into the clusters (CLUSTER_NON-INFORMATIVE_RATIO)
 	NonInformativeRatio = 3
 
 	// *** CSV headers ***
@@ -130,25 +126,6 @@ func RemoveExt(filename string) string {
 	return strings.TrimSuffix(filename, path.Ext(filename))
 }
 
-// Reverse returns a slice in place
-func Reverse(s []int) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
-	}
-}
-
-// IsNewerFile checks if file a is newer than file b
-func IsNewerFile(a, b string) bool {
-	af, aerr := os.Stat(a)
-	bf, berr := os.Stat(b)
-	if os.IsNotExist(aerr) || os.IsNotExist(berr) {
-		return false
-	}
-	am := af.ModTime()
-	bm := bf.ModTime()
-	return am.Sub(bm) > 0
-}
-
 // Round makes a round number
 func Round(input float64) float64 {
 	if input < 0 {
@@ -164,22 +141,6 @@ func SumLog(a []int) float64 {
 		sum += math.Log(float64(val))
 	}
 	return sum
-}
-
-// HmeanInt returns the harmonic mean
-// That is:  n / (1/x1 + 1/x2 + ... + 1/xn)
-func HmeanInt(a []int, amin, amax int) float64 {
-	size := len(a)
-	sum := 0.0
-	for _, val := range a {
-		if val > amax {
-			val = amax
-		} else if val < amin {
-			val = amin
-		}
-		sum += 1.0 / float64(val)
-	}
-	return float64(size) / sum
 }
 
 // GoldenArray is given list of ints, we aggregate similar values so that it becomes an
@@ -237,23 +198,6 @@ func max(x, y int) int {
 	return y
 }
 
-// maxInt64 gets the maximum for two int64
-func maxInt64(x, y int64) int64 {
-	if x > y {
-		return x
-	}
-	return y
-}
-
-// sum gets the sum for an int slice
-func sum(a []int) int {
-	ans := 0
-	for _, x := range a {
-		ans += x
-	}
-	return ans
-}
-
 // sumf gets the sum for an int slice
 func sumf(a []float64) float64 {
 	ans := 0.0
@@ -266,7 +210,7 @@ func sumf(a []float64) float64 {
 // unique returns a distinct slice of ints
 func unique(a []int) []int {
 	keys := make(map[int]bool)
-	list := []int{}
+	list := make([]int, 0)
 	for _, entry := range a {
 		if _, value := keys[entry]; !value {
 			keys[entry] = true
@@ -349,32 +293,11 @@ func Make2DSliceInt64(m, n int) [][]int64 {
 	return P
 }
 
-// Make2DSliceFloat64 allocates a 2D float64 matrix with shape (m, n)
-func Make2DSliceFloat64(m, n int) [][]float64 {
-	P := make([][]float64, m)
-	for i := 0; i < m; i++ {
-		P[i] = make([]float64, n)
-	}
-	return P
-}
-
 // Make2DGArraySlice allocates a 2D matrix with shape (m, n)
 func Make2DGArraySlice(m, n int) [][]GArray {
 	P := make([][]GArray, m)
 	for i := 0; i < m; i++ {
 		P[i] = make([]GArray, n)
-	}
-	return P
-}
-
-// Make3DSlice allocates a 3D matrix with shape (m, n, o)
-func Make3DSlice(m, n, o int) [][][]int {
-	P := make([][][]int, m)
-	for i := 0; i < m; i++ {
-		P[i] = make([][]int, n)
-		for j := 0; j < n; j++ {
-			P[i][j] = make([]int, o)
-		}
 	}
 	return P
 }
@@ -387,12 +310,9 @@ func Percentage(a, b int) string {
 // ReadCSVLines parses all the csv lines into 2D array of tokens
 func ReadCSVLines(filename string) [][]string {
 	log.Noticef("Parse csvfile `%s`", filename)
-
 	fh := mustOpen(filename)
-	defer fh.Close()
 
 	var data [][]string
-
 	r := csv.NewReader(bufio.NewReader(fh))
 	r.Comma = '\t'
 	for i := 0; ; i++ {
@@ -409,6 +329,7 @@ func ReadCSVLines(filename string) [][]string {
 		data = append(data, rec)
 	}
 
+	_ = fh.Close()
 	return data
 }
 

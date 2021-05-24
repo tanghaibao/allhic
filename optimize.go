@@ -46,18 +46,16 @@ func (r *Optimizer) Run() {
 		clm.parseTourFile(tourfile)
 		// Rename the tour file
 		backupTourFile := tourfile + ".sav"
-		os.Rename(tourfile, backupTourFile)
+		_ = os.Rename(tourfile, backupTourFile)
 		log.Noticef("Backup `%s` to `%s`", tourfile, backupTourFile)
 	}
 
-	shuffle := true // If one wants randomized initialization, set this to true
-	clm.Activate(shuffle, r.rng)
+	clm.Activate(true, r.rng)
 
 	// tourfile logs the intermediate configurations
 	log.Noticef("Optimization history logged to `%s`", tourfile)
 	fwtour, _ := os.Create(tourfile)
 	r.OutTourFile = tourfile
-	defer fwtour.Close()
 
 	clm.printTour(os.Stdout, clm.Tour, "INIT")
 	clm.printTour(fwtour, clm.Tour, "INIT")
@@ -77,6 +75,7 @@ func (r *Optimizer) Run() {
 	}
 	clm.printTour(os.Stdout, clm.Tour, "FINAL")
 	log.Notice("Success")
+	_ = fwtour.Close()
 }
 
 // OptimizeOrdering changes the ordering of contigs by Genetic Algorithm
@@ -95,11 +94,10 @@ func (r *CLM) OptimizeOrientations(fwtour *os.File, phase int) (string, string) 
 }
 
 // parseTourFile parses tour file
-// Only the last line is retained anc onverted into a Tour
+// Only the last line is retained and converted into a Tour
 func parseTourFile(filename string) []string {
-	f := mustOpen(filename)
 	log.Noticef("Parse tour file `%s`", filename)
-	defer f.Close()
+	f := mustOpen(filename)
 
 	reader := bufio.NewReader(f)
 	var words []string
@@ -114,6 +112,7 @@ func parseTourFile(filename string) []string {
 		}
 		words = strings.Split(row, " ")
 	}
+	_ = f.Close()
 	return words
 }
 
@@ -126,12 +125,12 @@ func (r *CLM) prepareTour() {
 }
 
 // parseTourFile parses tour file
-// Only the last line is retained anc onverted into a Tour
+// Only the last line is retained and converted into a Tour
 func (r *CLM) parseTourFile(filename string) {
 	words := parseTourFile(filename)
 	r.prepareTour()
 
-	tigs := []Tig{}
+	tigs := make([]Tig, 0)
 	for _, word := range words {
 		tigName, tigOrientation := word[:len(word)-1], word[len(word)-1]
 		idx, ok := r.tigToIdx[tigName]
@@ -156,7 +155,7 @@ func (r *CLM) parseClustersFile(clustersfile string, group int) {
 
 	rec := recs[group]
 	names := strings.Split(rec[2], " ")
-	tigs := []Tig{}
+	tigs := make([]Tig, 0)
 	for _, tigName := range names {
 		idx, ok := r.tigToIdx[tigName]
 		if !ok {
@@ -175,11 +174,11 @@ func (r *CLM) parseClustersFile(clustersfile string, group int) {
 
 // printTour logs the current tour to file
 func (r *CLM) printTour(fwtour *os.File, tour Tour, label string) {
-	fwtour.WriteString(">" + label + "\n")
+	_, _ = fwtour.WriteString(">" + label + "\n")
 	atoms := make([]string, tour.Len())
 	for i := 0; i < tour.Len(); i++ {
 		idx := tour.Tigs[i].Idx
 		atoms[i] = r.Tigs[idx].Name + string(r.Signs[idx])
 	}
-	fwtour.WriteString(strings.Join(atoms, " ") + "\n")
+	_, _ = fwtour.WriteString(strings.Join(atoms, " ") + "\n")
 }

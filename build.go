@@ -52,10 +52,9 @@ func (r *OO) getFastaSizes(fastafile string) {
 	r.seqs = map[string]*seq.Seq{}
 	for {
 		rec, err := reader.Read()
-		if err == io.EOF {
+		if err == io.EOF || rec == nil {
 			break
 		}
-
 		name := string(rec.Name)
 		r.seqs[name] = rec.Seq.Clone()
 	}
@@ -68,9 +67,8 @@ func (r *OO) Add(scaffold, ctg string, ctgsize int, strand byte) {
 }
 
 // writeAGP converts the simplistic OOLine into AGP format
-func (r *Builder) writeAGP(oo *OO) {
+func (r *Builder) writeAGP(oo *OO, gapSize int) {
 	r.OutAGPfile = RemoveExt(r.OutFastafile) + ".agp"
-	gapSize := 100
 	gapType := "scaffold"
 	linkage := "yes"
 	evidence := "map"
@@ -80,7 +78,6 @@ func (r *Builder) writeAGP(oo *OO) {
 	partNumber := 0
 	componentType := 'W'
 	f, _ := os.Create(r.OutAGPfile)
-	defer f.Close()
 	w := bufio.NewWriter(f)
 	components := 0
 
@@ -99,21 +96,22 @@ func (r *Builder) writeAGP(oo *OO) {
 			}
 			objectEnd = objectBeg + gapSize - 1
 			partNumber++
-			fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%c\t%d\t%s\t%s\t%s\n",
+			_, _ = fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%c\t%d\t%s\t%s\t%s\n",
 				line.id, objectBeg, objectEnd, partNumber,
 				componentType, gapSize, gapType, linkage, evidence)
 			objectBeg += gapSize
 		}
 		objectEnd = objectBeg + line.componentSize - 1
 		partNumber++
-		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%c\t%s\t%d\t%d\t%c\n",
+		_, _ = fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%c\t%s\t%d\t%d\t%c\n",
 			line.id, objectBeg, objectEnd, partNumber,
 			'W', line.componentID, 1, line.componentSize, line.strand)
 		objectBeg += line.componentSize
 		components++
 	}
-	w.Flush()
+	_ = w.Flush()
 	log.Noticef("A total of %d tigs written to `%s`", components, r.OutAGPfile)
+	_ = f.Close()
 }
 
 // Run kicks off the Build and constructs molecule using component FASTA sequence
@@ -122,7 +120,7 @@ func (r *Builder) Run() {
 	oo.getFastaSizes(r.Fastafile)
 	// oo.parseLastTour(r.Tourfile)
 	oo.mergeTours(r.Tourfiles)
-	r.writeAGP(oo)
+	r.writeAGP(oo, 100)
 	buildFasta(r.OutAGPfile, oo.seqs)
 	log.Notice("Success")
 }

@@ -152,8 +152,8 @@ can be generated with the "extract" sub-command.
 		},
 	}
 	partitionCmd.Flags().IntVarP(&minREs, "minREs", "", MinREs, "Minimum number of RE sites in a contig to be clustered (CLUSTER_MIN_RE_SITES in LACHESIS)")
-	partitionCmd.Flags().IntVarP(&maxLinkDensity, "maxLinkDensity", "", MaxLinkDensity, "Density threshold before marking contig as repetive (CLUSTER_MAX_LINK_DENSITY in LACHESIS)")
-	partitionCmd.Flags().IntVarP(&nonInformativeRatio, "nonInformativeRatio", "", NonInformativeRatio, "cutoff for recovering skipped contigs back into the clusters (CLUSTER_NONINFORMATIVE_RATIO in LACHESIS)")
+	partitionCmd.Flags().IntVarP(&maxLinkDensity, "maxLinkDensity", "", MaxLinkDensity, "Density threshold before marking contig as repetitive (CLUSTER_MAX_LINK_DENSITY in LACHESIS)")
+	partitionCmd.Flags().IntVarP(&nonInformativeRatio, "nonInformativeRatio", "", NonInformativeRatio, "cutoff for recovering skipped contigs back into the clusters (CLUSTER_NON-INFORMATIVE_RATIO in LACHESIS)")
 
 	var skipGA, resume bool
 	var seed int64
@@ -200,7 +200,7 @@ into a FASTA genome release.
 		Args: cobra.MinimumNArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
 
-			tourfiles := []string{}
+			tourfiles := make([]string, 0)
 			for i := 0; i < len(args)-2; i++ {
 				tourfiles = append(tourfiles, args[i])
 			}
@@ -281,7 +281,7 @@ A convenience driver function. Chain the following steps sequentially.
 			partitioner.Run()
 
 			// Optimize the k groups separately
-			tourfiles := []string{}
+			tourfiles := make([]string, 0)
 			for i, refile := range partitioner.OutREfiles {
 				banner(fmt.Sprintf("Optimize group %d", i))
 				optimizer := Optimizer{REfile: refile,
@@ -307,7 +307,7 @@ A convenience driver function. Chain the following steps sequentially.
 
 	pipelineCmd.Flags().IntVarP(&minREs, "minREs", "", MinREs, "Minimum number of RE sites in a contig to be clustered (CLUSTER_MIN_RE_SITES in LACHESIS)")
 	pipelineCmd.Flags().IntVarP(&maxLinkDensity, "maxLinkDensity", "", MaxLinkDensity, "Density threshold before marking contig as repetive (CLUSTER_MAX_LINK_DENSITY in LACHESIS)")
-	pipelineCmd.Flags().IntVarP(&nonInformativeRatio, "nonInformativeRatio", "", NonInformativeRatio, "cutoff for recovering skipped contigs back into the clusters (CLUSTER_NONINFORMATIVE_RATIO in LACHESIS)")
+	pipelineCmd.Flags().IntVarP(&nonInformativeRatio, "nonInformativeRatio", "", NonInformativeRatio, "cutoff for recovering skipped contigs back into the clusters (CLUSTER_NON-INFORMATIVE_RATIO in LACHESIS)")
 
 	pipelineCmd.Flags().BoolVarP(&skipGA, "skipGA", "", false, "Skip GA step")
 	pipelineCmd.Flags().BoolVarP(&resume, "resume", "", false, "Resume from existing tour file")

@@ -41,7 +41,7 @@ func (r *CLM) flipAll() (tag string) {
 	N := len(r.Tigs)
 	e.Factorize(r.O(), true)
 	M.EigenvectorsSym(&e)
-	v := M.ColView(N - 1) // v is the eigenvec corresponding to the largest eigenval
+	v := M.ColView(N - 1) // v is the eigenvector corresponding to the largest eigenvalue
 	// fmt.Printf("%0.2v\n\n", mat64.Formatted(v))
 
 	signs := make([]byte, N)
