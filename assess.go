@@ -124,11 +124,11 @@ func (r *Assesser) writePostProb(outfile string) error {
 
 // readBed parses the bedfile to extract the start and stop for all the contigs
 func (r *Assesser) readBed() error {
+	log.Noticef("Parse bedfile `%s`", r.Bedfile)
 	fh, err := os.Open(r.Bedfile)
 	if err != nil {
 		return err
 	}
-	log.Noticef("Parse bedfile `%s`", r.Bedfile)
 	reader := bufio.NewReader(fh)
 
 	for {
@@ -168,11 +168,11 @@ func checkInRange(pos, start, end int) bool {
 
 // extractContigLinks builds the probability distribution of link sizes
 func (r *Assesser) extractContigLinks() error {
+	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	fh, err := os.Open(r.Bamfile)
 	if err != nil {
 		return err
 	}
-	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
 
 	// We need the size of the SeqId to compute expected number of links

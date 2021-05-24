@@ -53,6 +53,9 @@ func (r *Partitioner) Run() error {
 		return err
 	}
 	err = r.splitRE()
+	if err != nil {
+		return err
+	}
 	log.Notice("Success")
 	return err
 }

@@ -60,7 +60,6 @@ func (r *Pruner) Run() error {
 	r.alleleGroups = alleleGroups
 	r.pruneAllelic()
 	r.pruneCrossAllelicBipartiteMatching()
-	// r.pruneCrossAllelic()
 	newPairsFile := RemoveExt(r.PairsFile) + ".prune.txt"
 	return writePairsFile(newPairsFile, r.edges)
 }

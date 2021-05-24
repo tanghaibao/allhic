@@ -146,11 +146,11 @@ func NewCLM(Clmfile, REfile string) (*CLM, error) {
 // tig00035238     46779   recover
 // tig00030900     119291
 func (r *CLM) readRE() error {
+	log.Noticef("Parse REfile `%s`", r.REfile)
 	file, err := os.Open(r.REfile)
 	if err != nil {
 		return err
 	}
-	log.Noticef("Parse REfile `%s`", r.REfile)
 	scanner := bufio.NewScanner(file)
 	idx := 0
 	for scanner.Scan() {
@@ -177,11 +177,11 @@ func rr(b byte) byte {
 
 // readClmLines parses the clmfile into a slice of CLMLine
 func readClmLines(clmfile string) ([]CLMLine, error) {
+	log.Noticef("Parse clmfile `%s`", clmfile)
 	file, err := os.Open(clmfile)
 	if err != nil {
 		return nil, err
 	}
-	log.Noticef("Parse clmfile `%s`", clmfile)
 	reader := bufio.NewReader(file)
 
 	var lines []CLMLine

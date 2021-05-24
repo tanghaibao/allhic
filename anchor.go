@@ -115,7 +115,6 @@ func (r *Anchorer) Run() error {
 	if err != nil {
 		return err
 	}
-
 	log.Notice("Success")
 	return nil
 }
@@ -217,6 +216,7 @@ func (r *Anchorer) makeTrivialPaths(contigs []*Contig, flanksize int64) (PathSet
 
 // ExtractInterContigLinks extracts links from the Bamfile
 func (r *Anchorer) ExtractInterContigLinks() error {
+	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	fh, err := os.Open(r.Bamfile)
 	if err != nil {
 		return err
@@ -225,7 +225,6 @@ func (r *Anchorer) ExtractInterContigLinks() error {
 	disfile := prefix + ".dis"
 	idsfile := prefix + ".ids"
 
-	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, _ := bam.NewReader(fh, 0)
 
 	fdis, _ := os.Create(disfile)
@@ -406,7 +405,7 @@ func (r *Path) bisect(flanksize int64) error {
 		contigStart += contig.length
 	}
 	if contig == nil {
-		return nil
+		return fmt.Errorf("failed to find contig on the left side")
 	}
 
 	// Left flank cuts through this contig

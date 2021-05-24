@@ -449,6 +449,7 @@ func (r *Extracter) findExpectedInterContigLinks(D, L1, L2 int) []float64 {
 
 // extractContigLinks converts the BAM file to .clm and .ids
 func (r *Extracter) extractContigLinks() error {
+	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	fh, err := os.Open(r.Bamfile)
 	if err != nil {
 		return err
@@ -457,7 +458,6 @@ func (r *Extracter) extractContigLinks() error {
 	clmfile := prefix + ".clm"
 	r.OutClmfile = clmfile
 
-	log.Noticef("Parse bamfile `%s`", r.Bamfile)
 	br, err := bam.NewReader(fh, 0)
 	if err != nil {
 		return err

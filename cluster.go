@@ -353,7 +353,6 @@ func (r *Partitioner) printClusters() error {
 	if err != nil {
 		return err
 	}
-
 	log.Noticef("Write %d partitions to `%s`", len(r.clusters), clusterfile)
 	return f.Close()
 }

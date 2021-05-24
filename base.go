@@ -306,14 +306,12 @@ func Percentage(a, b int) string {
 // ReadCSVLines parses all the csv lines into 2D array of tokens
 func ReadCSVLines(filename string) ([][]string, error) {
 	log.Noticef("Parse csvfile `%s`", filename)
-
 	fh, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 
 	var data [][]string
-
 	r := csv.NewReader(bufio.NewReader(fh))
 	r.Comma = '\t'
 	for i := 0; ; i++ {

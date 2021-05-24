@@ -44,7 +44,6 @@ func (r *Plotter) Run() error {
 	if err != nil {
 		return err
 	}
-
 	log.Notice("Success")
 	return nil
 }

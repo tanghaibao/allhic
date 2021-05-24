@@ -188,7 +188,6 @@ func (r *OO) parseLastTour(tourfile string, seqid string) error {
 // contig1+ contig2- contig3?
 func (r *OO) ParseAllTours(tourfile string) error {
 	log.Noticef("Parse tourfile `%s`", tourfile)
-
 	file, err := os.Open(tourfile)
 	if err != nil {
 		return err
