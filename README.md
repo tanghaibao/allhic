@@ -1,3 +1,4 @@
+
 # ALLHIC: Genome scaffolding based on Hi-C data
 
          _       _____     _____     ____  ____  _____   ______
