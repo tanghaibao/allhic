@@ -1,5 +1,6 @@
 # .goreleaser.yml
 # Build customization
+version: 2
 builds:
   - main: cmd/main.go
     binary: allhic
@@ -12,10 +13,3 @@ builds:
       - linux
     goarch:
       - amd64
-# Archive customization
-archive:
-  format: tar.gz
-  replacements:
-    amd64: 64-bit
-    darwin: macOS
-    linux: Linux
