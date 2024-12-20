@@ -1,3 +1,0 @@
-#Contig	RECounts	Length
-S_1	504	135917
-S_2689	532	149466
