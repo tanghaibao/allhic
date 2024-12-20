@@ -1,0 +1,12 @@
+.idea/
+dist/
+a_allhic-packr.go
+allhic
+allhic_test
+data.npy
+genome.json
+index.html
+pipeline/
+release/
+tests/
+ssshtest
