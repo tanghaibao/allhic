@@ -27,6 +27,5 @@ require (
 	github.com/shenwei356/util v0.0.0-20201214054755-2942125340cd // indirect
 	github.com/shenwei356/xopen v0.0.0-20181203091311-f4f16ddd3992
 	github.com/spf13/cobra v1.1.1
-	github.com/ugorji/go v1.1.4 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
 )
