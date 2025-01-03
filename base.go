@@ -25,7 +25,7 @@ import (
 
 const (
 	// Version is the current version of ALLHIC
-	Version = "0.9.13"
+	Version = "0.9.14"
 	// LB is lower bound for GoldenArray
 	LB = 18
 	// UB is upper bound for GoldenArray
